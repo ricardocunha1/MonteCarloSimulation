@@ -50,3 +50,15 @@ For the different parts of the application, check their individual spec document
 3. **Simulation Execution**: [specs/simulation_execution.md](specs/simulation_execution.md)
 
 ## Validation
+
+- [ ] Application is accessible via a web browser.
+- [ ] Users are allowed to upload an Excel file containing historical sprint data and the rest of the input parameters.
+- [ ] Run a simulation using the sample data under `notebook/Sprint_History.xlsx` and the following parameters:
+  - Target Type: Items Resolved
+  - Target Value: 5
+  - Number of Simulations: 1000
+  - Skip Historical Sprint Validation: False
+  - Exclude Latest Sprints from Sampling: 1
+  - Sprint Start Date: 2026-07-11
+  - Sprint Length: 10 business days
+- [ ] The simulation runs quickly (under 2 seconds) for 1000 simulations and under 5 seconds for 5000 simulations.

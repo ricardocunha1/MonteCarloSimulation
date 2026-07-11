@@ -13,4 +13,4 @@ The following table outlines the expected input parameters for the simulation:
 | Skip Historical Sprint Validation    | Boolean (Checkbox) | An option to skip the historical sprint validation step.                                        | No           | False            |
 | Exclude Latest Sprints from Sampling | Numeric            | A numeric input to specify the number of latest sprints to exclude from sampling.               | No           | 0                |
 | Sprint Start Date                    | Date               | A date input to specify the start date of the first sprint of the simulation                    | Yes          | None             |
-| Sprint Length                        | Numeric            | A numeric input to specify the length of each sprint in days.                                   | Yes          | 10               |
+| Sprint Length                        | Numeric            | A numeric input to specify the length of each sprint in business days.                          | Yes          | 10               |
