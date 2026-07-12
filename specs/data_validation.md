@@ -14,7 +14,7 @@ Ensure that the input parameters are valid:
 
 In case any of these fail, the application should display an error message indicating the specific issue and prompt the user to correct it.
 
-### Sprint Historical Data Format
+### Sprint Historical Data
 
 The Excel file must contain one worksheet with the following columns:
 
@@ -29,6 +29,8 @@ The Excel file must contain one worksheet with the following columns:
 | Activated Date | Date      | The date when the work item was activated                   | No           |
 | Created Date   | Date      | The date when the work item was created                     | No           |
 | PICategory     | String    | The category of the work item                               | No           |
+
+If Story Points are not provided, the application should assume a default value of 0.
 
 ## Summary
 

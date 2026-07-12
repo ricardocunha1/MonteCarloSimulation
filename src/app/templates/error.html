@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Monte Carlo Simulator – Error{% endblock %}
+
+{% block content %}
+<h2 class="text-lg font-semibold mb-6">Simulation Error</h2>
+
+{% include "_errors.html" %}
+
+<a href="{{ url_for('main.index') }}"
+   class="rounded px-4 py-2 font-medium inline-block"
+   style="background-color: var(--cm-light-blue); color: #04101d;">
+    Start Over
+</a>
+{% endblock %}

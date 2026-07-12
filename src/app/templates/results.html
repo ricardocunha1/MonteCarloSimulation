@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Monte Carlo Simulator – Results{% endblock %}
+
+{% block head %}
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h2 class="text-lg font-semibold mb-2">Simulation Results</h2>
+<p class="text-slate-400 mb-6">Target: <span class="text-slate-200 font-medium">{{ target_value }} {{ target_type }}</span></p>
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    {% for row in rows %}
+    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4" style="border-top: 3px solid {{ chart_data.markers[loop.index0].color }};">
+        <p class="text-sm text-slate-400 mb-1">P{{ row.confidence }} Confidence</p>
+        <p class="text-2xl font-semibold" style="color: {{ chart_data.markers[loop.index0].color }};">
+            {% if row.exceeds_window %}&gt;50{% else %}{{ row.sprints }}{% endif %}
+            <span class="text-sm font-normal text-slate-400">sprints</span>
+        </p>
+        <p class="text-sm text-slate-400 mt-1">
+            {% if row.completion_date %}{{ row.completion_date }}{% else %}Not reached within window{% endif %}
+        </p>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="rounded-lg border border-slate-800 bg-slate-900 overflow-x-auto mb-8">
+    <table class="min-w-full text-sm text-left">
+        <thead class="text-slate-400 border-b border-slate-800">
+            <tr>
+                <th class="px-4 py-2">Confidence Level</th>
+                <th class="px-4 py-2">Sprints Required</th>
+                <th class="px-4 py-2">Completion Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr class="border-b border-slate-800/60">
+                <td class="px-4 py-2">P{{ row.confidence }}</td>
+                <td class="px-4 py-2">
+                    {% if row.exceeds_window %}&gt;50 sprints{% else %}{{ row.sprints }}{% endif %}
+                </td>
+                <td class="px-4 py-2">
+                    {% if row.completion_date %}{{ row.completion_date }}{% else %}Not reached within window{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h3 class="text-base font-semibold mb-3">Distribution of Simulated Outcomes</h3>
+<div class="rounded-lg border border-slate-800 bg-slate-900 p-4 mb-4">
+    <div id="histogram"></div>
+</div>
+
+<script>
+    const chartData = {{ chart_data | tojson }};
+
+    const trace = {
+        x: chartData.labels,
+        y: chartData.counts,
+        type: "bar",
+        marker: { color: "#4E98D1" },
+    };
+
+    const shapes = chartData.markers.map(function (marker) {
+        return {
+            type: "line",
+            xref: "x",
+            x0: marker.x,
+            x1: marker.x,
+            yref: "paper",
+            y0: 0,
+            y1: 1,
+            line: { color: marker.color, width: 2, dash: "dash" },
+        };
+    });
+
+    const annotations = chartData.markers.map(function (marker, index) {
+        return {
+            x: marker.x,
+            y: 1,
+            yref: "paper",
+            yanchor: "bottom",
+            yshift: (index % 2) * 16,
+            showarrow: false,
+            text: marker.label,
+            font: { color: marker.color, size: 11 },
+        };
+    });
+
+    Plotly.newPlot(
+        "histogram",
+        [trace],
+        {
+            paper_bgcolor: "#0f172a",
+            plot_bgcolor: "#0f172a",
+            font: { color: "#e2e8f0" },
+            margin: { t: 40, r: 20, b: 60, l: 50 },
+            xaxis: { title: "Sprints to Reach Target", tickangle: -45 },
+            yaxis: { title: "Simulation Count" },
+            shapes: shapes,
+            annotations: annotations,
+        },
+        { displayModeBar: false, responsive: true }
+    );
+</script>
+{% endblock %}

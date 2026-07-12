@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Monte Carlo Simulator – Data Input{% endblock %}
+
+{% block content %}
+<h2 class="text-lg font-semibold mb-6">Data Input</h2>
+
+{% include "_errors.html" %}
+
+<form method="post" action="{{ url_for('main.validate') }}" enctype="multipart/form-data" class="space-y-6 max-w-xl">
+
+    <div>
+        <label class="block text-sm font-medium mb-1" for="sprint_history_file">Sprint History Data (Excel file) *</label>
+        <input class="block w-full text-sm text-slate-300 file:mr-4 file:rounded file:border-0 file:bg-slate-700 file:px-4 file:py-2 file:text-slate-100"
+               type="file" id="sprint_history_file" name="sprint_history_file" accept=".xlsx" required>
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium mb-1" for="target_type">Target Type *</label>
+        <select class="w-full rounded bg-slate-800 border border-slate-700 px-3 py-2" id="target_type" name="target_type">
+            <option value="Items Resolved" {% if values.target_type == "Items Resolved" %}selected{% endif %}>Items Resolved</option>
+            <option value="Story Points" {% if values.target_type == "Story Points" %}selected{% endif %}>Story Points</option>
+        </select>
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium mb-1" for="target_value">Target Value *</label>
+        <input class="w-full rounded bg-slate-800 border border-slate-700 px-3 py-2"
+               type="number" step="any" id="target_value" name="target_value" value="{{ values.target_value }}" required>
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium mb-1" for="num_simulations">Number of Simulations *</label>
+        <input class="w-full rounded bg-slate-800 border border-slate-700 px-3 py-2"
+               type="number" step="1" id="num_simulations" name="num_simulations" value="{{ values.num_simulations }}" required>
+    </div>
+
+    <div class="flex items-center gap-2">
+        <input type="checkbox" id="skip_validation" name="skip_validation" {% if values.skip_validation %}checked{% endif %}>
+        <label for="skip_validation">Skip Historical Sprint Validation</label>
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium mb-1" for="exclude_latest_sprints">Exclude Latest Sprints from Sampling</label>
+        <input class="w-full rounded bg-slate-800 border border-slate-700 px-3 py-2"
+               type="number" step="1" min="0" id="exclude_latest_sprints" name="exclude_latest_sprints" value="{{ values.exclude_latest_sprints }}">
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium mb-1" for="sprint_start_date">Sprint Start Date *</label>
+        <input class="w-full rounded bg-slate-800 border border-slate-700 px-3 py-2"
+               type="date" id="sprint_start_date" name="sprint_start_date" value="{{ values.sprint_start_date }}" required>
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium mb-1" for="sprint_length">Sprint Length (business days) *</label>
+        <input class="w-full rounded bg-slate-800 border border-slate-700 px-3 py-2"
+               type="number" step="1" id="sprint_length" name="sprint_length" value="{{ values.sprint_length }}" required>
+    </div>
+
+    <button type="submit" class="rounded px-4 py-2 font-medium" style="background-color: var(--cm-light-blue); color: #04101d;">
+        Continue
+    </button>
+</form>
+{% endblock %}

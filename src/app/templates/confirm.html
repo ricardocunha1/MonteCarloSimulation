@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Monte Carlo Simulator – Confirm Sprint Data{% endblock %}
+
+{% block content %}
+<h2 class="text-lg font-semibold mb-6">Data Validation</h2>
+
+<div class="rounded-lg border border-slate-800 bg-slate-900 overflow-x-auto mb-6">
+    <table class="min-w-full text-sm text-left">
+        <thead class="text-slate-400 border-b border-slate-800">
+            <tr>
+                <th class="px-4 py-2">Sprint</th>
+                <th class="px-4 py-2">Items Resolved</th>
+                <th class="px-4 py-2">Story Points</th>
+                <th class="px-4 py-2">Last Resolved Date</th>
+                <th class="px-4 py-2">Recency Rank</th>
+                <th class="px-4 py-2">In Sampling Pool?</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in summary %}
+            <tr class="border-b border-slate-800/60">
+                <td class="px-4 py-2">{{ row["Sprint"] }}</td>
+                <td class="px-4 py-2">{{ row["Items Resolved"] }}</td>
+                <td class="px-4 py-2">{{ row["Story Points"] }}</td>
+                <td class="px-4 py-2">{{ row["Last Resolved Date"] }}</td>
+                <td class="px-4 py-2">{{ row["Recency Rank"] }}</td>
+                <td class="px-4 py-2">{{ "Yes" if row["In Sampling Pool"] else "No" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<form method="post" action="/execute">
+    <input type="hidden" name="payload" value="{{ payload_json }}">
+    <button type="submit" class="rounded px-4 py-2 font-medium" style="background-color: var(--cm-light-blue); color: #04101d;">
+        Confirm and Run Simulation
+    </button>
+</form>
+{% endblock %}
