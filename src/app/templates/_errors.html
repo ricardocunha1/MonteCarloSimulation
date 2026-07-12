@@ -1,5 +1,5 @@
 {% if errors %}
-<div class="rounded-lg border border-red-700 bg-red-950/50 p-4 mb-6 max-w-xl">
+<div class="rounded-lg border border-red-700 bg-red-950/50 p-4 mb-6 max-w-xl mx-auto">
     <p class="font-semibold text-red-300 mb-2">{{ heading | default("Please correct the following:") }}</p>
     <ul class="list-disc list-inside text-red-200 space-y-1">
         {% for error in errors %}

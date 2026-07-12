@@ -83,7 +83,7 @@ class SimulationError(Exception):
 def _run_and_render(summary, params: dict):
     try:
         target_type = params.get("target_type", DEFAULT_FORM_VALUES["target_type"])
-        target_value = float(params.get("target_value"))
+        target_value = int(params.get("target_value"))
         num_simulations = int(params.get("num_simulations"))
         sprint_start_date = datetime.strptime(params.get("sprint_start_date"), "%Y-%m-%d").date()
         sprint_length = int(float(params.get("sprint_length")))
