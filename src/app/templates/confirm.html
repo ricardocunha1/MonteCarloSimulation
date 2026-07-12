@@ -3,7 +3,6 @@
 {% block title %}Monte Carlo Simulator – Confirm Sprint Data{% endblock %}
 
 {% block content %}
-<h2 class="text-lg font-semibold mb-6">Data Validation</h2>
 
 <div class="rounded-lg border border-slate-800 bg-slate-900 overflow-x-auto mb-6">
     <table class="min-w-full text-sm text-left">
@@ -32,7 +31,7 @@
     </table>
 </div>
 
-<form method="post" action="/execute">
+<form method="post" action="/execute" class="flex justify-end">
     <input type="hidden" name="payload" value="{{ payload_json }}">
     <button type="submit" class="rounded px-4 py-2 font-medium" style="background-color: var(--cm-light-blue); color: #04101d;">
         Confirm and Run Simulation

@@ -17,7 +17,7 @@ from src.app.services.data_processing import (
 FIXTURE_PATH = Path(__file__).resolve().parent.parent / "notebook" / "Sprint_History.xlsx"
 
 ROW_PATTERN = re.compile(
-    r'P(\d+)</td>\s*<td class="px-4 py-2">\s*(.*?)\s*</td>\s*<td class="px-4 py-2">\s*(.*?)\s*</td>',
+    r'P(\d+) Confidence</p>\s*<p[^>]*>\s*(.*?)\s*<span class="text-sm font-normal text-slate-400">sprints</span>\s*</p>\s*<p[^>]*>\s*(.*?)\s*</p>',
     re.DOTALL,
 )
 
@@ -82,7 +82,7 @@ def test_readme_acceptance_scenario_end_to_end(client):
     results_body = results_response.data.decode()
 
     assert "border-red-700" not in results_body
-    assert "Simulation Results" in results_body
+    assert "Distribution of Simulated Outcomes" in results_body
 
     rows = _parse_result_rows(results_body)
     assert [row["confidence"] for row in rows] == [50, 70, 85, 95]

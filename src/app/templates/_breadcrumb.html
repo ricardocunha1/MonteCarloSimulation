@@ -1,0 +1,22 @@
+{% macro render(current_step) %}
+<nav class="px-6 py-3 border-b border-slate-800 bg-slate-900" aria-label="Progress">
+    <ol class="flex items-center justify-center gap-2 max-w-3xl mx-auto text-sm">
+        {% for step_number, step_label in [(1, "Input"), (2, "Validation"), (3, "Execution & Results")] %}
+        <li class="flex items-center gap-2">
+            <div class="flex items-center gap-2">
+                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                      style="{% if step_number == current_step %}background-color: var(--cm-light-blue); color: #04101d;{% else %}background-color: #1e293b; color: #94a3b8;{% endif %}">
+                    {{ step_number }}
+                </span>
+                <span style="{% if step_number == current_step %}color: var(--cm-light-blue); font-weight: 600;{% else %}color: #94a3b8;{% endif %}">
+                    {{ step_label }}
+                </span>
+            </div>
+            {% if not loop.last %}
+            <span class="w-10 border-t border-dashed border-slate-300/70"></span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ol>
+</nav>
+{% endmacro %}

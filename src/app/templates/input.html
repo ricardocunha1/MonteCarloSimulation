@@ -4,7 +4,6 @@
 {% block title %}Monte Carlo Simulator – Data Input{% endblock %}
 
 {% block content %}
-<h2 class="text-lg font-semibold mb-6">Data Input</h2>
 
 {% include "_errors.html" %}
 
@@ -49,7 +48,11 @@
     </div>
 
     <div class="flex items-center gap-2">
-        <input type="checkbox" id="skip_validation" name="skip_validation" {% if values.skip_validation %}checked{% endif %}>
+        <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="skip_validation" name="skip_validation" class="sr-only peer" {% if values.skip_validation %}checked{% endif %}>
+            <div class="w-11 h-6 rounded-full bg-slate-700 transition-colors peer-checked:bg-[var(--cm-light-blue)] peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-slate-950 peer-focus-visible:ring-[var(--cm-light-blue)]"></div>
+            <div class="absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+        </label>
         <label class="flex items-center gap-1" for="skip_validation">
             Skip Historical Sprint Validation
             {{ info_icon("Skip the historical sprint validation step and proceed without validation.") }}
@@ -83,8 +86,10 @@
                type="number" step="1" id="sprint_length" name="sprint_length" value="{{ values.sprint_length }}" required>
     </div>
 
-    <button type="submit" class="rounded px-4 py-2 font-medium" style="background-color: var(--cm-light-blue); color: #04101d;">
-        Continue
-    </button>
+    <div class="flex justify-end">
+        <button type="submit" class="rounded px-4 py-2 font-medium" style="background-color: var(--cm-light-blue); color: #04101d;">
+            Continue
+        </button>
+    </div>
 </form>
 {% endblock %}

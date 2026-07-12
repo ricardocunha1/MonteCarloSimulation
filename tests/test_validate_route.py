@@ -46,7 +46,7 @@ def test_skip_validation_bypasses_confirm_screen_and_runs_simulation(client):
     )
     assert response.status_code == 200
     assert b"Sprint 24" not in response.data
-    assert b"Simulation Results" in response.data
+    assert b"Distribution of Simulated Outcomes" in response.data
     assert b"P50" in response.data
     assert b"P95" in response.data
 

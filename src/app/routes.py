@@ -115,9 +115,11 @@ def _run_and_render(summary, params: dict):
 
         chart_data = _build_chart_data(hit_sprints, rows)
     except SimulationError as exc:
-        return render_template("error.html", errors=[str(exc)])
+        return render_template("error.html", errors=[str(exc)], current_step=3)
     except (TypeError, ValueError, KeyError) as exc:
-        return render_template("error.html", errors=[f"Could not run simulation: {exc}"])
+        return render_template(
+            "error.html", errors=[f"Could not run simulation: {exc}"], current_step=3
+        )
 
     return render_template(
         "results.html",
@@ -125,6 +127,7 @@ def _run_and_render(summary, params: dict):
         target_value=target_value,
         rows=rows,
         chart_data=chart_data,
+        current_step=3,
     )
 
 
@@ -135,7 +138,9 @@ def health():
 
 @bp.get("/")
 def index():
-    return render_template("input.html", values=DEFAULT_FORM_VALUES, errors=[])
+    return render_template(
+        "input.html", values=DEFAULT_FORM_VALUES, errors=[], current_step=1
+    )
 
 
 @bp.post("/validate")
@@ -151,7 +156,9 @@ def validate():
             errors = [str(exc)]
 
     if errors:
-        return render_template("input.html", values=_rebuild_values(request.form), errors=errors)
+        return render_template(
+            "input.html", values=_rebuild_values(request.form), errors=errors, current_step=1
+        )
 
     exclude_latest_raw = request.form.get("exclude_latest_sprints", "").strip()
     exclude_latest = int(exclude_latest_raw) if exclude_latest_raw else 0
@@ -167,6 +174,7 @@ def validate():
         "confirm.html",
         summary=summary.to_dict(orient="records"),
         payload_json=payload_json,
+        current_step=2,
     )
 
 

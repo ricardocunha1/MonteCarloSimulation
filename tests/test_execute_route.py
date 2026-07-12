@@ -44,7 +44,7 @@ def test_execute_runs_simulation_from_confirm_payload(client):
     response = client.post("/execute", data={"payload": _confirm_payload()})
 
     assert response.status_code == 200
-    assert b"Simulation Results" in response.data
+    assert b"Distribution of Simulated Outcomes" in response.data
     assert b"P50" in response.data
     assert b"P95" in response.data
 

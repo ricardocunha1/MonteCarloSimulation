@@ -7,7 +7,6 @@
 {% endblock %}
 
 {% block content %}
-<h2 class="text-lg font-semibold mb-2">Simulation Results</h2>
 <p class="text-slate-400 mb-6">Target: <span class="text-slate-200 font-medium">{{ target_value }} {{ target_type }}</span></p>
 
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -25,34 +24,33 @@
     {% endfor %}
 </div>
 
-<div class="rounded-lg border border-slate-800 bg-slate-900 overflow-x-auto mb-8">
-    <table class="min-w-full text-sm text-left">
-        <thead class="text-slate-400 border-b border-slate-800">
-            <tr>
-                <th class="px-4 py-2">Confidence Level</th>
-                <th class="px-4 py-2">Sprints Required</th>
-                <th class="px-4 py-2">Completion Date</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for row in rows %}
-            <tr class="border-b border-slate-800/60">
-                <td class="px-4 py-2">P{{ row.confidence }}</td>
-                <td class="px-4 py-2">
-                    {% if row.exceeds_window %}&gt;50 sprints{% else %}{{ row.sprints }}{% endif %}
-                </td>
-                <td class="px-4 py-2">
-                    {% if row.completion_date %}{{ row.completion_date }}{% else %}Not reached within window{% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-
 <h3 class="text-base font-semibold mb-3">Distribution of Simulated Outcomes</h3>
-<div class="rounded-lg border border-slate-800 bg-slate-900 p-4 mb-4">
-    <div id="histogram"></div>
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-4">
+    <div class="lg:col-span-1 rounded-lg border border-slate-800 bg-slate-900 overflow-y-auto h-[420px]">
+        <table class="min-w-full text-sm text-left">
+            <thead class="text-slate-400 border-b border-slate-800 sticky top-0 bg-slate-900">
+                <tr>
+                    <th class="px-4 py-2">Sprint</th>
+                    <th class="px-4 py-2">Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for label in chart_data.labels %}
+                {% set count = chart_data.counts[loop.index0] %}
+                {% if count > 0 %}
+                <tr class="border-b border-slate-800/60">
+                    <td class="px-4 py-2">{{ label }}</td>
+                    <td class="px-4 py-2">{{ count }}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="lg:col-span-3 rounded-lg border border-slate-800 bg-slate-900 p-4 h-[420px]">
+        <div id="histogram" class="h-full"></div>
+    </div>
 </div>
 
 <script>
@@ -63,6 +61,7 @@
         y: chartData.counts,
         type: "bar",
         marker: { color: "#4E98D1" },
+        hovertemplate: "%{y}<extra></extra>",
     };
 
     const shapes = chartData.markers.map(function (marker) {
