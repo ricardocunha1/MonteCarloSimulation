@@ -61,4 +61,5 @@ For the different parts of the application, check their individual spec document
   - Exclude Latest Sprints from Sampling: 1
   - Sprint Start Date: 2026-07-11
   - Sprint Length: 10 business days
+  - Team Capacity Factor: 1.0
 - [ ] The simulation runs quickly (under 2 seconds) for 1000 simulations and under 5 seconds for 5000 simulations.

@@ -3,7 +3,7 @@ from datetime import datetime
 from werkzeug.datastructures import FileStorage
 
 VALID_TARGET_TYPES = {"Items Resolved", "Story Points"}
-MAX_SIMULATIONS = 5000
+MAX_SIMULATIONS = 20000
 
 
 def validate_parameters(form, file: FileStorage | None) -> list[str]:
@@ -42,6 +42,10 @@ def validate_parameters(form, file: FileStorage | None) -> list[str]:
         errors.append(
             "Exclude Latest Sprints from Sampling must be a non-negative whole number."
         )
+
+    team_capacity_factor = form.get("team_capacity_factor", "")
+    if team_capacity_factor and _parse_positive_number(team_capacity_factor) is None:
+        errors.append("Team Capacity Factor must be a positive number.")
 
     return errors
 

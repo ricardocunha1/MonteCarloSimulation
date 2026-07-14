@@ -53,7 +53,7 @@ There is no lint/type-check tooling configured in this repo.
     logic between them.
   - `src/app/services/validation.py` — `validate_parameters(form, file)`:
     pure parameter/form guardrails (file present, target type, positive
-    numbers, simulation cap of 5000, valid date). Never touches file
+    numbers, simulation cap of 20000, valid date). Never touches file
     *content*.
   - `src/app/services/data_processing.py` — `parse_sprint_history` (reads
     the uploaded Excel, raises `DataValidationError` — never a raw

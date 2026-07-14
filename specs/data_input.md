@@ -14,3 +14,6 @@ The following table outlines the expected input parameters for the simulation:
 | Exclude Latest Sprints from Sampling | Numeric            | A numeric input to specify the number of latest sprints to exclude from sampling.               | No           | 0                |
 | Sprint Start Date                    | Date               | A date input to specify the start date of the first sprint of the simulation                    | Yes          | None             |
 | Sprint Length                        | Numeric            | A numeric input to specify the length of each sprint in business days.                          | Yes          | 10               |
+| Team Capacity Factor                 | Numeric            | A numeric input to specify the team capacity factor for the simulation. Two decimal places.     | No           | 1.0              |
+
+When rendering the fields in the screen, please order them by placing the mandatory fields first.

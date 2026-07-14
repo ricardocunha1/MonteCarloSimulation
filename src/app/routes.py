@@ -31,6 +31,7 @@ DEFAULT_FORM_VALUES = {
     "exclude_latest_sprints": "0",
     "sprint_start_date": "",
     "sprint_length": "10",
+    "team_capacity_factor": "1.0",
 }
 
 
@@ -45,6 +46,9 @@ def _rebuild_values(form):
         ),
         "sprint_start_date": form.get("sprint_start_date", ""),
         "sprint_length": form.get("sprint_length", DEFAULT_FORM_VALUES["sprint_length"]),
+        "team_capacity_factor": form.get(
+            "team_capacity_factor", DEFAULT_FORM_VALUES["team_capacity_factor"]
+        ),
     }
 
 
@@ -87,9 +91,10 @@ def _run_and_render(summary, params: dict):
         num_simulations = int(params.get("num_simulations"))
         sprint_start_date = datetime.strptime(params.get("sprint_start_date"), "%Y-%m-%d").date()
         sprint_length = int(float(params.get("sprint_length")))
+        team_capacity_factor = float(params.get("team_capacity_factor") or 1.0)
 
         pool = summary[summary["In Sampling Pool"] == True]  # noqa: E712
-        values = pool[target_type].to_numpy()
+        values = pool[target_type].to_numpy() * team_capacity_factor
         if values.size == 0:
             raise SimulationError(
                 "No sprints are available in the sampling pool. Adjust 'Exclude "

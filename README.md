@@ -24,11 +24,12 @@ simulation parameters:
 | Sprint History Data                  | Yes      | The Excel file with historical sprint data (see format below)                                                  |
 | Target Type                          | Yes      | "Items Resolved" or "Story Points" — the metric the simulation forecasts against                               |
 | Target Value                         | Yes      | The number of items/story points to reach                                                                      |
-| Number of Simulations                | Yes      | How many Monte Carlo runs to perform (capped at 5000)                                                          |
+| Number of Simulations                | Yes      | How many Monte Carlo runs to perform (capped at 20000)                                                         |
 | Skip Historical Sprint Validation    | No       | Bypasses step 2 and jumps straight to execution                                                                |
 | Exclude Latest Sprints from Sampling | No       | Number of most recent sprints to leave out of the random sampling pool (e.g. to exclude an in-progress sprint) |
 | Sprint Start Date                    | Yes      | Start date of the first simulated sprint                                                                       |
 | Sprint Length                        | Yes      | Length of each sprint, in business days                                                                        |
+| Team Capacity Factor                 | No       | Team capacity relative to the historical data (default `1.0`). `1.2` means 20% more capacity than historical   |
 
 ### 2. Data Validation (optional)
 
@@ -43,10 +44,13 @@ reviews this summary and confirms before running the simulation.
 The app runs the requested number of simulations, each one randomly
 sampling from the historical sprint data (respecting the sampling-pool
 exclusions from step 2) until the target is reached or a 50-sprint window
-is exceeded. Results are presented per confidence level — P50, P70, P85,
-and P95 — showing the number of sprints required and the projected
-completion date (business days only), plus a histogram of the full
-distribution of outcomes.
+is exceeded. Each sampled Items Resolved / Story Points value is scaled by
+the Team Capacity Factor before being compared against the target, so a
+factor above 1.0 reaches the target in fewer sprints than the raw
+historical data would suggest, and a factor below 1.0 takes more. Results
+are presented per confidence level — P50, P70, P85, and P95 — showing the
+number of sprints required and the projected completion date (business
+days only), plus a histogram of the full distribution of outcomes.
 
 ## Sprint History Excel file format
 

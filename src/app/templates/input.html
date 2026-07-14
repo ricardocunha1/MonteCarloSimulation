@@ -41,10 +41,28 @@
     <div>
         <label class="flex items-center gap-1 text-sm font-medium mb-1" for="num_simulations">
             Number of Simulations <span style="color: var(--cm-red);">*</span>
-            {{ info_icon("Number of Monte Carlo simulations to run.") }}
+            {{ info_icon("Number of Monte Carlo simulations to run. Maximum of 20000 simulations.") }}
         </label>
         <input class="w-full rounded bg-slate-800 border border-slate-700 px-3 py-2"
                type="number" step="1" id="num_simulations" name="num_simulations" value="{{ values.num_simulations }}" required>
+    </div>
+
+    <div>
+        <label class="flex items-center gap-1 text-sm font-medium mb-1" for="sprint_start_date">
+            Sprint Start Date <span style="color: var(--cm-red);">*</span>
+            {{ info_icon("The start date of the first sprint of the simulation.") }}
+        </label>
+        <input class="w-full rounded bg-slate-800 border border-slate-700 px-3 py-2"
+               type="date" id="sprint_start_date" name="sprint_start_date" value="{{ values.sprint_start_date }}" required>
+    </div>
+
+    <div>
+        <label class="flex items-center gap-1 text-sm font-medium mb-1" for="sprint_length">
+            Sprint Length (business days) <span style="color: var(--cm-red);">*</span>
+            {{ info_icon("The length of each sprint in business days.") }}
+        </label>
+        <input class="w-full rounded bg-slate-800 border border-slate-700 px-3 py-2"
+               type="number" step="1" id="sprint_length" name="sprint_length" value="{{ values.sprint_length }}" required>
     </div>
 
     <div class="flex items-center gap-2">
@@ -69,21 +87,12 @@
     </div>
 
     <div>
-        <label class="flex items-center gap-1 text-sm font-medium mb-1" for="sprint_start_date">
-            Sprint Start Date <span style="color: var(--cm-red);">*</span>
-            {{ info_icon("The start date of the first sprint of the simulation.") }}
+        <label class="flex items-center gap-1 text-sm font-medium mb-1" for="team_capacity_factor">
+            Team Capacity Factor
+            {{ info_icon('The team capacity factor relative to the historical data. 1.0 means same capacity, 1.2 means 20% additional capacity. Multiplies Items Resolved and Story Points when running the simulation.') }}
         </label>
         <input class="w-full rounded bg-slate-800 border border-slate-700 px-3 py-2"
-               type="date" id="sprint_start_date" name="sprint_start_date" value="{{ values.sprint_start_date }}" required>
-    </div>
-
-    <div>
-        <label class="flex items-center gap-1 text-sm font-medium mb-1" for="sprint_length">
-            Sprint Length (business days) <span style="color: var(--cm-red);">*</span>
-            {{ info_icon("The length of each sprint in business days.") }}
-        </label>
-        <input class="w-full rounded bg-slate-800 border border-slate-700 px-3 py-2"
-               type="number" step="1" id="sprint_length" name="sprint_length" value="{{ values.sprint_length }}" required>
+               type="number" step="0.01" min="0.01" id="team_capacity_factor" name="team_capacity_factor" value="{{ values.team_capacity_factor }}">
     </div>
 
     <div class="flex justify-end">

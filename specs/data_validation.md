@@ -7,7 +7,7 @@ In this section, the application must validate the input parameters entered by t
 Ensure that the input parameters are valid:
 
 - The Excel file worksheet meets the criteria specified in the "Sprint Historical Data Format" section below.
-- The number of selected simulations do not exceed 5000.
+- The number of selected simulations do not exceed 20000.
 - The target value is a positive number.
 - The sprint length is a positive number.
 - The sprint start date is a valid date.

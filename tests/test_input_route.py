@@ -52,10 +52,10 @@ def test_missing_file_returns_error(client):
 
 
 def test_too_many_simulations_returns_error(client):
-    data = _with_dummy_file(_valid_form(num_simulations="6000"))
+    data = _with_dummy_file(_valid_form(num_simulations="20001"))
     response = client.post("/validate", data=data, content_type="multipart/form-data")
     assert response.status_code == 200
-    assert b"5000" in response.data
+    assert b"20000" in response.data
 
 
 def test_negative_target_value_returns_error(client):
@@ -77,6 +77,20 @@ def test_invalid_date_returns_error(client):
     response = client.post("/validate", data=data, content_type="multipart/form-data")
     assert response.status_code == 200
     assert b"Sprint Start Date" in response.data
+
+
+def test_negative_team_capacity_factor_returns_error(client):
+    data = _with_dummy_file(_valid_form(team_capacity_factor="-1.0"))
+    response = client.post("/validate", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    assert b"Team Capacity Factor" in response.data
+
+
+def test_blank_team_capacity_factor_does_not_error(client):
+    data = _with_fixture_file(_valid_form(team_capacity_factor=""))
+    response = client.post("/validate", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    assert b"Sprint 24" in response.data
 
 
 def test_valid_params_does_not_crash(client):
