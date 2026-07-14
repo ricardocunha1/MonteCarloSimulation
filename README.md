@@ -19,17 +19,17 @@ The application is a three-step wizard:
 The user uploads an Excel file with historical sprint data and fills in the
 simulation parameters:
 
-| Parameter                            | Required | Description                                                                                                    |
-| ------------------------------------ | -------- | -------------------------------------------------------------------------------------------------------------- |
-| Sprint History Data                  | Yes      | The Excel file with historical sprint data (see format below)                                                  |
-| Target Type                          | Yes      | "Items Resolved" or "Story Points" — the metric the simulation forecasts against                               |
-| Target Value                         | Yes      | The number of items/story points to reach                                                                      |
-| Number of Simulations                | Yes      | How many Monte Carlo runs to perform (capped at 20000)                                                         |
-| Skip Historical Sprint Validation    | No       | Bypasses step 2 and jumps straight to execution                                                                |
-| Exclude Latest Sprints from Sampling | No       | Number of most recent sprints to leave out of the random sampling pool (e.g. to exclude an in-progress sprint) |
-| Sprint Start Date                    | Yes      | Start date of the first simulated sprint                                                                       |
-| Sprint Length                        | Yes      | Length of each sprint, in business days                                                                        |
-| Team Capacity Factor                 | No       | Team capacity relative to the historical data (default `1.0`). `1.2` means 20% more capacity than historical   |
+| Parameter                            | Required | Description                                                                                                        |
+| ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| Sprint History Data                  | Yes      | The Excel file with historical sprint data (see format below)                                                      |
+| Target Type                          | Yes      | "Items Resolved" or "Story Points" — the metric the simulation forecasts against                                   |
+| Target Value                         | Yes      | The number of items/story points to reach                                                                          |
+| Number of Simulations                | Yes      | How many Monte Carlo runs to perform (capped at 20000). Default: `1000`                                            |
+| Sprint Start Date                    | Yes      | Start date of the first simulated sprint                                                                           |
+| Sprint Length                        | Yes      | Length of each sprint, in business days. Default: `10` days.                                                       |
+| Team Capacity Factor                 | Yes      | Team capacity relative to the historical data (default `1.0`). E.g., `1.2` means 20% more capacity than historical |
+| Skip Historical Sprint Validation    | No       | Bypasses step 2 and jumps straight to execution                                                                    |
+| Exclude Latest Sprints from Sampling | No       | Number of most recent sprints to leave out of the random sampling pool (e.g. to exclude an in-progress sprint)     |
 
 ### 2. Data Validation (optional)
 
