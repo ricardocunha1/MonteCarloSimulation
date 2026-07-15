@@ -50,7 +50,7 @@ factor above 1.0 reaches the target in fewer sprints than the raw
 historical data would suggest, and a factor below 1.0 takes more. Results
 are presented per confidence level — P50, P70, P85, and P95 — showing the
 number of sprints required and the projected completion date (business
-days only), plus a histogram of the full distribution of outcomes.
+days only), including a calendar view, plus a histogram of the full distribution of outcomes.
 
 ## Sprint History Excel file format
 
