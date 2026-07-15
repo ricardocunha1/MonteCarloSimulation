@@ -4,7 +4,8 @@ The execution must run according to the parameters and input sprint historical d
 Generate data considering a max sprint window of 50.
 After the execution, the application must present a summary of the simulation results for the selected target type only, including the following information:
 
-- For each "confidence" level - P50 (typical), P70, P85 (recommended), P95 (worst case)
+- For each "confidence" level - P50 (Optimistic), P70 (Likely), P85
+  (Confident), P95 (Safe Target)
   - The number of required sprints to meet the target
   - Completion date of the last required sprint
 

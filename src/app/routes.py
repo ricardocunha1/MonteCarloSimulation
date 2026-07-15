@@ -62,6 +62,13 @@ CONFIDENCE_COLORS = {
     95: "#B64234",  # --cm-red
 }
 
+CONFIDENCE_LABELS = {
+    50: "Optimistic",
+    70: "Likely",
+    85: "Confident",
+    95: "Safe Target",
+}
+
 
 def _build_chart_data(hit_sprints: np.ndarray, rows: list[dict]) -> dict:
     counts = Counter(int(v) for v in hit_sprints)
@@ -177,6 +184,7 @@ def _run_and_render(summary, params: dict):
             rows.append(
                 {
                     "confidence": level,
+                    "label": CONFIDENCE_LABELS[level],
                     "sprints": required_sprints,
                     "exceeds_window": required_sprints > MAX_SPRINT_WINDOW,
                     "completion_date": completion_date.isoformat() if completion_date else None,

@@ -17,7 +17,7 @@ from src.app.services.data_processing import (
 FIXTURE_PATH = Path(__file__).resolve().parent.parent / "notebook" / "Sprint_History.xlsx"
 
 ROW_PATTERN = re.compile(
-    r'P(\d+) Confidence</p>\s*<p[^>]*>\s*(.*?)\s*<span class="text-sm font-normal text-slate-400">sprints</span>\s*</p>\s*<p[^>]*>\s*(.*?)\s*</p>',
+    r'P(\d+) - [^<]*</p>\s*<p[^>]*>\s*(.*?)\s*<span class="text-sm font-normal text-slate-400">sprints</span>\s*</p>\s*<p[^>]*>\s*(.*?)\s*</p>',
     re.DOTALL,
 )
 

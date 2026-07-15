@@ -12,7 +12,7 @@
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
     {% for row in rows %}
     <div class="rounded-lg border border-slate-800 bg-slate-900 p-4" style="border-top: 3px solid {{ chart_data.markers[loop.index0].color }};">
-        <p class="text-sm text-slate-400 mb-1">P{{ row.confidence }} Confidence</p>
+        <p class="text-sm mb-1" style="color: {{ chart_data.markers[loop.index0].color }};">P{{ row.confidence }} - {{ row.label }}</p>
         <p class="text-2xl font-semibold" style="color: {{ chart_data.markers[loop.index0].color }};">
             {% if row.exceeds_window %}&gt;50{% else %}{{ row.sprints }}{% endif %}
             <span class="text-sm font-normal text-slate-400">sprints</span>
