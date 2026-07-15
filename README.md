@@ -84,5 +84,14 @@ flask --app run run
 pytest tests/                # run the test suite
 ```
 
+## Running with Docker
+
+The app can also be built and run as a container
+
+```bash
+docker build -t monte-carlo-sim .
+docker run --rm -p 5000:5000 monte-carlo-sim   # http://127.0.0.1:5000
+```
+
 See `CLAUDE.md` for architecture notes and `specs/` for the full functional
 specification.
