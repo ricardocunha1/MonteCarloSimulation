@@ -66,6 +66,18 @@ browser-usable app that satisfies the README's acceptance checklist.
   root-level `pytest.ini` sets `pythonpath = .` so `tests/` (also at repo
   root) can `from src.app... import ...` regardless of pytest's rootdir
   detection.
+- **Calendar view band assignment** (Phase 7): the calendar's end date is
+  the completion date of the *highest confidence level that has one* — not
+  hardcoded to P95 — since a level beyond the 50-sprint window has no
+  completion date at all. Each day's band color is resolved by walking the
+  confidence levels ascending and taking the first one whose completion
+  date is on/after that day; this means when two levels share a completion
+  date, the lower one's color wins (matches the spec's tie-breaking rule).
+  Confidence levels with no completion date are excluded from both the
+  bands and the legend, but do not stop the calendar being drawn as long as
+  at least one level was reached. Weekends are computed but deliberately
+  left uncolored (`date.weekday() >= 5`), independent of which band they'd
+  otherwise fall in.
 
 ## For Future Agents
 As work proceeds: mark checkboxes `- [x]` as items complete; when a phase is
@@ -543,10 +555,63 @@ appearance) was checked, since this environment has no browser available;
 that visual-only piece of the phase's Verification Plan is the one part
 not literally executed.
 
+## Phase 7: Results Page — Calendar View
+Status: Complete
+
+- [x] Add a "Calendar View" section to `results.html`, between the
+  percentile summary cards and the "Distribution of Simulated Outcomes"
+  heading, per `specs/simulation_execution.md`'s "Calendar view" section.
+- [x] `_build_calendar_data(start_date, rows)` in `routes.py`: computes
+  per-day band colors from Sprint Start Date through the furthest *reached*
+  confidence level's completion date, groups them into month-grid
+  structures (`calendar.Calendar(firstweekday=0).monthdatescalendar`), and
+  returns `None` when no confidence level was reached (calendar omitted).
+- [x] Render month grids in `results.html` (Monday–Sunday columns), coloring
+  business-day cells with their band's `CONFIDENCE_COLORS` value, muting
+  weekend cells, and leaving in-month-but-out-of-range days (before Sprint
+  Start Date or after the end date) as blank padding — plus a legend of
+  `P{level}` swatches for every reached confidence level.
+
+### Verification Plan
+- `pytest tests/` — full suite still passes unmodified (calendar data is
+  additive; no existing route/template contract changed).
+- Standalone check of `_build_calendar_data`: constructed rows with a tied
+  completion date between P50/P70 and a P95 with `completion_date=None`,
+  confirmed the tied day colors as P50 (lower-confidence precedence), P95
+  is absent from the legend, and the calendar's end date falls back to the
+  highest reached level (P85 in that scenario).
+- Manual visual check: rendered a real `/execute` response via Flask's test
+  client to a static HTML file (logo `<img>` swapped for a placeholder,
+  since `/static` isn't served outside the app) and opened it in Chrome —
+  confirmed month grids, muted weekends, band coloring, and the tie-break
+  rule all render as intended against the `notebook/Sprint_History.xlsx`
+  fixture.
+
+### Phase Summary
+Added `_build_calendar_data` to `routes.py`: it derives band boundaries
+directly from the already-computed `rows` list (`confidence` +
+`completion_date` pairs) rather than re-deriving anything from raw
+simulation output, and reuses the existing `CONFIDENCE_COLORS` mapping so
+the calendar bands and the percentile cards/histogram markers always agree
+on color. `_run_and_render` now also passes `calendar_data` to
+`results.html`; the confirm-page/hidden-JSON handoff and `/execute`'s
+shared code path were untouched, so both routes still render identically
+by construction.
+
+`results.html` wraps the new section in `{% if calendar_data %}` so the
+(rare) case of zero confidence levels reaching the target within 50 sprints
+degrades gracefully — the section simply doesn't render, no error path
+needed.
+
+No new automated tests were added (the existing end-to-end/route tests
+don't assert on the calendar markup); verification instead relied on a
+direct unit-level check of `_build_calendar_data`'s band/tie-break logic
+plus a real-browser visual pass, per the Verification Plan above.
+
 ## Final Recap
 Built the full three-step Monte Carlo Simulator (Data Input → Data
 Validation → Simulation Execution) described in
-`specs/montecarlosimulation.md` and friends, across six phases:
+`specs/montecarlosimulation.md` and friends, across seven phases:
 
 1. **Scaffolding**: Flask app factory under `src/app/`, dark CM-branded
    `base.html` shell, `run.py` entry point.
@@ -576,8 +641,13 @@ Validation → Simulation Execution) described in
    suite exercising the real route chain and confirming `/execute`
    comfortably meets the README's performance targets (well under 2s/5s
    for 1000/5000 simulations).
+7. **Calendar View**: a month-grid calendar on the results page, between the
+   percentile cards and the histogram, coloring each business day with its
+   percentile band's color (lower confidence wins on tied completion
+   dates), gracefully omitted when no confidence level reaches the target
+   within the 50-sprint window.
 
-Final state: 22 passing tests across 7 test files (`pytest tests/`), the
+Final state: 25 passing tests across 6 test files (`pytest tests/`), the
 full route chain (`/` → `/validate` → `confirm.html` → `/execute` →
 `results.html`, plus the skip-validation shortcut and the error-banner
 path) verified both via Flask's test client and a live-server `curl`/

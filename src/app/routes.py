@@ -1,6 +1,7 @@
+import calendar
 import json
 from collections import Counter
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 import numpy as np
 from flask import Blueprint, render_template, request
@@ -80,6 +81,70 @@ def _build_chart_data(hit_sprints: np.ndarray, rows: list[dict]) -> dict:
     return {"labels": labels, "counts": bar_counts, "markers": markers}
 
 
+def _build_calendar_data(start_date: date, rows: list[dict]) -> dict | None:
+    """Month-grid calendar spanning start_date .. the furthest reached
+    percentile's completion date. Each business day is colored with the
+    lowest-confidence percentile whose completion date is on/after that day
+    (lower percentiles win ties), matching CONFIDENCE_COLORS. Weekends are
+    left uncolored (rendered muted). Rows whose target wasn't reached within
+    the window (no completion_date) are excluded from the band boundaries.
+    """
+    dated_rows = [
+        (row["confidence"], date.fromisoformat(row["completion_date"]))
+        for row in rows
+        if row["completion_date"]
+    ]
+    if not dated_rows:
+        return None
+
+    end_date = max(d for _, d in dated_rows)
+
+    bands = []
+    for level, completion_date in dated_rows:
+        bands.append((CONFIDENCE_COLORS[level], completion_date))
+
+    day_colors = {}
+    band_index = 0
+    current_day = start_date
+    while current_day <= end_date:
+        while band_index < len(bands) - 1 and current_day > bands[band_index][1]:
+            band_index += 1
+        if current_day.weekday() < 5:
+            day_colors[current_day] = bands[band_index][0]
+        current_day += timedelta(days=1)
+
+    months = []
+    month_cursor = date(start_date.year, start_date.month, 1)
+    end_month_cursor = date(end_date.year, end_date.month, 1)
+    cal = calendar.Calendar(firstweekday=0)
+    while month_cursor <= end_month_cursor:
+        weeks = []
+        for week in cal.monthdatescalendar(month_cursor.year, month_cursor.month):
+            week_cells = []
+            for day in week:
+                if day.month != month_cursor.month or day < start_date or day > end_date:
+                    week_cells.append(None)
+                else:
+                    week_cells.append(
+                        {
+                            "day": day.day,
+                            "color": day_colors.get(day),
+                            "is_weekend": day.weekday() >= 5,
+                        }
+                    )
+            weeks.append(week_cells)
+        months.append({"label": month_cursor.strftime("%B %Y"), "weeks": weeks})
+
+        if month_cursor.month == 12:
+            month_cursor = date(month_cursor.year + 1, 1, 1)
+        else:
+            month_cursor = date(month_cursor.year, month_cursor.month + 1, 1)
+
+    legend = [{"label": f"P{level}", "color": CONFIDENCE_COLORS[level]} for level, _ in dated_rows]
+
+    return {"months": months, "legend": legend}
+
+
 class SimulationError(Exception):
     pass
 
@@ -119,6 +184,7 @@ def _run_and_render(summary, params: dict):
             )
 
         chart_data = _build_chart_data(hit_sprints, rows)
+        calendar_data = _build_calendar_data(sprint_start_date, rows)
     except SimulationError as exc:
         return render_template("error.html", errors=[str(exc)], current_step=3)
     except (TypeError, ValueError, KeyError) as exc:
@@ -132,6 +198,7 @@ def _run_and_render(summary, params: dict):
         target_value=target_value,
         rows=rows,
         chart_data=chart_data,
+        calendar_data=calendar_data,
         current_step=3,
     )
 

@@ -24,6 +24,47 @@
     {% endfor %}
 </div>
 
+{% if calendar_data %}
+<div class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="text-base font-semibold">Calendar View</h3>
+        <div class="flex items-center gap-4">
+            {% for item in calendar_data.legend %}
+            <span class="flex items-center gap-1.5 text-xs text-slate-400">
+                <span class="inline-block h-2.5 w-2.5 rounded-sm" style="background-color: {{ item.color }};"></span>
+                {{ item.label }}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for month in calendar_data.months %}
+        <div class="rounded-lg border border-slate-800 bg-slate-900 p-3">
+            <p class="text-sm font-medium text-slate-300 mb-2">{{ month.label }}</p>
+            <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-slate-500 mb-1">
+                <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+            </div>
+            {% for week in month.weeks %}
+            <div class="grid grid-cols-7 gap-1 mb-1">
+                {% for cell in week %}
+                {% if cell is none %}
+                <span class="h-6 w-full"></span>
+                {% elif cell.color %}
+                <span class="h-6 w-full rounded-sm flex items-center justify-center text-[11px] font-medium text-slate-950" style="background-color: {{ cell.color }};">{{ cell.day }}</span>
+                {% elif cell.is_weekend %}
+                <span class="h-6 w-full rounded-sm flex items-center justify-center text-[11px] bg-slate-800/60 text-slate-600">{{ cell.day }}</span>
+                {% else %}
+                <span class="h-6 w-full rounded-sm flex items-center justify-center text-[11px] text-slate-500">{{ cell.day }}</span>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <h3 class="text-base font-semibold mb-3">Distribution of Simulated Outcomes</h3>
 <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-4">
     <div class="lg:col-span-1 rounded-lg border border-slate-800 bg-slate-900 overflow-y-auto h-[420px]">
