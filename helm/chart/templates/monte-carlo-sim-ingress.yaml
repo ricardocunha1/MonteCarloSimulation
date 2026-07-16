@@ -1,21 +1,21 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: montecarlosim-ingress
-  namespace: montecarlosim
+  name: monte-carlo-sim-ingress
+  namespace: {{ .Values.namespace }}
   annotations:
     route.openshift.io/termination: "edge"
     haproxy.router.openshift.io/timeout: 10m
     haproxy.router.openshift.io/timeout-tunnel: 0s
 spec:
   rules:
-    - host: montecarlosimulation.apps.rhos.cm-mes.dev
+    - host: {{ .Values.public_http_address }}
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: montecarlosim-service
+                name: monte-carlo-sim-service
                 port:
                   number: 80

@@ -1,5 +1,5 @@
 {
-    "editor.formatOnSave": true,
+    "editor.formatOnSave": false,
     "python.testing.pytestArgs": [
         "tests"
     ],

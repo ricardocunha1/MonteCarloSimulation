@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monte-carlo-sim-deployment
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: monte-carlo-sim
+  template:
+    metadata:
+      labels:
+        app: monte-carlo-sim
+    spec:
+      containers:
+        - name: monte-carlo-sim
+          image: {{ .Values.registry }}/{{ .Values.image }}:{{ .Values.tag }}
+          ports:
+            - containerPort: 5000
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+            limits:
+              cpu: 200m
+              memory: 200Mi
