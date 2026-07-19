@@ -1,5 +1,0 @@
-apiVersion: v2
-name: monte-carlo-sim
-description: A Helm chart to deploy the Monte Carlo Simulator in a k8s cluster
-type: application
-version: 0.1.0
