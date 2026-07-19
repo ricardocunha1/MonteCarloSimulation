@@ -1,3 +1,0 @@
-- name: monte-carlo-sim
-  namespace: monte-carlo-sim
-  chart: "./apps/monte-carlo-sim/chart"

@@ -1,6 +1,0 @@
-# variables:
-namespace: monte-carlo-sim
-registry: dev.criticalmanufacturing.io
-image: montecarlosim/montecarlosim
-tag: 0.1.0 # This value should be updated when montecarlosim image is updated
-public_http_address: monte-carlo-sim.apps.rhos.cm-mes.dev
