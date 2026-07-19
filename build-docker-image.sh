@@ -7,7 +7,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
-IMAGE="montecarlosim/montecarlo-sim"
+IMAGE="montecarlosim/montecarlosim"
 REGISTRY="dev.criticalmanufacturing.io"
 NO_PUSH=false
 
