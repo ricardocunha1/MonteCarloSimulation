@@ -1,0 +1,96 @@
+{% macro render() %}
+<div id="help-modal" class="hidden fixed inset-0 z-50 items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="help-modal-title">
+    <div id="help-modal-backdrop" class="absolute inset-0 bg-black/70"></div>
+    <div class="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 shadow-xl">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 sticky top-0 bg-slate-900">
+            <h2 id="help-modal-title" class="text-lg font-semibold">How to Use This Application</h2>
+            <button type="button" id="help-modal-close" aria-label="Close" class="text-slate-400 hover:text-slate-100 text-xl leading-none">&times;</button>
+        </div>
+        <div class="px-6 py-5 space-y-6 text-sm text-slate-300">
+            <section>
+                <h3 class="text-base font-semibold text-slate-100 mb-2">Overview</h3>
+                <p>
+                    This tool forecasts how many sprints are needed to hit a target (Items
+                    Resolved or Story Points) by running a Monte Carlo simulation against
+                    your team's historical sprint data. The flow has three steps:
+                </p>
+                <ol class="list-decimal list-inside mt-2 space-y-1">
+                    <li><strong>Data Input</strong> &ndash; upload your sprint history Excel file and set simulation parameters.</li>
+                    <li><strong>Data Validation</strong> &ndash; review the sprint summary parsed from your file (can be skipped).</li>
+                    <li><strong>Simulation Execution</strong> &ndash; view the forecast results and confidence levels.</li>
+                </ol>
+            </section>
+
+            <section>
+                <h3 class="text-base font-semibold text-slate-100 mb-2">Excel File Structure</h3>
+                <p class="mb-2">
+                    The uploaded <code class="px-1 rounded bg-slate-800 border border-slate-700">.xlsx</code>
+                    file must contain a sheet (the first sheet is used) with one row per
+                    work item, including at least these columns:
+                </p>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border border-slate-700 rounded overflow-hidden">
+                        <thead class="bg-slate-800 text-slate-200">
+                            <tr>
+                                <th class="px-3 py-2 border-b border-slate-700">Column</th>
+                                <th class="px-3 py-2 border-b border-slate-700">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="px-3 py-2 border-b border-slate-800 align-top whitespace-nowrap font-mono text-xs">State</td>
+                                <td class="px-3 py-2 border-b border-slate-800">
+                                    Work item status. Only rows with state
+                                    <code class="px-1 rounded bg-slate-800 border border-slate-700">Resolved</code>,
+                                    <code class="px-1 rounded bg-slate-800 border border-slate-700">Done</code>, or
+                                    <code class="px-1 rounded bg-slate-800 border border-slate-700">Closed</code>
+                                    (case-sensitive) count toward a sprint.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-3 py-2 border-b border-slate-800 align-top whitespace-nowrap font-mono text-xs">Iteration Path</td>
+                                <td class="px-3 py-2 border-b border-slate-800">
+                                    The item's sprint/iteration, e.g.
+                                    <code class="px-1 rounded bg-slate-800 border border-slate-700">Project\Sprint 7</code>.
+                                    Only the last segment after the final
+                                    <code class="px-1 rounded bg-slate-800 border border-slate-700">\</code>
+                                    is used as the sprint name.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-3 py-2 border-b border-slate-800 align-top whitespace-nowrap font-mono text-xs">Resolved Date</td>
+                                <td class="px-3 py-2 border-b border-slate-800">
+                                    The date the item was resolved. Used to determine each
+                                    sprint's most recent activity and its recency rank.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-3 py-2 align-top whitespace-nowrap font-mono text-xs">Story Points</td>
+                                <td class="px-3 py-2">
+                                    Numeric story point estimate for the item. Blank values
+                                    are treated as 0; non-numeric values will cause an error.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="mt-3">
+                    Any additional columns in the file are ignored. Rows are grouped by
+                    sprint to compute, per sprint, the total Items Resolved and Story
+                    Points &mdash; these historical sprint totals are what the simulation
+                    samples from.
+                </p>
+            </section>
+
+            <section>
+                <h3 class="text-base font-semibold text-slate-100 mb-2">Tips</h3>
+                <ul class="list-disc list-inside space-y-1">
+                    <li>Use "Exclude Latest Sprints from Sampling" to leave out in-progress or partial sprints from the random sampling pool.</li>
+                    <li>"Team Capacity Factor" scales historical Items Resolved and Story Points to model capacity changes (e.g. 1.2 for 20% more capacity).</li>
+                    <li>Hover the <span class="inline-block align-middle">&#9432;</span> icons next to each field for a quick description.</li>
+                </ul>
+            </section>
+        </div>
+    </div>
+</div>
+{% endmacro %}
