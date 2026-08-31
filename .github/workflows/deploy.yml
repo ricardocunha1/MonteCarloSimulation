@@ -13,8 +13,15 @@ jobs:
               uses: gittools/actions/gitversion/setup@v4.7.0
               with:
                 versionSpec: '6.8.x'
-            - name: Get version from GitVersion
+            - name: Calculate version from GitVersion
               id: app_version
               uses: gittools/actions/gitversion/execute@v4.7.0
-            - name: Output version
-              run: "echo ${{ steps.app_version.outputs.major }}.${{ steps.app_version.outputs.minor }}.${{ steps.app_version.outputs.patch }}"
+            - name: Get Image Tag
+              id: image_tag
+              run: echo "image_tag=${{ steps.app_version.outputs.major }}.${{ steps.app_version.outputs.minor }}.${{ steps.app_version.outputs.patch }}" >> $GITHUB_OUTPUT
+            - name: Run Deploy Script
+              run: ./deploy/build-docker-image.sh -t ${{ steps.image_tag.outputs.image_tag }} -u ${{ secrets.CM_REPO_USERNAME }} -p ${{ secrets.CM_REPO_PAT }}
+            - name: Apply Git Tag
+              run: |
+                git tag -a "${{ steps.image_tag.outputs.image_tag }}" -m "Release ${{ steps.image_tag.outputs.image_tag }}"
+                git push origin "${{ steps.image_tag.outputs.image_tag }}"
