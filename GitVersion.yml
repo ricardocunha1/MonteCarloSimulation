@@ -1,0 +1,12 @@
+mode: ContinuousDelivery
+branches:
+  main:
+    regex: ^main$
+    increment: None
+    label: ''
+ignore:
+  sha: []
+commit-message-incrementing: Enabled
+major-version-bump-message: '^(breaking|major)(\(.+\))?:'
+minor-version-bump-message: '^(feat|feature)(\(.+\))?:'
+patch-version-bump-message: '^(fix|perf|refactor)(\(.+\))?:'
