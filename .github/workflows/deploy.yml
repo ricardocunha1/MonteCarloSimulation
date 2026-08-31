@@ -1,0 +1,20 @@
+name: "Deploy"
+on: workflow_dispatch
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v3
+              with:
+                fetch-depth: 0
+                fetch-tags: true
+            - name: Set up GitVersion
+              uses: gittools/actions/gitversion/setup@v4.7.0
+              with:
+                versionSpec: '6.8.x'
+            - name: Get version from GitVersion
+              id: app_version
+              uses: gittools/actions/gitversion/execute@v4.7.0
+            - name: Output version
+              run: "echo ${{ steps.app_version.outputs.major }}.${{ steps.app_version.outputs.minor }}.${{ steps.app_version.outputs.patch }}"
