@@ -1,0 +1,187 @@
+import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { ApiError, validate } from "../api";
+import { ErrorList } from "../components/ErrorList";
+import { InfoIcon } from "../components/InfoIcon";
+import { Layout } from "../components/Layout";
+import { runSimulation } from "../lib/runSimulation";
+import { useForecast } from "../store";
+
+// Port of input.html.
+export const DEFAULT_FORM_VALUES = {
+  target_type: "Items Resolved",
+  target_value: "",
+  num_simulations: "1000",
+  skip_validation: false,
+  exclude_latest_sprints: "0",
+  sprint_start_date: "",
+  sprint_length: "10",
+  team_capacity_factor: "1.0",
+};
+
+type FormValues = typeof DEFAULT_FORM_VALUES;
+type TextField = Exclude<keyof FormValues, "skip_validation">;
+
+const inputClass = "w-full rounded bg-slate-800 border border-slate-700 px-3 py-2";
+const labelClass = "flex items-center gap-1 text-sm font-medium mb-1";
+
+function Required() {
+  return <span style={{ color: "var(--cm-red)" }}>*</span>;
+}
+
+export function InputPage() {
+  const navigate = useNavigate();
+  const { setValidation, setExecution } = useForecast();
+  const [values, setValues] = useState<FormValues>(DEFAULT_FORM_VALUES);
+  const [file, setFile] = useState<File | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  const onText = (field: TextField) => (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setValues((current) => ({ ...current, [field]: event.target.value }));
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    // Same fields a native form submit would send: every text field (even
+    // blank), the checkbox only when checked, and the file (empty if none).
+    const formData = new FormData();
+    for (const field of Object.keys(values) as (keyof FormValues)[]) {
+      if (field !== "skip_validation") {
+        formData.append(field, values[field]);
+      }
+    }
+    if (values.skip_validation) {
+      formData.append("skip_validation", "on");
+    }
+    formData.append("sprint_history_file", file ?? new File([], ""));
+
+    setSubmitting(true);
+    try {
+      const validation = await validate(formData);
+      setValidation(validation);
+      if (values.skip_validation) {
+        setExecution(await runSimulation(validation));
+        navigate("/results");
+      } else {
+        setExecution(null);
+        navigate("/confirm");
+      }
+    } catch (exc) {
+      setErrors(exc instanceof ApiError ? exc.errors : [String(exc)]);
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Layout title="Monte Carlo Simulator – Data Input" currentStep={1}>
+      <ErrorList errors={errors} />
+
+      <form onSubmit={onSubmit} encType="multipart/form-data" className="space-y-6 max-w-xl mx-auto">
+        <div>
+          <label className={labelClass} htmlFor="sprint_history_file">
+            Sprint History Data (Excel file) <Required />
+            <InfoIcon text="An Excel file containing historical sprint data." />
+          </label>
+          <input
+            className="block w-full text-sm text-slate-300 file:mr-4 file:rounded file:border-0 file:bg-slate-700 file:px-4 file:py-2 file:text-slate-100"
+            type="file"
+            id="sprint_history_file"
+            name="sprint_history_file"
+            accept=".xlsx"
+            required
+            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          />
+        </div>
+
+        <div>
+          <label className={labelClass} htmlFor="target_type">
+            Target Type <Required />
+            <InfoIcon text='A choice between "Items Resolved" or "Story Points" to determine the metric for the simulation.' />
+          </label>
+          <select className={inputClass} id="target_type" name="target_type" value={values.target_type} onChange={onText("target_type")}>
+            <option value="Items Resolved">Items Resolved</option>
+            <option value="Story Points">Story Points</option>
+          </select>
+        </div>
+
+        <div>
+          <label className={labelClass} htmlFor="target_value">
+            Target Value <Required />
+            <InfoIcon text="The target to be completed." />
+          </label>
+          <input className={inputClass} type="number" step="any" id="target_value" name="target_value" value={values.target_value} onChange={onText("target_value")} required />
+        </div>
+
+        <div>
+          <label className={labelClass} htmlFor="num_simulations">
+            Number of Simulations <Required />
+            <InfoIcon text="Number of Monte Carlo simulations to run. Maximum of 20000 simulations." />
+          </label>
+          <input className={inputClass} type="number" step="1" id="num_simulations" name="num_simulations" value={values.num_simulations} onChange={onText("num_simulations")} required />
+        </div>
+
+        <div>
+          <label className={labelClass} htmlFor="sprint_start_date">
+            Sprint Start Date <Required />
+            <InfoIcon text="The start date of the first sprint of the simulation." />
+          </label>
+          <input className={inputClass} type="date" id="sprint_start_date" name="sprint_start_date" value={values.sprint_start_date} onChange={onText("sprint_start_date")} required />
+        </div>
+
+        <div>
+          <label className={labelClass} htmlFor="sprint_length">
+            Sprint Length (business days) <Required />
+            <InfoIcon text="The length of each sprint in business days." />
+          </label>
+          <input className={inputClass} type="number" step="1" id="sprint_length" name="sprint_length" value={values.sprint_length} onChange={onText("sprint_length")} required />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              id="skip_validation"
+              name="skip_validation"
+              className="sr-only peer"
+              checked={values.skip_validation}
+              onChange={(event) => setValues((current) => ({ ...current, skip_validation: event.target.checked }))}
+            />
+            <div className="w-11 h-6 rounded-full bg-slate-700 transition-colors peer-checked:bg-[var(--cm-light-blue)] peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-slate-950 peer-focus-visible:ring-[var(--cm-light-blue)]" />
+            <div className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-5" />
+          </label>
+          <label className="flex items-center gap-1" htmlFor="skip_validation">
+            Skip Historical Sprint Validation
+            <InfoIcon text="Skip the historical sprint validation step and proceed without validation." />
+          </label>
+        </div>
+
+        <div>
+          <label className={labelClass} htmlFor="exclude_latest_sprints">
+            Exclude Latest Sprints from Sampling
+            <InfoIcon text="The number of latest sprints to exclude from sampling." />
+          </label>
+          <input className={inputClass} type="number" step="1" min="0" id="exclude_latest_sprints" name="exclude_latest_sprints" value={values.exclude_latest_sprints} onChange={onText("exclude_latest_sprints")} />
+        </div>
+
+        <div>
+          <label className={labelClass} htmlFor="team_capacity_factor">
+            Team Capacity Factor
+            <InfoIcon text="The team capacity factor relative to the historical data. 1.0 means same capacity, 1.2 means 20% additional capacity. Multiplies Items Resolved and Story Points when running the simulation." />
+          </label>
+          <input className={inputClass} type="number" step="0.01" min="0.01" id="team_capacity_factor" name="team_capacity_factor" value={values.team_capacity_factor} onChange={onText("team_capacity_factor")} />
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded px-4 py-2 font-medium disabled:opacity-60"
+            style={{ backgroundColor: "var(--cm-light-blue)", color: "#04101d" }}
+          >
+            {submitting ? "Working…" : "Continue"}
+          </button>
+        </div>
+      </form>
+    </Layout>
+  );
+}

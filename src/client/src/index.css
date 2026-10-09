@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CM brand colors, copied from the legacy src/app/templates/base.html. */
+:root {
+  --cm-dark-blue: #274B76;
+  --cm-light-blue: #4E98D1;
+  --cm-teal: #60C5B5;
+  --cm-gold: #EBC160;
+  --cm-orange: #D8804B;
+  --cm-red: #B64234;
+  --cm-purple: #802D6C;
+}

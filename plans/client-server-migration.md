@@ -97,23 +97,85 @@ Key decisions / things to know:
   deprecation warning recommending `httpx2`.
 
 ## Phase 2: React SPA (feature parity)
-Status: Not started
+Status: Complete
 
-- [ ] Scaffold `src/client/` with Vite + React + TypeScript (`package.json`, `tsconfig`, `vite.config.ts` with `/api` dev proxy → `http://localhost:8000` and Vitest config), Tailwind + PostCSS config; define the CM brand colors as CSS custom properties / Tailwind theme extension copied from `src/app/templates/base.html`; copy `src/app/static/cmlogo.png` to `src/client/public/`.
-- [ ] Add `src/client/src/api.ts` (typed `validate(formData)` and `simulate(summary, params)` fetch wrappers; surface `{errors}` from 422 as thrown `ApiError`) and `src/client/src/types.ts` mirroring `schemas.py`.
-- [ ] App shell: `Layout` (header, logo, breadcrumb/step indicator ported from `_breadcrumb.html`), `ErrorList` (port of `_errors.html`), help modal + field help (ports of `_help_modal.html`, `_field_help.html`).
-- [ ] Step 1 `InputPage` (port of `input.html`): all fields + defaults from `DEFAULT_FORM_VALUES`, file picker, skip-validation checkbox; submit → `validate`; show server errors inline preserving entered values (file kept in state); on success store `{summary, params}` in a React context/store (in memory only) and navigate to `/confirm`, or — if skip is checked — call `simulate` directly and navigate to `/results`.
-- [ ] Step 2 `ConfirmPage` (port of `confirm.html`): sprint summary table (Sprint, Items Resolved, Story Points, Recency Rank, In Sampling Pool), "Run simulation" → `simulate` → `/results`; direct navigation without state redirects to `/`.
-- [ ] Step 3 `ResultsPage` (port of `results.html`): P50/P70/P85/P95 cards (`>50 sprints` + "Not reached within window" for sentinel rows), react-plotly.js histogram with `>50` bucket and percentile markers, calendar view; execution errors rendered like `error.html` (step 3) with a back link.
-- [ ] Port `_build_calendar_data` to `src/client/src/lib/calendar.ts` (Mon-first month grids, weekdays colored by lowest-confidence band whose completion date ≥ day, weekends muted, rows without a date excluded, month range start → furthest completion date); keep date math in UTC/local-date-safe form (parse `YYYY-MM-DD` manually, no timezone shifts).
-- [ ] Vitest tests: `calendar.test.ts` (band coloring, weekend handling, month spanning year-end, no-dated-rows → null), `InputPage` (error rendering, skip-validation path), `ConfirmPage` (redirect without state, table render), `ResultsPage` (sentinel rendering) with the API mocked.
+- [x] Scaffold `src/client/` with Vite + React + TypeScript (`package.json`, `tsconfig`, `vite.config.ts` with `/api` dev proxy → `http://localhost:8000` and Vitest config), Tailwind + PostCSS config; define the CM brand colors as CSS custom properties / Tailwind theme extension copied from `src/app/templates/base.html`; copy `src/app/static/cmlogo.png` to `src/client/public/`.
+- [x] Add `src/client/src/api.ts` (typed `validate(formData)` and `simulate(summary, params)` fetch wrappers; surface `{errors}` from 422 as thrown `ApiError`) and `src/client/src/types.ts` mirroring `schemas.py`.
+- [x] App shell: `Layout` (header, logo, breadcrumb/step indicator ported from `_breadcrumb.html`), `ErrorList` (port of `_errors.html`), help modal + field help (ports of `_help_modal.html`, `_field_help.html`).
+- [x] Step 1 `InputPage` (port of `input.html`): all fields + defaults from `DEFAULT_FORM_VALUES`, file picker, skip-validation checkbox; submit → `validate`; show server errors inline preserving entered values (file kept in state); on success store `{summary, params}` in a React context/store (in memory only) and navigate to `/confirm`, or — if skip is checked — call `simulate` directly and navigate to `/results`.
+- [x] Step 2 `ConfirmPage` (port of `confirm.html`): sprint summary table (Sprint, Items Resolved, Story Points, Recency Rank, In Sampling Pool), "Run simulation" → `simulate` → `/results`; direct navigation without state redirects to `/`.
+- [x] Step 3 `ResultsPage` (port of `results.html`): P50/P70/P85/P95 cards (`>50 sprints` + "Not reached within window" for sentinel rows), react-plotly.js histogram with `>50` bucket and percentile markers, calendar view; execution errors rendered like `error.html` (step 3) with a back link.
+- [x] Port `_build_calendar_data` to `src/client/src/lib/calendar.ts` (Mon-first month grids, weekdays colored by lowest-confidence band whose completion date ≥ day, weekends muted, rows without a date excluded, month range start → furthest completion date); keep date math in UTC/local-date-safe form (parse `YYYY-MM-DD` manually, no timezone shifts).
+- [x] Vitest tests: `calendar.test.ts` (band coloring, weekend handling, month spanning year-end, no-dated-rows → null), `InputPage` (error rendering, skip-validation path), `ConfirmPage` (redirect without state, table render), `ResultsPage` (sentinel rendering) with the API mocked.
 
 ### Verification Plan
 - `cd src/client && npm ci && npm run build && npm test -- --run` → build succeeds with no TS errors; all tests pass.
 - With server on :8000, `cd src/client && npm run dev`, then drive the flow with the `run` skill/browser: upload `notebook/Sprint_History.xlsx`, Exclude Latest=1 → confirm table shows 24 rows (Sprint 24 excluded) → run → 4 percentile cards, histogram, calendar render; skip-validation path goes straight to results; invalid parameters (e.g. 20001 simulations, missing file) show the same error messages as the Flask app.
 
 ### Phase Summary
-_(write when phase completes)_
+**Done.** `src/client/` is a Vite 6 + React 18 + TypeScript + Tailwind 3
+(PostCSS) SPA with react-router 7 (`react-router-dom`) and Vitest 4.
+Verification: `cd src/client && npm ci && npm run build && npm test -- --run`
+→ `tsc -b` clean, build OK, 4 files / 25 tests pass. Live check (uvicorn on
+:8000 + `npm run dev`, driven with headless Chromium via Playwright):
+fixture upload with Exclude Latest=1 → confirm table 24 rows, Sprint 24 "No",
+23 "Yes" → results show 4 cards, 5-month calendar, 51-bar Plotly histogram
+with 4 percentile marker lines; skip-validation lands directly on
+`/results`; 20001 simulations → "Number of Simulations must not exceed
+20000."; no file → "A Sprint History Excel file is required." (other fields
+kept); direct load of `/results`, `/confirm` or an unknown path → `/`; help
+modal opens and closes on Esc. Only browser console errors were the expected
+422 responses. Dev proxy `/api` → :8000 and SPA fallback both work.
+
+Key decisions / things to know:
+- **Node isn't in the devcontainer yet** (Phase 5 adds it). For this phase
+  Node 22.23.3 was unpacked to `~/.local/node` (`export
+  PATH=~/.local/node/bin:$PATH`); Playwright + Chromium lived in the session
+  scratchpad, not the repo.
+- **Lockfile was generated with npm 11** (`npx npm@11 install`): npm 10.9
+  (bundled with Node 22) crashes in arborist (`reading 'edgesOut'`) when
+  *resolving* vitest 4's optional `jsdom: "*"` peer from scratch. `npm ci`
+  with npm 10 works fine against the committed lockfile (verified), so the
+  Phase 3 `node:22-alpine` build is unaffected. If you add/upgrade deps and
+  hit that crash, use `npx npm@11 install`.
+- Versions were bumped past audit advisories: react-router-dom 7.18.4
+  (6.x had a moderate advisory), vitest 4.1.11 (tinypool/mocker advisories
+  in 3.x), jsdom 28. `npm audit --omit=dev` → 0. Remaining dev-only
+  findings are in Tailwind 3's build-time globbing (`braces`,
+  `postcss-selector-parser`); they go away only with Tailwind 4.
+- **Plotly**: `plotly.js-basic-dist-min` (bar/scatter only, 1.1 MB vs 4.4 MB
+  full) via `react-plotly.js/factory`, in `components/HistogramChart.tsx`
+  which `ResultsPage` `React.lazy`-loads — a separate chunk fetched only on
+  `/results` (`build.chunkSizeWarningLimit: 1200` for it). The x axis is
+  forced to `type: "category"` so `>50` is its own bar. Tests mock this
+  component (Plotly needs a real browser).
+- **State** (`store.tsx`): `ForecastProvider` holds `validation`
+  (the `/api/validate` response) and `execution`
+  (`{status:"ok", result, sprintStartDate} | {status:"error", errors}`), in
+  memory only — a reload sends you back to `/`. `lib/runSimulation.ts` is
+  the single simulate→`Execution` helper used by both the skip-validation
+  branch of `InputPage` and `ConfirmPage` (same role as the old
+  `_run_and_render`). An execution error renders the `error.html` port on
+  `/results` (step 3, "Start Over" link).
+- `InputPage` builds the `FormData` the way a native form submit would
+  (every text field even if blank, `skip_validation=on` only when checked,
+  an empty `File` when none chosen) so the server's messages are identical.
+  HTML `required` attributes are kept as in the Flask form. Form values and
+  the chosen file survive an error because the page stays mounted.
+- Confidence colors live in `lib/confidence.ts` (literal hex mirroring the
+  `--cm-*` vars in `src/index.css`; Tailwind also exposes them as `cm-*`).
+- `lib/calendar.ts` turns `YYYY-MM-DD` into a UTC day number and does all
+  arithmetic on integers, so no local-timezone shift is possible. It expects
+  `rows` in ascending confidence (as the server returns them).
+- Confirm table "Last Resolved Date" now shows the ISO date (`2025-01-10`)
+  the API returns; Flask printed the pandas Timestamp (`2025-01-10
+  00:00:00`). Intentional, cosmetic.
+- The root `.gitignore` (Python template) ignores `lib/`;
+  `src/client/.gitignore` re-includes `src/lib/`. Watch for that if you add
+  other `lib`/`build`/`dist`-named folders.
+- Test helpers: `src/test/render.tsx` (`renderAt(path, element, {validation,
+  execution, routes})` with stub routes + a `location` probe),
+  `src/test/fixtures.ts`.
 
 ## Phase 3: Client Dockerfile + docker-compose
 Status: Not started
