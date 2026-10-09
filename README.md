@@ -71,26 +71,64 @@ The uploaded file must contain one worksheet with these columns:
 If a mandatory column is missing, or the file can't be parsed as Excel, the
 app reports the specific problem instead of failing silently.
 
-## Running locally
+## Architecture
+
+The app is split into two tiers under `src/`:
+
+- **`src/server`** — FastAPI API (Pandas/NumPy simulation logic), port 8000.
+  Endpoints: `POST /api/validate`, `POST /api/simulate`, `GET /api/health`.
+- **`src/client`** — React + TypeScript single-page app (Vite, Tailwind),
+  served by nginx in production. nginx proxies `/api` to the server, so the
+  browser only ever talks to one origin.
+
+The original Flask app (`src/app`, `run.py`, root `Dockerfile`) is still in
+the repo until the migration in `plans/client-server-migration.md`
+finishes.
+
+## Running with Docker Compose
+
+```bash
+docker compose up --build        # http://localhost:8080
+docker compose down
+```
+
+The client container listens on 8080 (non-root nginx) and reaches the
+server through `API_UPSTREAM` (default `http://server:8000`).
+
+## Running locally (development)
+
+Requires Python 3.12 and Node 22.
+
+```bash
+# Server — http://localhost:8000
+cd src/server
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+
+# Client — http://localhost:5173 (Vite proxies /api to localhost:8000)
+cd src/client
+npm ci
+npm run dev
+```
+
+## Tests
+
+```bash
+cd src/server && pytest              # server (or `pytest src/server` from the repo root)
+cd src/client && npm test -- --run   # client (Vitest)
+cd src/client && npm run build       # type-check + production build
+```
+
+## Legacy Flask app
 
 ```bash
 source .venv/bin/activate
 pip install -r requirements.txt
-
 python run.py                # dev server, http://127.0.0.1:5000
-# or
-flask --app run run
+pytest                       # legacy test suite (tests/)
 
-pytest tests/                # run the test suite
-```
-
-## Running with Docker
-
-The app can also be built and run as a container
-
-```bash
 docker build -t monte-carlo-sim .
-docker run --rm -p 5000:5000 monte-carlo-sim   # http://127.0.0.1:5000
+docker run --rm -p 5000:5000 monte-carlo-sim
 ```
 
 See `CLAUDE.md` for architecture notes and `specs/` for the full functional

@@ -15,3 +15,12 @@ README.md
 CLAUDE.md
 Dockerfile
 .dockerignore
+docker-compose.yml
+# Two-tier layout: src/client and src/server build from their own folders
+# (own .dockerignore). The legacy root image only needs src/app plus the
+# shared services under src/server/app.
+src/client
+src/server/tests
+src/server/Dockerfile
+src/server/.dockerignore
+**/node_modules

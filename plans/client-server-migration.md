@@ -9,7 +9,7 @@ Split the Flask app (`src/app`) into two tiers under `src/`: `src/server` (FastA
 - **Deployment**: two images with the same tag: `montecarlosim/montecarlosim-client` and `montecarlosim/montecarlosim-server`. Helm gets two deployments + services; ingress `/` → client, `/api` → server.
 - **Legacy**: Flask app, templates, `run.py`, root `Dockerfile` are removed in the last phase, after parity is proven.
 - **Unchanged business rules**: everything in `plans/monte-carlo-app.md` "Key decisions" (Sprint parsing, resolved states, `method="min"` ranking, sentinel 51 / `>50`, nearest-rank percentiles, `busday_offset`, 20000 simulation cap, `notebook/Sprint_History.xlsx` fixture: 24 sprints, 1 excluded, 23 in pool). Read it before touching simulation/validation logic.
-- **Assumptions to correct if wrong**: server port 8000, client container port 80 (compose publishes `8080:80`); server served by `uvicorn` (no gunicorn); same-origin `/api` prefix on all server routes; UI text/theme/CM brand colors copied 1:1 from `base.html`/templates; Python 3.12 and Node 22 LTS base images; upload size limit raised in nginx (`client_max_body_size 20m`).
+- **Assumptions to correct if wrong**: server port 8000, ~~client container port 80 (compose publishes `8080:80`)~~ **corrected in Phase 3: client container port 8080** (`nginx-unprivileged`, non-root, for OpenShift's restricted SCC; compose publishes `8080:8080`); server served by `uvicorn` (no gunicorn); same-origin `/api` prefix on all server routes; UI text/theme/CM brand colors copied 1:1 from `base.html`/templates; Python 3.12 and Node 22 LTS base images; upload size limit raised in nginx (`client_max_body_size 20m`).
 
 ## For Future Agents
 As work proceeds: mark checkboxes `- [x]` as items complete; when a phase is done,
@@ -178,12 +178,12 @@ Key decisions / things to know:
   `src/test/fixtures.ts`.
 
 ## Phase 3: Client Dockerfile + docker-compose
-Status: Not started
+Status: Complete
 
-- [ ] Add `src/client/Dockerfile` (multi-stage: `node:22-alpine` `npm ci && npm run build` → `nginx:alpine` serving `dist/`), `src/client/nginx.conf` (SPA fallback `try_files $uri /index.html`, `location /api/ { proxy_pass http://server:8000; client_max_body_size 20m; proxy_read_timeout 600s; }`, gzip), `src/client/.dockerignore` (node_modules, dist).
-- [ ] Make the nginx upstream configurable (`envsubst` template via `/etc/nginx/templates/default.conf.template` with `API_UPSTREAM`, default `http://server:8000`) so compose and helm (`monte-carlo-sim-server-service`) both work.
-- [ ] Add root `docker-compose.yml`: service `server` (build `./src/server`, healthcheck) and `client` (build `./src/client`, `ports: ["8080:80"]`, `depends_on: server: condition: service_healthy`, `API_UPSTREAM=http://server:8000`).
-- [ ] Update root `.dockerignore` for the new layout; update `README.md` and `CLAUDE.md` (Commands + Architecture sections) for the two-tier layout, docker-compose usage and the new test commands.
+- [x] Add `src/client/Dockerfile` (multi-stage: `node:22-alpine` `npm ci && npm run build` → `nginx:alpine` serving `dist/`), `src/client/nginx.conf` (SPA fallback `try_files $uri /index.html`, `location /api/ { proxy_pass http://server:8000; client_max_body_size 20m; proxy_read_timeout 600s; }`, gzip), `src/client/.dockerignore` (node_modules, dist).
+- [x] Make the nginx upstream configurable (`envsubst` template via `/etc/nginx/templates/default.conf.template` with `API_UPSTREAM`, default `http://server:8000`) so compose and helm (`monte-carlo-sim-server-service`) both work.
+- [x] Add root `docker-compose.yml`: service `server` (build `./src/server`, healthcheck) and `client` (build `./src/client`, `ports: ["8080:80"]`, `depends_on: server: condition: service_healthy`, `API_UPSTREAM=http://server:8000`).
+- [x] Update root `.dockerignore` for the new layout; update `README.md` and `CLAUDE.md` (Commands + Architecture sections) for the two-tier layout, docker-compose usage and the new test commands.
 
 ### Verification Plan
 - `docker compose build` succeeds; `docker compose up -d` → `docker compose ps` shows both healthy/running.
@@ -191,7 +191,47 @@ Status: Not started
 - Upload `notebook/Sprint_History.xlsx` via `curl -F ... localhost:8080/api/validate` → 200 with 24 records. `docker compose down` cleans up.
 
 ### Phase Summary
-_(write when phase completes)_
+**Done.** Verification: `docker compose build` OK; `docker compose up -d` →
+both `(healthy)`. Through nginx: `/api/health` → `{"status":"ok"}`; `/`,
+`/confirm`, `/results` → 200 with the SPA `index.html`; fixture
+`/api/validate` → 200, 24 records, 23 in pool, Sprint 24 excluded; its
+response POSTed to `/api/simulate` → 4 rows / 51 buckets. The Phase 2
+Playwright flow (happy path, skip-validation, 20001 sims, missing file,
+help modal) also passes against the compose stack. Extra checks: a 5 MB
+upload reaches the server (422 bad Excel), 25 MB → nginx 413; JS assets
+are gzipped with `Cache-Control: public, immutable` + 1y expiry,
+`index.html` is `no-cache`; client runs as uid 101; `API_UPSTREAM=
+http://monte-carlo-sim-server-service:80` renders into `proxy_pass` and
+`nginx -t` passes. `docker compose down` removes everything. Legacy root
+image still builds and its Flask `/health` returns 200.
+
+Key decisions / things to know:
+- **Client listens on 8080, not 80** (corrects the plan assumption). The
+  helm cluster is OpenShift (`*.apps.rhos...`), whose restricted SCC runs
+  pods as a random non-root UID; stock `nginx:alpine` can't bind 80 or
+  write its cache dirs there. `nginxinc/nginx-unprivileged:1.28-alpine`
+  handles both. Phase 4: client `containerPort: 8080`; its Service can
+  still expose port 80 → targetPort 8080.
+- One file, `src/client/nginx.conf.template`, is both "nginx.conf" and the
+  envsubst template; the Dockerfile copies it to
+  `/etc/nginx/templates/default.conf.template` and sets
+  `ENV API_UPSTREAM=http://server:8000`. The entrypoint substitutes only
+  *defined* env vars, so nginx's `$uri`/`$host` are untouched. nginx
+  resolves the upstream hostname at startup, so the upstream must exist in
+  DNS when the client starts (compose `depends_on: service_healthy`; a k8s
+  Service name always resolves).
+- Client healthcheck: busybox `wget` on `http://127.0.0.1:8080/`. Compose
+  re-declares the server healthcheck (10s interval) so the client starts
+  sooner than the image's 30s default allows.
+- Compose tags the images `montecarlosim/montecarlosim-{server,client}:local`.
+- With docker-outside-of-docker, published ports are on the Docker host:
+  from inside the devcontainer use `172.17.0.1:8080`, not `localhost`.
+- Root `.dockerignore` now also excludes `src/client`, `src/server/tests`
+  and the server's Docker files, so the legacy root image (still needed
+  until Phase 5) only gets `src/app` + the shared `src/server/app`.
+- README gained Architecture / Docker Compose / local dev / test sections
+  (legacy Flask instructions kept under "Legacy Flask app"); CLAUDE.md
+  Commands + Architecture cover the two-tier layout.
 
 ## Phase 4: build-docker-image.sh, GitHub workflow, helm chart
 Status: Not started
@@ -199,7 +239,7 @@ Status: Not started
 - [ ] Update `deploy/build-docker-image.sh`: replace the single `IMAGE` with `CLIENT_IMAGE="montecarlosim/montecarlosim-client"` and `SERVER_IMAGE="montecarlosim/montecarlosim-server"` (options `--client-image`/`--server-image`; keep `-t`, `-u`, `-p`, `-r`, `--no-push`, `-h`; update `help()`; drop/repurpose `-i`). Build with `docker build -t <registry>/<image>:<tag> src/client` and `src/server` (context = each folder), fail fast with the existing red/green messages, login once, push both. Keep it runnable from the repo root as the workflow does.
 - [ ] Add an optional `--only client|server` flag (default both) for faster local iteration.
 - [ ] Update `.github/workflows/deploy.yml`: keep GitVersion + tag steps; the "Run Deploy Script" step builds/pushes both images with the same `image_tag` (no input changes needed for secrets `CM_REPO_USERNAME`/`CM_REPO_PAT`); rename the step to "Build and push client and server images"; add a step before it to run server tests (`pip install -r src/server/requirements.txt && pytest src/server`) and client tests/build (`npm ci && npm test -- --run` in `src/client`) so a broken tier never gets published; use `actions/setup-python` and `actions/setup-node`.
-- [ ] Update helm chart in `helm/chart/`: `values.yaml` → `registry`, `client_image`, `server_image`, single shared `tag`; split `monte-carlo-sim-deployment.yaml` and `monte-carlo-sim-service.yaml` into client (port 80) and server (port 8000, memory limits raised if profiling shows pandas needs >200Mi) variants; client container gets env `API_UPSTREAM=http://monte-carlo-sim-server-service:80`; update `monte-carlo-sim-ingress.yaml` to route `/api` → server service and `/` → client service (keep the OpenShift annotations and timeouts).
+- [ ] Update helm chart in `helm/chart/`: `values.yaml` → `registry`, `client_image`, `server_image`, single shared `tag`; split `monte-carlo-sim-deployment.yaml` and `monte-carlo-sim-service.yaml` into client (container port 8080 — see Phase 3) and server (port 8000, memory limits raised if profiling shows pandas needs >200Mi) variants; client container gets env `API_UPSTREAM=http://monte-carlo-sim-server-service:80`; update `monte-carlo-sim-ingress.yaml` to route `/api` → server service and `/` → client service (keep the OpenShift annotations and timeouts).
 - [ ] Bump `Chart.yaml` version/appVersion per repo convention if one exists (check `GitVersion.yml`/existing tag history first).
 
 ### Verification Plan

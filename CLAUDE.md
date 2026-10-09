@@ -4,15 +4,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Flask app that runs Monte Carlo simulations to forecast how many sprints
+A web app that runs Monte Carlo simulations to forecast how many sprints
 are needed to hit a target (Items Resolved or Story Points), based on
 historical sprint data from Critical Manufacturing (CM) projects uploaded as
 an Excel file. Three-step flow: Data Input → Data Validation (optional,
 skippable) → Simulation Execution.
 
+It is mid-migration (`plans/client-server-migration.md`) from a single
+Flask app (`src/app`) to a FastAPI server (`src/server`) + React SPA
+(`src/client`). Both work today; the Flask app is removed in that plan's
+Phase 5.
+
 ## Commands
 
 ```bash
+# Two-tier app (server + client)
+docker compose up --build            # full stack, http://localhost:8080
+cd src/server && pytest              # server tests (or `pytest src/server` from root)
+cd src/server && uvicorn app.main:app --reload --port 8000
+cd src/client && npm ci && npm run dev   # http://localhost:5173, proxies /api -> :8000
+cd src/client && npm test -- --run   # client tests (Vitest)
+cd src/client && npm run build       # tsc -b type-check + production build
+```
+
+Node is not installed in the devcontainer yet (planned for Phase 5); if
+`node` is missing, a Node 22 may be unpacked in `~/.local/node`
+(`export PATH=~/.local/node/bin:$PATH`). Docker is docker-outside-of-docker:
+ports published by `docker compose` are reachable from inside the
+devcontainer at `172.17.0.1:<port>`, not `localhost`.
+
+```bash
+# Legacy Flask app
 source .venv/bin/activate            # venv already exists with deps installed
 pip install -r requirements.txt      # flask, pandas, numpy, openpyxl, pytest
 
@@ -37,7 +59,30 @@ There is no lint/type-check tooling configured in this repo.
   correction, why `results.html` was built incrementally across phases 4-5).
   If you add a new phase of work, follow the plan's own "For Future Agents"
   instructions (checkboxes, phase status, Phase Summary on completion).
-- **Layout**: app package lives under `src/app/`, not the repo root.
+- **Two-tier layout** (target of the migration):
+  - `src/server/` — FastAPI app `app.main:app`, all routes under `/api`
+    (`/validate` multipart → sprint summary + params, `/simulate` JSON →
+    percentile rows + histogram, `/health`). Every 422 is `{errors: [str]}`.
+    Own `Dockerfile` (python:3.12-slim, uvicorn, port 8000).
+  - `src/client/` — Vite + React 18 + TypeScript + Tailwind 3 SPA,
+    react-router (`/`, `/confirm`, `/results`). Summary/params/results live
+    in an in-memory React context (`src/store.tsx`), replacing the old
+    hidden-field JSON blob. The client owns presentation: confidence colors
+    (`src/lib/confidence.ts`), calendar grids (`src/lib/calendar.ts`, port
+    of `_build_calendar_data`), the Plotly histogram (lazy-loaded
+    `plotly.js-basic-dist-min`).
+  - Client `Dockerfile`: `node:22-alpine` build → `nginxinc/nginx-unprivileged`
+    on **port 8080** (non-root, for OpenShift). `nginx.conf.template` is
+    rendered by the image entrypoint with `API_UPSTREAM` (default
+    `http://server:8000`) and proxies `/api/` there (20m uploads, 600s
+    timeout) with an SPA `try_files` fallback.
+  - Root `docker-compose.yml`: `server` (healthcheck) + `client`
+    (`8080:8080`, waits for server healthy).
+  - Gotchas: `package-lock.json` was generated with npm 11 because npm 10
+    crashes resolving vitest 4's peer deps from scratch (`npm ci` with npm
+    10 is fine). The root `.gitignore` ignores `lib/`; `src/client/.gitignore`
+    re-includes `src/lib/`.
+- **Layout (legacy Flask)**: app package lives under `src/app/`, not the repo root.
   `run.py` (repo root) does `from src.app import create_app`. Root-level
   `pytest.ini` sets `pythonpath = .` so `tests/` (also repo root) can import
   `src.app...` regardless of pytest's rootdir detection.
