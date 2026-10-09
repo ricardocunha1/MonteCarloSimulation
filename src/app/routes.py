@@ -6,21 +6,21 @@ from datetime import date, datetime, timedelta
 import numpy as np
 from flask import Blueprint, render_template, request
 
-from src.app.services.data_processing import (
+from src.server.app.services.data_processing import (
     DataValidationError,
     build_sprint_summary,
     parse_sprint_history,
     summary_from_records,
     summary_to_records,
 )
-from src.app.services.simulation import (
+from src.server.app.services.simulation import (
     CONFIDENCE_LEVELS,
     MAX_SPRINT_WINDOW,
     compute_completion_date,
     compute_confidence_results,
     run_simulation,
 )
-from src.app.services.validation import validate_parameters
+from src.server.app.services.validation import validate_parameters
 
 bp = Blueprint("main", __name__)
 

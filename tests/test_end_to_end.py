@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from src.app import create_app
-from src.app.services.data_processing import (
+from src.server.app.services.data_processing import (
     build_sprint_summary,
     parse_sprint_history,
     summary_to_records,

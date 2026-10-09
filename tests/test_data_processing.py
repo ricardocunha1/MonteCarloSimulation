@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.app.services.data_processing import (
+from src.server.app.services.data_processing import (
     DataValidationError,
     build_sprint_summary,
     parse_sprint_history,

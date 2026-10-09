@@ -1,13 +1,16 @@
+from collections.abc import Mapping
 from datetime import datetime
-
-from werkzeug.datastructures import FileStorage
 
 VALID_TARGET_TYPES = {"Items Resolved", "Story Points"}
 MAX_SIMULATIONS = 20000
 
 
-def validate_parameters(form, file: FileStorage | None) -> list[str]:
+def validate_parameters(form: Mapping[str, str], file) -> list[str]:
     """Validate the Data Input parameters per specs/data_validation.md.
+
+    `form` is any mapping of the raw (string) form fields; `file` is the
+    uploaded file object (anything with a `.filename`, e.g. a Starlette
+    `UploadFile`) or None.
 
     Excel *content* validation (worksheet/column checks) happens later in
     the pipeline (data_processing.parse_sprint_history) since it requires

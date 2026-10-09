@@ -2,7 +2,7 @@ from datetime import date
 
 import numpy as np
 
-from src.app.services.simulation import (
+from src.server.app.services.simulation import (
     MAX_SPRINT_WINDOW,
     compute_completion_date,
     compute_confidence_results,

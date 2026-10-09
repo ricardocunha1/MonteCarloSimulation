@@ -51,18 +51,22 @@ There is no lint/type-check tooling configured in this repo.
     funnel through one shared `_run_and_render(summary, params)` helper, so
     their behavior is identical by construction — don't duplicate simulation
     logic between them.
-  - `src/app/services/validation.py` — `validate_parameters(form, file)`:
+  - **Migration in progress** (`plans/client-server-migration.md`): the
+    services below were moved to `src/server/app/services/` (shared by the
+    legacy Flask app via `src.server.app.services` imports and by the new
+    FastAPI server in `src/server/`, tested with `cd src/server && pytest`).
+  - `src/server/app/services/validation.py` — `validate_parameters(form, file)`:
     pure parameter/form guardrails (file present, target type, positive
     numbers, simulation cap of 20000, valid date). Never touches file
     *content*.
-  - `src/app/services/data_processing.py` — `parse_sprint_history` (reads
+  - `src/server/app/services/data_processing.py` — `parse_sprint_history` (reads
     the uploaded Excel, raises `DataValidationError` — never a raw
     pandas/openpyxl exception — for unreadable files or missing mandatory
     columns), `build_sprint_summary` (groups by Sprint, computes Items
     Resolved / Story Points / Recency Rank / In Sampling Pool), and the
     `summary_to_records` / `summary_from_records` pair that round-trips the
     summary DataFrame through the stateless JSON handoff (see below).
-  - `src/app/services/simulation.py` — `run_simulation` (vectorized NumPy:
+  - `src/server/app/services/simulation.py` — `run_simulation` (vectorized NumPy:
     `rng.choice` into a `(simulations, MAX_SPRINT_WINDOW)` matrix, `cumsum`,
     boolean-mask `argmax` for first-hit sprint), `compute_confidence_results`
     (nearest-rank/ceiling percentiles), `compute_completion_date`
