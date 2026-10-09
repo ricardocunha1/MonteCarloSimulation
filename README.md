@@ -60,13 +60,16 @@ The uploaded file must contain one worksheet with these columns:
 | ------------------ | --------- | --------- | ------------------------------------------------------------------------------------------------------- |
 | **State**          | String    | **Yes**   | Only rows where State is `Resolved`, `Done`, or `Closed` (case-sensitive) count toward a sprint         |
 | **Iteration Path** | String    | **Yes**   | The sprint is derived from the last segment after `\`, e.g. `Project\Release 1\Sprint 12` → `Sprint 12` |
-| **Resolved Date**  | Date      | **Yes**   | Used to determine each sprint's most recent completion date and recency rank                            |
+| **Resolved Date**  | Date      | **Yes**   | Used to determine each sprint's most recent completion date and recency rank. Format: `MM/dd/yyyy [hh:mm]` (time optional), e.g. `03/27/2025 14:30` |
 | **Story Points**   | Numeric   | **Yes**   | Defaults to 0 for rows where it's missing                                                               |
 | Work Item Type     | String    | No        | Not used in the simulation                                                                              |
 | ID                 | Numeric   | No        | Not used in the simulation                                                                              |
 | Activated Date     | Date      | No        | Not used in the simulation                                                                              |
 | Created Date       | Date      | No        | Not used in the simulation                                                                              |
 | PICategory         | String    | No        | Not used in the simulation                                                                              |
+
+Date columns must use the `MM/dd/yyyy [hh:mm]` format (month first; the
+time part is optional), e.g. `03/27/2025` or `03/27/2025 14:30`.
 
 If a mandatory column is missing, or the file can't be parsed as Excel, the
 app reports the specific problem instead of failing silently.

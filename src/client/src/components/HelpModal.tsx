@@ -82,7 +82,9 @@ export function HelpModal({ open, onClose }: { open: boolean; onClose: () => voi
                     <td className="px-3 py-2 border-b border-slate-800 align-top whitespace-nowrap font-mono text-xs">Resolved Date</td>
                     <td className="px-3 py-2 border-b border-slate-800">
                       The date the item was resolved. Used to determine each sprint's most
-                      recent activity and its recency rank.
+                      recent activity and its recency rank. Must use the format{" "}
+                      <code className={code}>MM/dd/yyyy [hh:mm]</code> (month first, time
+                      optional), e.g. <code className={code}>03/27/2025 14:30</code>.
                     </td>
                   </tr>
                   <tr>

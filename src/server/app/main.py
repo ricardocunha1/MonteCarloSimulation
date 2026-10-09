@@ -22,14 +22,14 @@ def create_app() -> FastAPI:
         return JSONResponse(status_code=422, content={"errors": errors})
 
     @app.exception_handler(Exception)
-    async def unhandled_exception(request: Request, exc: Exception):
+    async def unhandled_exception(request: Request, _: Exception):
         # Anything not handled elsewhere: log the traceback server-side and
         # return a generic 500 in the same `{errors: [str]}` shape, without
         # leaking internals to the client.
         logger.exception("Unhandled error on %s %s", request.method, request.url.path)
         return JSONResponse(
             status_code=500,
-            content={"errors": ["An unexpected error occurred. Please try again later."]},
+            content={"errors": ["An unexpected error occurred. Please review your input historical data."]},
         )
 
     app.include_router(router, prefix="/api")
