@@ -306,22 +306,110 @@ Key decisions / things to know:
   two-image release before `helm upgrade` (Deployment Plan).
 
 ## Phase 5: Remove legacy Flask app
-Status: Not started
+Status: Complete
 
-- [ ] Confirm parity checklist from Phase 2 verification passes against the compose stack.
-- [ ] `git rm -r src/app run.py Dockerfile pytest.ini tests/` (tests already ported to `src/server/tests`), root `requirements.txt` (superseded by `src/server/requirements.txt`); keep `src/__init__.py` only if still referenced, otherwise remove it. Keep `notebook/`, `specs/`, `plans/`.
-- [ ] Update `.devcontainer/post-create.sh` and `.vscode/settings.json` if they reference the old paths or root `requirements.txt` (add Node install for the client); update `CLAUDE.md` so it no longer documents Flask/Jinja and points at `src/server` and `src/client`.
-- [ ] Add a short "Phase 7: Client/server split" pointer in `plans/monte-carlo-app.md` referring to this plan (it says business rules live there).
+- [x] Confirm parity checklist from Phase 2 verification passes against the compose stack.
+- [x] `git rm -r src/app run.py Dockerfile pytest.ini tests/` (tests already ported to `src/server/tests`), root `requirements.txt` (superseded by `src/server/requirements.txt`); keep `src/__init__.py` only if still referenced, otherwise remove it. Keep `notebook/`, `specs/`, `plans/`.
+- [x] Update `.devcontainer/post-create.sh` and `.vscode/settings.json` if they reference the old paths or root `requirements.txt` (add Node install for the client); update `CLAUDE.md` so it no longer documents Flask/Jinja and points at `src/server` and `src/client`.
+- [x] Add a short "Phase 7: Client/server split" pointer in `plans/monte-carlo-app.md` referring to this plan (it says business rules live there). **Added as Phase 8** — that plan already had a Phase 7 (calendar view).
 
 ### Verification Plan
 - `grep -rn "flask\|src.app" --include=* . --exclude-dir={.git,node_modules,.venv,notebook,plans}` → no remaining references.
 - `pytest src/server` and `cd src/client && npm test -- --run` pass; `docker compose up --build` still works end to end.
 
 ### Phase Summary
-_(write when phase completes)_
+**Done.** Verification: parity checklist run with headless Chromium
+(Playwright, in the session scratchpad) against `docker compose up --build`
+both *before* and *after* the removal — fixture upload with Exclude
+Latest=1 → 24-row confirm table, Sprint 24 "No", 23 "Yes" → 4 percentile
+cards + 51-bar histogram; skip-validation lands on `/results`; 20001
+simulations and missing file show the original messages (other values
+kept); `/results`, `/confirm`, unknown path → `/`. `pytest src/server` (from
+the root and from `src/server`) → 30 passed; `npm test -- --run` → 25
+passed; `npm run build` OK. The grep finds no code references; the only
+hits are intentional prose (CLAUDE.md history note, the `index.css` comment
+saying where the colors came from), the stock "Flask stuff" section of the
+GitHub Python `.gitignore` template, and `specs/montecarlosimulation.md`'s
+original requirement text ("a web framework such as Flask"), left as-is
+because specs are the source of truth and weren't in scope.
+
+Key decisions / things to know:
+- Removed: `src/app/`, `run.py`, root `Dockerfile`, root `pytest.ini`,
+  `tests/`, root `requirements.txt`, `src/__init__.py` (only the Flask
+  imports `src.server.app.services...` needed it; the server imports
+  `app.services...` with `src/server` as its root). Also removed the root
+  **`.dockerignore`** — it only served the root image; compose and the
+  build script use the `src/client` / `src/server` contexts, which have
+  their own.
+- **Devcontainer**: Node 22 comes from the `ghcr.io/devcontainers/features/node:1`
+  feature (`version: "22"`), pinned in `devcontainer-lock.json` (1.7.1,
+  digest fetched with `docker buildx imagetools inspect`) rather than a
+  manual install in `post-create.sh`. `post-create.sh` now installs
+  `src/server/requirements.txt` into `.venv` and runs `npm ci` in
+  `src/client`. Forwarded ports 5000 (Flask) → 5173 (Vite) and 8000
+  (uvicorn); added the Tailwind CSS IntelliSense extension; pytest args
+  (`devcontainer.json` + `.vscode/settings.json`) → `src/server`, which
+  picks up `src/server/pytest.ini`. A devcontainer rebuild was **not**
+  performed in this session (can't from inside it) — the existing
+  container's `.venv` and the `~/.local/node` Node were used instead.
+- `plans/monte-carlo-app.md` got a note under its intro (paths in Phases
+  1–7 are historical) and a "Phase 8: Client/server split" pointer section;
+  its old Final Recap / Deployment Plan were left as the historical record.
+- CLAUDE.md rewritten for the two-tier app only (commands, server/services,
+  client, deployment, gotchas, business rules); README lost its "Legacy
+  Flask app" section.
 
 ## Final Recap
-_(write when all phases complete: summary of the entire piece of work)_
+The single Flask app was split into a FastAPI server and a React SPA with
+identical behavior, then the Flask app was deleted:
+
+1. **Server** (`src/server`): FastAPI with `POST /api/validate`
+   (multipart → sprint summary + params), `POST /api/simulate` (JSON →
+   percentile rows + histogram), `GET /api/health`; every 422 is
+   `{errors: [str]}` with the original messages. The Pandas/NumPy services
+   moved over unchanged; `services/forecast.py` replaced `_run_and_render`.
+   30 pytest tests, including the fixture (24 sprints / 23 in pool) and
+   timing assertions.
+2. **Client** (`src/client`): Vite + React 18 + TypeScript + Tailwind 3,
+   react-router `/` → `/confirm` → `/results`, state in memory, owns all
+   presentation (colors, calendar grids, lazy-loaded Plotly histogram). 25
+   Vitest tests.
+3. **Containers**: server image (python:3.12-slim, uvicorn :8000) and
+   client image (nginx-unprivileged :8080, proxies `/api` via
+   `API_UPSTREAM`); root `docker-compose.yml` runs both.
+4. **Release tooling**: `deploy/build-docker-image.sh` builds/pushes both
+   images with one tag; the Deploy workflow tests both tiers before
+   publishing; the Helm chart has client + server Deployments/Services and
+   an ingress splitting `/api` and `/`.
+5. **Cleanup**: Flask app, `run.py`, root Dockerfile/tests/requirements
+   removed; devcontainer now provides Node 22; docs updated.
+
+Parity was checked in a real browser against the compose stack in Phases 2,
+3 and 5.
 
 ## Deployment Plan
-_(write when all phases complete: step-by-step deployment instructions)_
+1. **Merge** the migration commits to `main`.
+2. **Rebuild the devcontainer** once (adds the Node 22 feature and runs the
+   new `post-create.sh`); confirm `node -v` is 22.x and `cd src/client &&
+   npm test -- --run` passes.
+3. **Run the Deploy workflow** (Actions → Deploy → *Run workflow*) — the
+   first real run of the Phase 4 workflow. Check that "Test server", "Test
+   and build client" and "Build and push client and server images" pass and
+   that `montecarlosim/montecarlosim-client:<ver>` and
+   `montecarlosim/montecarlosim-server:<ver>` appear in
+   `dev.criticalmanufacturing.io`, and the git tag `<ver>` was pushed.
+4. **Set `tag: <ver>`** in `helm/chart/values.yaml` (it still says `0.2.0`,
+   which only exists for the old single image) and commit.
+5. **Upgrade the release** `monte-carlo-sim` (namespace `monte-carlo-sim`).
+   `helm/release.yml` points at `./apps/monte-carlo-sim/chart`, i.e. the
+   chart is consumed from a separate deployment repo: copy the updated
+   `helm/chart` there (or, if deploying by hand, `helm upgrade --install
+   monte-carlo-sim helm/chart -n monte-carlo-sim`). The old single
+   Deployment/Service are replaced by the client/server ones (chart
+   0.2.0); check both pods become Ready (probes on `/` and `/api/health`).
+6. **Smoke test** through the ingress host: `/api/health` →
+   `{"status":"ok"}`; upload `notebook/Sprint_History.xlsx` with Exclude
+   Latest=1 → 24-row confirm table → results with 4 cards, calendar and
+   histogram; also try the skip-validation path and a large (~10 MB) upload.
+7. **Rollback**: `helm rollback <release>` returns to the previous
+   single-image revision (its image tag still exists in the registry).

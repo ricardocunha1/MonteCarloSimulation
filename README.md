@@ -81,10 +81,6 @@ The app is split into two tiers under `src/`:
   served by nginx in production. nginx proxies `/api` to the server, so the
   browser only ever talks to one origin.
 
-The original Flask app (`src/app`, `run.py`, root `Dockerfile`) is still in
-the repo until the migration in `plans/client-server-migration.md`
-finishes.
-
 ## Running with Docker Compose
 
 ```bash
@@ -112,7 +108,8 @@ everything else to the client.
 
 ## Running locally (development)
 
-Requires Python 3.12 and Node 22.
+Requires Python 3.12 and Node 22 (both are set up by the devcontainer,
+which also installs the server and client dependencies).
 
 ```bash
 # Server — http://localhost:8000
@@ -132,18 +129,6 @@ npm run dev
 cd src/server && pytest              # server (or `pytest src/server` from the repo root)
 cd src/client && npm test -- --run   # client (Vitest)
 cd src/client && npm run build       # type-check + production build
-```
-
-## Legacy Flask app
-
-```bash
-source .venv/bin/activate
-pip install -r requirements.txt
-python run.py                # dev server, http://127.0.0.1:5000
-pytest                       # legacy test suite (tests/)
-
-docker build -t monte-carlo-sim .
-docker run --rm -p 5000:5000 monte-carlo-sim
 ```
 
 See `CLAUDE.md` for architecture notes and `specs/` for the full functional

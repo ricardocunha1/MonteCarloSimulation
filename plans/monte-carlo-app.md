@@ -7,6 +7,11 @@ Simulation Execution) described in `specs/montecarlosimulation.md`,
 covers everything from project scaffolding through a working, tested,
 browser-usable app that satisfies the README's acceptance checklist.
 
+> **Note:** the Flask app this plan built (`src/app`, `run.py`, `tests/`)
+> was replaced by a FastAPI server + React client — see Phase 8 below. File
+> paths and route names in Phases 1–7 are historical; the "Key decisions"
+> business rules still apply unchanged.
+
 ## Key decisions (do not re-litigate without user input)
 
 - **Scope**: full app, all three spec sections — not just the simulation
@@ -607,6 +612,20 @@ No new automated tests were added (the existing end-to-end/route tests
 don't assert on the calendar markup); verification instead relied on a
 direct unit-level check of `_build_calendar_data`'s band/tie-break logic
 plus a real-browser visual pass, per the Verification Plan above.
+
+## Phase 8: Client/server split
+Status: Complete
+
+Tracked in its own plan: `plans/client-server-migration.md`. The Flask app
+was split into `src/server` (FastAPI, `/api/validate`, `/api/simulate`,
+`/api/health`; the services from Phases 2–4 moved there unchanged, plus
+`services/forecast.py` for what was `_run_and_render`) and `src/client`
+(Vite + React + TypeScript SPA, which now owns the confirm/results
+presentation, histogram and calendar — `lib/calendar.ts` is the port of
+`_build_calendar_data`). The legacy Flask app, `run.py`, root `Dockerfile`
+and root `tests/` were removed; tests live in `src/server/tests` and
+`src/client/src/**/*.test.ts(x)`. All "Key decisions" above still hold
+(note the simulation cap was later raised from 5000 to 20000).
 
 ## Final Recap
 Built the full three-step Monte Carlo Simulator (Data Input → Data

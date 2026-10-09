@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CM brand colors, copied from the legacy src/app/templates/base.html. */
+/* CM brand colors, copied from the former Flask app's base.html template. */
 :root {
   --cm-dark-blue: #274B76;
   --cm-light-blue: #4E98D1;

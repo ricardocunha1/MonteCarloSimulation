@@ -6,13 +6,20 @@
         "ghcr.io/devcontainers/features/dotnet:2": {
             "version": "10.0"
         },
-        "ghcr.io/devcontainers/features/github-cli:1": {}
+        "ghcr.io/devcontainers/features/github-cli:1": {},
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "22"
+        }
     },
-    "forwardPorts": [5000],
+    "forwardPorts": [5173, 8000],
     "portsAttributes": {
-        "5000": {
-            "label": "Flask app",
+        "5173": {
+            "label": "Client (Vite dev server)",
             "onAutoForward": "notify"
+        },
+        "8000": {
+            "label": "Server (uvicorn)",
+            "onAutoForward": "silent"
         }
     },
     "postCreateCommand": "bash .devcontainer/post-create.sh",
@@ -31,11 +38,12 @@
                 "ms-azuretools.vscode-docker",
                 "github.vscode-github-actions",
                 "redhat.vscode-yaml",
-                "Anthropic.claude-code"
+                "Anthropic.claude-code",
+                "bradlc.vscode-tailwindcss"
             ],
             "settings": {
                 "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
-                "python.testing.pytestArgs": ["tests"],
+                "python.testing.pytestArgs": ["src/server"],
                 "python.testing.unittestEnabled": false,
                 "python.testing.pytestEnabled": true
             }

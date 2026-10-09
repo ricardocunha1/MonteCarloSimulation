@@ -1,7 +1,7 @@
 {
     "editor.formatOnSave": false,
     "python.testing.pytestArgs": [
-        "tests"
+        "src/server"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
