@@ -153,7 +153,7 @@ Status: Complete
       responsibility, not this function's.
 - [x] `src/app/templates/input.html`: form with file upload, Target Type
       dropdown (default "Items Resolved"), Target Value, Number of
-      Simulations (default 1000), Skip Historical Sprint Validation
+      Simulations (default 10000), Skip Historical Sprint Validation
       checkbox (default unchecked), Exclude Latest Sprints from Sampling
       (default 0), Sprint Start Date, Sprint Length (default 10). On
       re-render after a validation error, preserve previously submitted

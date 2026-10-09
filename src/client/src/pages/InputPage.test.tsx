@@ -31,7 +31,7 @@ describe("InputPage", () => {
   it("renders the form defaults", () => {
     renderAt("/", <InputPage />);
     expect(screen.getByLabelText(/Target Type/)).toHaveValue("Items Resolved");
-    expect(screen.getByLabelText(/Number of Simulations/)).toHaveValue(1000);
+    expect(screen.getByLabelText(/Number of Simulations/)).toHaveValue(10000);
     expect(screen.getByLabelText(/Sprint Length/)).toHaveValue(10);
     expect(screen.getByLabelText(/Exclude Latest Sprints/)).toHaveValue(0);
     expect(screen.getByLabelText(/Team Capacity Factor/)).toHaveValue(1);
@@ -70,7 +70,7 @@ describe("InputPage", () => {
     await waitFor(() => expect(validateMock).toHaveBeenCalledOnce());
     const formData = validateMock.mock.calls[0][0];
     expect(formData.get("target_type")).toBe("Items Resolved");
-    expect(formData.get("num_simulations")).toBe("1000");
+    expect(formData.get("num_simulations")).toBe("10000");
     expect(formData.get("target_value")).toBe("");
     expect(formData.has("skip_validation")).toBe(false);
     expect((formData.get("sprint_history_file") as File).name).toBe("history.xlsx");

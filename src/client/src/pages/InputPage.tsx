@@ -11,7 +11,7 @@ import { useForecast } from "../store";
 export const DEFAULT_FORM_VALUES = {
   target_type: "Items Resolved",
   target_value: "",
-  num_simulations: "1000",
+  num_simulations: "10000",
   skip_validation: false,
   exclude_latest_sprints: "0",
   sprint_start_date: "",
