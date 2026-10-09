@@ -5,7 +5,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v3
+              uses: actions/checkout@v7
               with:
                 fetch-depth: 0
                 fetch-tags: true
@@ -18,8 +18,30 @@ jobs:
               uses: gittools/actions/gitversion/execute@v4.7.0
             - name: Get Image Tag
               id: image_tag
-              run: echo "image_tag=${{ steps.app_version.outputs.major }}.${{ steps.app_version.outputs.minor }}.${{ steps.app_version.outputs.patch }}" >> $GITHUB_OUTPUT
-            - name: Run Deploy Script
+              run: echo "image_tag=${{ steps.app_version.outputs.major }}.${{ steps.app_version.outputs.minor }}.${{ steps.app_version.outputs.patch }}" >> "$GITHUB_OUTPUT"
+            - name: Set up Python
+              uses: actions/setup-python@v7
+              with:
+                python-version: '3.12'
+                cache: pip
+                cache-dependency-path: src/server/requirements.txt
+            - name: Set up Node
+              uses: actions/setup-node@v7
+              with:
+                node-version: '22'
+                cache: npm
+                cache-dependency-path: src/client/package-lock.json
+            - name: Test server
+              run: |
+                pip install -r src/server/requirements.txt
+                pytest src/server
+            - name: Test and build client
+              working-directory: src/client
+              run: |
+                npm ci
+                npm test -- --run
+                npm run build
+            - name: Build and push client and server images
               run: ./deploy/build-docker-image.sh -t ${{ steps.image_tag.outputs.image_tag }} -u ${{ secrets.CM_REPO_USERNAME }} -p ${{ secrets.CM_REPO_PAT }}
             - name: Apply Git Tag
               run: |

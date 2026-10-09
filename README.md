@@ -95,6 +95,21 @@ docker compose down
 The client container listens on 8080 (non-root nginx) and reaches the
 server through `API_UPSTREAM` (default `http://server:8000`).
 
+## Building and deploying
+
+```bash
+./deploy/build-docker-image.sh -h                         # usage
+./deploy/build-docker-image.sh -t 1.2.3 --no-push         # build client + server images
+./deploy/build-docker-image.sh -t 1.2.3 -u <user> -p <pat> # build and push both
+```
+
+Releases are made by the manual **Deploy** GitHub workflow: it computes the
+version with GitVersion, runs the server and client tests, builds and pushes
+`montecarlosim/montecarlosim-client` and `montecarlosim/montecarlosim-server`
+with that tag, and tags the commit. The Helm chart in `helm/chart` deploys
+both (set `tag` in `values.yaml`); the ingress sends `/api` to the server and
+everything else to the client.
+
 ## Running locally (development)
 
 Requires Python 3.12 and Node 22.

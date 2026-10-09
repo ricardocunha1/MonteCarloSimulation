@@ -31,7 +31,17 @@ Node is not installed in the devcontainer yet (planned for Phase 5); if
 `node` is missing, a Node 22 may be unpacked in `~/.local/node`
 (`export PATH=~/.local/node/bin:$PATH`). Docker is docker-outside-of-docker:
 ports published by `docker compose` are reachable from inside the
-devcontainer at `172.17.0.1:<port>`, not `localhost`.
+devcontainer at `172.17.0.1:<port>`, not `localhost`; bind mounts of
+`$PWD` do work. Attached `docker run` occasionally drops stdout here — use
+`docker run -d --name x ...; docker wait x; docker logs x` when output
+matters. `helm`, `actionlint`, `shellcheck` aren't installed; run them via
+`alpine/helm`, `rhysd/actionlint`, `koalaman/shellcheck` images.
+
+```bash
+# Release (normally done by the manual "Deploy" GitHub workflow)
+./deploy/build-docker-image.sh -t <tag> --no-push          # build both images
+./deploy/build-docker-image.sh -t <tag> -u <user> -p <pat> # build + push both
+```
 
 ```bash
 # Legacy Flask app
@@ -78,6 +88,15 @@ There is no lint/type-check tooling configured in this repo.
     timeout) with an SPA `try_files` fallback.
   - Root `docker-compose.yml`: `server` (healthcheck) + `client`
     (`8080:8080`, waits for server healthy).
+  - Deployment: `deploy/build-docker-image.sh` builds
+    `montecarlosim/montecarlosim-{client,server}` (same tag, contexts
+    `src/client` / `src/server`) and pushes to
+    `dev.criticalmanufacturing.io`. `.github/workflows/deploy.yml`
+    (manual dispatch) computes the tag with GitVersion, runs server pytest +
+    client Vitest/build, then the script, then pushes a git tag. Helm chart
+    `helm/chart` (OpenShift): client + server Deployments/Services
+    (Services expose port 80 → 8080 / 8000), ingress routes `/api` → server
+    and `/` → client; `values.yaml` has one shared `tag`.
   - Gotchas: `package-lock.json` was generated with npm 11 because npm 10
     crashes resolving vitest 4's peer deps from scratch (`npm ci` with npm
     10 is fine). The root `.gitignore` ignores `lib/`; `src/client/.gitignore`

@@ -234,13 +234,13 @@ Key decisions / things to know:
   Commands + Architecture cover the two-tier layout.
 
 ## Phase 4: build-docker-image.sh, GitHub workflow, helm chart
-Status: Not started
+Status: Complete
 
-- [ ] Update `deploy/build-docker-image.sh`: replace the single `IMAGE` with `CLIENT_IMAGE="montecarlosim/montecarlosim-client"` and `SERVER_IMAGE="montecarlosim/montecarlosim-server"` (options `--client-image`/`--server-image`; keep `-t`, `-u`, `-p`, `-r`, `--no-push`, `-h`; update `help()`; drop/repurpose `-i`). Build with `docker build -t <registry>/<image>:<tag> src/client` and `src/server` (context = each folder), fail fast with the existing red/green messages, login once, push both. Keep it runnable from the repo root as the workflow does.
-- [ ] Add an optional `--only client|server` flag (default both) for faster local iteration.
-- [ ] Update `.github/workflows/deploy.yml`: keep GitVersion + tag steps; the "Run Deploy Script" step builds/pushes both images with the same `image_tag` (no input changes needed for secrets `CM_REPO_USERNAME`/`CM_REPO_PAT`); rename the step to "Build and push client and server images"; add a step before it to run server tests (`pip install -r src/server/requirements.txt && pytest src/server`) and client tests/build (`npm ci && npm test -- --run` in `src/client`) so a broken tier never gets published; use `actions/setup-python` and `actions/setup-node`.
-- [ ] Update helm chart in `helm/chart/`: `values.yaml` → `registry`, `client_image`, `server_image`, single shared `tag`; split `monte-carlo-sim-deployment.yaml` and `monte-carlo-sim-service.yaml` into client (container port 8080 — see Phase 3) and server (port 8000, memory limits raised if profiling shows pandas needs >200Mi) variants; client container gets env `API_UPSTREAM=http://monte-carlo-sim-server-service:80`; update `monte-carlo-sim-ingress.yaml` to route `/api` → server service and `/` → client service (keep the OpenShift annotations and timeouts).
-- [ ] Bump `Chart.yaml` version/appVersion per repo convention if one exists (check `GitVersion.yml`/existing tag history first).
+- [x] Update `deploy/build-docker-image.sh`: replace the single `IMAGE` with `CLIENT_IMAGE="montecarlosim/montecarlosim-client"` and `SERVER_IMAGE="montecarlosim/montecarlosim-server"` (options `--client-image`/`--server-image`; keep `-t`, `-u`, `-p`, `-r`, `--no-push`, `-h`; update `help()`; drop/repurpose `-i`). Build with `docker build -t <registry>/<image>:<tag> src/client` and `src/server` (context = each folder), fail fast with the existing red/green messages, login once, push both. Keep it runnable from the repo root as the workflow does.
+- [x] ~~Add an optional `--only client|server` flag (default both) for faster local iteration.~~ Implemented, then **removed at the user's request**: the script always builds (and pushes) both images, so a release can't mix client/server versions. `--only` is now an unknown option (exit 1).
+- [x] Update `.github/workflows/deploy.yml`: keep GitVersion + tag steps; the "Run Deploy Script" step builds/pushes both images with the same `image_tag` (no input changes needed for secrets `CM_REPO_USERNAME`/`CM_REPO_PAT`); rename the step to "Build and push client and server images"; add a step before it to run server tests (`pip install -r src/server/requirements.txt && pytest src/server`) and client tests/build (`npm ci && npm test -- --run` in `src/client`) so a broken tier never gets published; use `actions/setup-python` and `actions/setup-node`.
+- [x] Update helm chart in `helm/chart/`: `values.yaml` → `registry`, `client_image`, `server_image`, single shared `tag`; split `monte-carlo-sim-deployment.yaml` and `monte-carlo-sim-service.yaml` into client (container port 8080 — see Phase 3) and server (port 8000, memory limits raised if profiling shows pandas needs >200Mi) variants; client container gets env `API_UPSTREAM=http://monte-carlo-sim-server-service:80`; update `monte-carlo-sim-ingress.yaml` to route `/api` → server service and `/` → client service (keep the OpenShift annotations and timeouts).
+- [x] Bump `Chart.yaml` version/appVersion per repo convention if one exists (check `GitVersion.yml`/existing tag history first).
 
 ### Verification Plan
 - `bash -n deploy/build-docker-image.sh` → no syntax errors; `./deploy/build-docker-image.sh -h` → shows new usage; `./deploy/build-docker-image.sh -t test --no-push` → builds both images; `docker images | grep montecarlosim` lists `-client:test` and `-server:test`.
@@ -250,7 +250,60 @@ Status: Not started
 - Workflow itself can only be fully verified by a manual `workflow_dispatch` run — record that as a manual post-merge check in the Deployment Plan.
 
 ### Phase Summary
-_(write when phase completes)_
+**Done.** Verification: `bash -n` OK; `-h` shows the new usage;
+`-t test --no-push` built
+`dev.criticalmanufacturing.io/montecarlosim/montecarlosim-{client,server}:test`;
+`-t test` without creds built both then exited 1 with "USERNAME and PAT are
+required to push the Docker images."; unknown `-i` / `--only`, missing
+`-t` → exit 1. Workflow YAML
+parses; `actionlint` 1.7.7 (via `rhysd/actionlint` image, with its
+shellcheck integration) clean. `helm lint helm/chart` → 0 failed;
+`helm template` → 2 Deployments, 2 Services, 1 Ingress (`/api` → server
+service, `/` → client service). The workflow's test steps were reproduced:
+`pytest src/server` from the repo root in a clean `python:3.12-slim` → 30
+passed; `npm ci && npm test -- --run && npm run build` → 25 passed, build
+OK. Test images removed afterwards.
+
+Key decisions / things to know:
+- **Script**: must be run from the repo root (build contexts are the
+  relative paths `src/client` / `src/server`, as the workflow runs it); an
+  earlier script-path-relative `REPO_ROOT` was removed at the user's
+  request. `-i/--image-name` was dropped (now "Unknown option"); use
+  `--client-image` / `--server-image`. Login now uses
+  `--password-stdin` (the PAT no longer appears in the process list). The
+  creds check still happens *after* building (as before / as the plan's
+  verification expects). shellcheck only reports SC2059 (colour vars in
+  `printf` format strings), carried over from the original style.
+- **Workflow**: added `actions/setup-python@v7` (3.12, pip cache) and
+  `actions/setup-node@v7` (22, npm cache), then "Test server" and "Test and
+  build client" steps before "Build and push client and server images".
+  Also bumped `actions/checkout@v3` → `@v7` (actionlint: v3's runtime is
+  too old for GitHub Actions) and quoted `"$GITHUB_OUTPUT"`. Secrets and
+  GitVersion/tag steps unchanged. Not runnable locally — needs a manual
+  `workflow_dispatch` after merge (Deployment Plan).
+- **Helm**: `values.yaml` → `registry`, `client_image`, `server_image`,
+  shared `tag`. Old `monte-carlo-sim-deployment.yaml` /
+  `-service.yaml` were `git rm`'d and replaced by
+  `monte-carlo-sim-{client,server}-{deployment,service}.yaml`. Labels
+  `app: monte-carlo-sim-client|server`. Both Services expose port 80
+  (client → targetPort 8080, server → 8000). Client gets
+  `API_UPSTREAM=http://monte-carlo-sim-server-service:80`; the ingress
+  routes `/api` straight to the server anyway, so nginx's proxy is only a
+  fallback in-cluster. HTTP readiness/liveness probes added (`/` and
+  `/api/health`). Ingress OpenShift annotations/timeouts untouched.
+- **Server resources raised** to requests 100m/256Mi, limits 1000m/512Mi
+  based on profiling the server image: ~95Mi RSS idle, ~155Mi peak with 4
+  concurrent 20000-simulation requests, but **~272Mi** parsing a 12 MB /
+  150k-row Excel (24 s unthrottled CPU) — the old 200Mi limit would
+  OOM-kill large uploads (nginx allows 20 MB). Client (nginx) gets
+  10m/32Mi requests, 100m/64Mi limits.
+- **`Chart.yaml` version 0.1.0 → 0.2.0.** No convention existed (it was
+  never bumped and has no `appVersion`); bumped minor because the values
+  keys changed incompatibly. `appVersion` not added.
+- **`values.yaml` `tag` is still `0.2.0`** — that tag exists only for the
+  *old* single image, so `montecarlosim-client/-server:0.2.0` won't exist.
+  It must be set to the version the Deploy workflow produces for the first
+  two-image release before `helm upgrade` (Deployment Plan).
 
 ## Phase 5: Remove legacy Flask app
 Status: Not started
