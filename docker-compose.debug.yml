@@ -1,0 +1,24 @@
+# Debug override: runs the server under debugpy (port 5678) so VS Code can
+# attach with the "Python Debugger: Remote Attach (Docker)" launch config.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build
+#
+# debugpy is installed at container start into /tmp so the production image
+# (and requirements.txt) stay untouched. The local source is bind-mounted so
+# breakpoints match the code that is running.
+services:
+  server:
+    environment:
+      PYTHONPATH: /tmp/debugpy
+    volumes:
+      - ./src/server/app:/app/app:ro
+    ports:
+      - "8000:8000"
+      - "5678:5678"
+    command:
+      - sh
+      - -c
+      - >-
+        pip install --no-cache-dir --quiet --target /tmp/debugpy debugpy &&
+        exec python -m debugpy --listen 0.0.0.0:5678
+        -m uvicorn app.main:app --host 0.0.0.0 --port 8000

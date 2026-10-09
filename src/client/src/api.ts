@@ -27,6 +27,38 @@ function isErrorResponse(body: unknown): body is ErrorResponse {
   );
 }
 
+const MAX_TEXT_MESSAGE_LENGTH = 300;
+
+/** The server's own messages from an error body, whatever its shape: the
+ * app's `{errors: [...]}`, FastAPI's `{detail: str | [{msg}]}`, a
+ * `{message}` object, or a short plain-text body. Empty when there is none
+ * worth showing (e.g. a proxy's HTML error page). */
+function extractErrorMessages(body: unknown, text: string): string[] {
+  if (isErrorResponse(body)) {
+    return body.errors.map(String).filter(Boolean);
+  }
+  if (typeof body === "object" && body !== null) {
+    const { detail, message } = body as { detail?: unknown; message?: unknown };
+    if (typeof detail === "string" && detail) {
+      return [detail];
+    }
+    if (Array.isArray(detail)) {
+      return detail
+        .map((item) => (typeof item === "string" ? item : (item as { msg?: unknown })?.msg))
+        .filter((msg): msg is string => typeof msg === "string" && msg !== "");
+    }
+    if (typeof message === "string" && message) {
+      return [message];
+    }
+    return [];
+  }
+  const trimmed = text.trim();
+  if (trimmed && trimmed.length <= MAX_TEXT_MESSAGE_LENGTH && !trimmed.startsWith("<")) {
+    return [trimmed];
+  }
+  return [];
+}
+
 async function request<T>(url: string, init: RequestInit): Promise<T> {
   let response: Response;
   try {
@@ -35,19 +67,18 @@ async function request<T>(url: string, init: RequestInit): Promise<T> {
     throw new ApiError([`Could not reach the server: ${(exc as Error).message}`], 0);
   }
 
+  const text = await response.text().catch(() => "");
   let body: unknown = null;
   try {
-    body = await response.json();
+    body = JSON.parse(text);
   } catch {
-    // Non-JSON body (e.g. a proxy error page); handled below.
+    // Non-JSON body (e.g. plain text or a proxy error page); handled below.
   }
 
   if (!response.ok) {
-    if (isErrorResponse(body)) {
-      throw new ApiError(body.errors, response.status);
-    }
+    const errors = extractErrorMessages(body, text);
     throw new ApiError(
-      [`Unexpected server error (HTTP ${response.status}).`],
+      errors.length > 0 ? errors : [`Unexpected server error (HTTP ${response.status}).`],
       response.status,
     );
   }

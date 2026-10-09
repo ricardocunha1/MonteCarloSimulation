@@ -4,9 +4,10 @@ import type { SimulateResponse, ValidateResponse } from "./types";
 // In-memory only (no storage): replaces the legacy hidden-field JSON blob.
 // A page reload drops the state and the step pages redirect back to "/".
 
-export type Execution =
-  | { status: "ok"; result: SimulateResponse; sprintStartDate: string }
-  | { status: "error"; errors: string[] };
+export interface Execution {
+  result: SimulateResponse;
+  sprintStartDate: string;
+}
 
 interface ForecastState {
   validation: ValidateResponse | null;

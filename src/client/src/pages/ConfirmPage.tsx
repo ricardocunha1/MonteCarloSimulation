@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
+import { errorMessages, useToast } from "../components/Toast";
 import { runSimulation } from "../lib/runSimulation";
 import { useForecast } from "../store";
 
@@ -8,6 +9,7 @@ import { useForecast } from "../store";
 export function ConfirmPage() {
   const navigate = useNavigate();
   const { validation, setExecution } = useForecast();
+  const { showError } = useToast();
   const [submitting, setSubmitting] = useState(false);
 
   if (!validation) {
@@ -20,8 +22,8 @@ export function ConfirmPage() {
       setExecution(await runSimulation(validation!));
       navigate("/results");
     } catch (exc) {
-      setExecution({ status: "error", errors: [String(exc)] });
-      navigate("/results");
+      showError(errorMessages(exc), "Simulation error");
+      setSubmitting(false);
     }
   }
 

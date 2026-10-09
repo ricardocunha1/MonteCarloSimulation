@@ -1,0 +1,44 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // Attach to the server container started with:
+            //   docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build
+            // 5678 is debugpy (8000 is the HTTP API). From inside the devcontainer
+            // (docker-outside-of-docker) published ports are on 172.17.0.1, not localhost.
+            "name": "Python Debugger: Remote Attach (Docker)",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "172.17.0.1",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/src/server",
+                    "remoteRoot": "/app"
+                }
+            ],
+            "justMyCode": true
+        },
+        {
+            // Same as README: `cd src/server && uvicorn app.main:app --reload --port 8000`
+            "name": "Python Debugger: FastAPI",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "cwd": "${workspaceFolder}/src/server",
+            "args": [
+                "app.main:app",
+                "--reload",
+                "--port",
+                "8000"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

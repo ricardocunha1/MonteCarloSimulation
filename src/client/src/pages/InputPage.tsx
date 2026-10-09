@@ -1,9 +1,9 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { ApiError, validate } from "../api";
-import { ErrorList } from "../components/ErrorList";
+import { validate } from "../api";
 import { InfoIcon } from "../components/InfoIcon";
 import { Layout } from "../components/Layout";
+import { errorMessages, useToast } from "../components/Toast";
 import { runSimulation } from "../lib/runSimulation";
 import { useForecast } from "../store";
 
@@ -32,9 +32,9 @@ function Required() {
 export function InputPage() {
   const navigate = useNavigate();
   const { setValidation, setExecution } = useForecast();
+  const { showError } = useToast();
   const [values, setValues] = useState<FormValues>(DEFAULT_FORM_VALUES);
   const [file, setFile] = useState<File | null>(null);
-  const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const onText = (field: TextField) => (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -67,15 +67,13 @@ export function InputPage() {
         navigate("/confirm");
       }
     } catch (exc) {
-      setErrors(exc instanceof ApiError ? exc.errors : [String(exc)]);
+      showError(errorMessages(exc), "Please correct the following:");
       setSubmitting(false);
     }
   }
 
   return (
     <Layout title="Monte Carlo Simulator – Data Input" currentStep={1}>
-      <ErrorList errors={errors} />
-
       <form onSubmit={onSubmit} encType="multipart/form-data" className="space-y-6 max-w-xl mx-auto">
         <div>
           <label className={labelClass} htmlFor="sprint_history_file">

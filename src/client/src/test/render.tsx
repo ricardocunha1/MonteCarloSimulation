@@ -1,6 +1,7 @@
 import { render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { ToastProvider } from "../components/Toast";
 import { ForecastProvider, type Execution } from "../store";
 import type { ValidateResponse } from "../types";
 
@@ -32,6 +33,7 @@ export function renderAt(
     [path]: element,
   };
   return render(
+    <ToastProvider>
     <ForecastProvider initialValidation={validation} initialExecution={execution}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
@@ -41,6 +43,7 @@ export function renderAt(
         </Routes>
         <LocationProbe />
       </MemoryRouter>
-    </ForecastProvider>,
+    </ForecastProvider>
+    </ToastProvider>,
   );
 }

@@ -1,6 +1,5 @@
 import { lazy, Suspense, useMemo } from "react";
-import { Link, Navigate } from "react-router-dom";
-import { ErrorList } from "../components/ErrorList";
+import { Navigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { buildCalendarData, type CalendarData } from "../lib/calendar";
 import { confidenceColor, OVERFLOW_LABEL } from "../lib/confidence";
@@ -11,24 +10,13 @@ const HistogramChart = lazy(() => import("../components/HistogramChart"));
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
-// Port of results.html (success) and error.html (execution failure).
+// Port of results.html. Execution failures are reported as toasts by the
+// page that ran the simulation, so this page only renders successes.
 export function ResultsPage() {
   const { execution } = useForecast();
 
   if (!execution) {
     return <Navigate to="/" replace />;
-  }
-
-  if (execution.status === "error") {
-    return (
-      <Layout title="Monte Carlo Simulator – Error" currentStep={3}>
-        <h2 className="text-lg font-semibold mb-6">Simulation Error</h2>
-        <ErrorList errors={execution.errors} />
-        <Link to="/" className="rounded px-4 py-2 font-medium inline-block" style={{ backgroundColor: "var(--cm-light-blue)", color: "#04101d" }}>
-          Start Over
-        </Link>
-      </Layout>
-    );
   }
 
   return <Results result={execution.result} sprintStartDate={execution.sprintStartDate} />;

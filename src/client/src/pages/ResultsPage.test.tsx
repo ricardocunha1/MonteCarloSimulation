@@ -19,7 +19,7 @@ describe("ResultsPage", () => {
 
   it("renders percentile cards, including the >50 sentinel", async () => {
     renderAt("/results", <ResultsPage />, {
-      execution: { status: "ok", result, sprintStartDate: "2026-01-05" },
+      execution: { result, sprintStartDate: "2026-01-05" },
     });
 
     expect(screen.getByText("100 Items Resolved")).toBeInTheDocument();
@@ -39,7 +39,7 @@ describe("ResultsPage", () => {
 
   it("renders the calendar without the unreached percentile", () => {
     renderAt("/results", <ResultsPage />, {
-      execution: { status: "ok", result, sprintStartDate: "2026-01-05" },
+      execution: { result, sprintStartDate: "2026-01-05" },
     });
     expect(screen.getByText("Calendar View")).toBeInTheDocument();
     expect(screen.getByText("January 2026")).toBeInTheDocument();
@@ -49,19 +49,11 @@ describe("ResultsPage", () => {
 
   it("lists only non-empty histogram buckets in the count table", () => {
     renderAt("/results", <ResultsPage />, {
-      execution: { status: "ok", result, sprintStartDate: "2026-01-05" },
+      execution: { result, sprintStartDate: "2026-01-05" },
     });
     const table = screen.getByRole("columnheader", { name: "Count" }).closest("table")!;
     const bodyRows = within(table).getAllByRole("row").slice(1);
     expect(bodyRows.map((row) => row.textContent)).toEqual(["9600", "10200", "11150", ">5050"]);
   });
 
-  it("renders execution errors with a start-over link", () => {
-    renderAt("/results", <ResultsPage />, {
-      execution: { status: "error", errors: ["Could not run simulation: bad value"] },
-    });
-    expect(screen.getByText("Simulation Error")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("Could not run simulation: bad value");
-    expect(screen.getByRole("link", { name: "Start Over" })).toHaveAttribute("href", "/");
-  });
 });

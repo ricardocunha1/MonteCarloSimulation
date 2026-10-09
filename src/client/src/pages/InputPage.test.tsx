@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api";
 import { ApiError } from "../api";
 import { result, validation } from "../test/fixtures";
-import { useForecast } from "../store";
 import { renderAt } from "../test/render";
 import { InputPage } from "./InputPage";
 
@@ -38,7 +37,7 @@ describe("InputPage", () => {
     expect(screen.getByLabelText(/Skip Historical Sprint Validation/)).not.toBeChecked();
   });
 
-  it("shows server errors and keeps the entered values", async () => {
+  it("shows server errors in a toast and keeps the entered values", async () => {
     validateMock.mockRejectedValue(
       new ApiError(["Number of Simulations must not exceed 20000.", "A Sprint History Excel file is required."], 422),
     );
@@ -97,19 +96,27 @@ describe("InputPage", () => {
     expect(simulateMock).toHaveBeenCalledWith(validation.summary, { ...validation.params, skip_validation: true });
   });
 
-  it("shows simulation errors on the results step when skipping validation", async () => {
+  it("shows simulation errors in a toast and stays on the input step when skipping validation", async () => {
     validateMock.mockResolvedValue(validation);
     simulateMock.mockRejectedValue(new ApiError(["No sprints are available in the sampling pool."], 422));
-    renderAt("/", <InputPage />, { routes: { "/results": <ResultsProbe /> } });
+    renderAt("/", <InputPage />);
     await userEvent.click(screen.getByLabelText(/Skip Historical Sprint Validation/));
 
     submit();
 
-    expect(await screen.findByText("No sprints are available in the sampling pool.")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("No sprints are available in the sampling pool.");
+    expect(screen.getByTestId("location")).toHaveTextContent("/");
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+  });
+
+  it("dismisses the toast", async () => {
+    validateMock.mockRejectedValue(new ApiError(["A Sprint History Excel file is required."], 422));
+    renderAt("/", <InputPage />);
+    submit();
+    await screen.findByRole("alert");
+
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
-
-function ResultsProbe() {
-  const { execution } = useForecast();
-  return <p>{execution?.status === "error" ? execution.errors.join(",") : "none"}</p>;
-}

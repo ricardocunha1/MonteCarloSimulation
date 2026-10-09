@@ -106,6 +106,12 @@ client's type-check.
   - `lib/runSimulation.ts` is the one simulate → execution helper used by
     both the skip-validation branch of `InputPage` and `ConfirmPage`, so
     their behavior is identical by construction — don't duplicate it.
+  - API failures are shown as toasts (`components/Toast.tsx`:
+    `ToastProvider` in `main.tsx` and the test `renderAt` helper,
+    `useToast().showError`, `errorMessages(exc)`); the page stays where it
+    is, so `store.tsx`'s `Execution` only represents success. `api.ts`
+    pulls the server's own message out of `{errors}`, FastAPI `{detail}`,
+    `{message}` or a short plain-text body, else a generic HTTP message.
   - The client owns presentation: confidence colors (`lib/confidence.ts`,
     mirroring the `--cm-*` CSS vars in `index.css`), calendar month grids
     (`lib/calendar.ts`, integer UTC day arithmetic — no timezone shifts),
