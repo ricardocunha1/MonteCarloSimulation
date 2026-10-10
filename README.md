@@ -76,6 +76,8 @@ app reports the specific problem instead of failing silently.
 
 ## Architecture
 
+![Architecture Diagram](docs/architecture.png)
+
 The app is split into two tiers under `src/`:
 
 - **`src/server`** — FastAPI API (Pandas/NumPy simulation logic), port 8000.
