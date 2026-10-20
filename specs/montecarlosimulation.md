@@ -1,4 +1,10 @@
-# Monte Carlo Simulator
+# CM Estimations Hub — Monte Carlo
+
+> **Note:** the app formerly called "Monte Carlo Simulator" is now the
+> **CM Estimations Hub**, a dashboard hosting estimation tools. This spec
+> (and the Data Input / Data Validation / Simulation Execution specs)
+> describes its **Monte Carlo** sub-application, served under
+> `/monte-carlo`. The business rules below are unchanged.
 
 This application simulates the number of sprints required to complete a target number of items or story points based on historical sprint data from Critical Manufacturing (CM) projects. The simulation uses a Monte Carlo method to generate random samples from the historical data and estimate the distribution of sprints needed to reach the specified target.
 

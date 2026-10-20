@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Layout } from "../components/Layout";
+import { MonteCarloLayout } from "../components/MonteCarloLayout";
 import { errorMessages, useToast } from "../components/Toast";
 import { runSimulation } from "../lib/runSimulation";
 import { useForecast } from "../store";
@@ -13,14 +13,14 @@ export function ConfirmPage() {
   const [submitting, setSubmitting] = useState(false);
 
   if (!validation) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/monte-carlo" replace />;
   }
 
   async function onRun() {
     setSubmitting(true);
     try {
       setExecution(await runSimulation(validation!));
-      navigate("/results");
+      navigate("/monte-carlo/results");
     } catch (exc) {
       showError(errorMessages(exc), "Simulation error");
       setSubmitting(false);
@@ -28,7 +28,7 @@ export function ConfirmPage() {
   }
 
   return (
-    <Layout title="Monte Carlo Simulator – Confirm Sprint Data" currentStep={2}>
+    <MonteCarloLayout pageTitle="Confirm Sprint Data" currentStep={2}>
       <div className="rounded-lg border border-slate-800 bg-slate-900 overflow-x-auto mb-6">
         <table className="min-w-full text-sm text-left">
           <thead className="text-slate-400 border-b border-slate-800">
@@ -67,6 +67,6 @@ export function ConfirmPage() {
           {submitting ? "Running…" : "Confirm and Run Simulation"}
         </button>
       </div>
-    </Layout>
+    </MonteCarloLayout>
   );
 }

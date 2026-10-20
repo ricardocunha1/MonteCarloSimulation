@@ -31,3 +31,46 @@ def test_parse_sprint_history_missing_column_raises(monkeypatch):
 
     with pytest.raises(DataValidationError):
         parse_sprint_history(object())
+
+
+class _NonSeekableUpload:
+    """Mimics a Python 3.10 SpooledTemporaryFile: read/seek but no seekable()."""
+
+    def __init__(self, data: bytes):
+        self._data = data
+        self._pos = 0
+
+    def read(self, size: int = -1) -> bytes:
+        chunk = self._data[self._pos:] if size < 0 else self._data[self._pos:self._pos + size]
+        self._pos += len(chunk)
+        return chunk
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        self._pos = offset
+        return self._pos
+
+
+def test_parse_sprint_history_accepts_upload_without_seekable():
+    upload = _NonSeekableUpload(FIXTURE_PATH.read_bytes())
+    assert not hasattr(upload, "seekable")
+
+    df = parse_sprint_history(upload)
+
+    assert set(["State", "Iteration Path", "Resolved Date", "Story Points"]) <= set(df.columns)
+    assert len(build_sprint_summary(df, exclude_latest=1)) == 24
+
+
+def test_parse_sprint_history_rereads_from_start_of_stream():
+    upload = _NonSeekableUpload(FIXTURE_PATH.read_bytes())
+    upload.read(10)
+
+    df = parse_sprint_history(upload)
+
+    assert len(df) > 0
+
+
+def test_parse_sprint_history_unreadable_bytes_raises_data_validation_error():
+    upload = _NonSeekableUpload(b"definitely not an excel workbook")
+
+    with pytest.raises(DataValidationError, match="Could not read Excel file"):
+        parse_sprint_history(upload)

@@ -28,7 +28,7 @@ describe("InputPage", () => {
   });
 
   it("renders the form defaults", () => {
-    renderAt("/", <InputPage />);
+    renderAt("/monte-carlo", <InputPage />);
     expect(screen.getByLabelText(/Target Type/)).toHaveValue("Items Resolved");
     expect(screen.getByLabelText(/Number of Simulations/)).toHaveValue(10000);
     expect(screen.getByLabelText(/Sprint Length/)).toHaveValue(10);
@@ -41,7 +41,7 @@ describe("InputPage", () => {
     validateMock.mockRejectedValue(
       new ApiError(["Number of Simulations must not exceed 20000.", "A Sprint History Excel file is required."], 422),
     );
-    renderAt("/", <InputPage />);
+    renderAt("/monte-carlo", <InputPage />);
     const user = userEvent.setup();
     await user.clear(screen.getByLabelText(/Number of Simulations/));
     await user.type(screen.getByLabelText(/Number of Simulations/), "20001");
@@ -55,12 +55,12 @@ describe("InputPage", () => {
     expect(alert).toHaveTextContent("A Sprint History Excel file is required.");
     expect(screen.getByLabelText(/Number of Simulations/)).toHaveValue(20001);
     expect(screen.getByLabelText(/Target Value/)).toHaveValue(100);
-    expect(screen.getByTestId("location")).toHaveTextContent("/");
+    expect(screen.getByTestId("location")).toHaveTextContent(/^\/monte-carlo$/);
   });
 
   it("sends every field as multipart form data", async () => {
     validateMock.mockResolvedValue(validation);
-    renderAt("/", <InputPage />);
+    renderAt("/monte-carlo", <InputPage />);
     const file = new File(["xlsx"], "history.xlsx");
     await userEvent.upload(screen.getByLabelText(/Sprint History Data/), file);
 
@@ -77,21 +77,21 @@ describe("InputPage", () => {
 
   it("goes to the confirm step after a successful validation", async () => {
     validateMock.mockResolvedValue(validation);
-    renderAt("/", <InputPage />);
+    renderAt("/monte-carlo", <InputPage />);
     submit();
-    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/confirm"));
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\/monte-carlo\/confirm$/));
     expect(simulateMock).not.toHaveBeenCalled();
   });
 
   it("skips straight to results when skip validation is checked", async () => {
     validateMock.mockResolvedValue({ ...validation, params: { ...validation.params, skip_validation: true } });
     simulateMock.mockResolvedValue(result);
-    renderAt("/", <InputPage />);
+    renderAt("/monte-carlo", <InputPage />);
     await userEvent.click(screen.getByLabelText(/Skip Historical Sprint Validation/));
 
     submit();
 
-    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/results"));
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\/monte-carlo\/results$/));
     expect(validateMock.mock.calls[0][0].get("skip_validation")).toBe("on");
     expect(simulateMock).toHaveBeenCalledWith(validation.summary, { ...validation.params, skip_validation: true });
   });
@@ -99,19 +99,19 @@ describe("InputPage", () => {
   it("shows simulation errors in a toast and stays on the input step when skipping validation", async () => {
     validateMock.mockResolvedValue(validation);
     simulateMock.mockRejectedValue(new ApiError(["No sprints are available in the sampling pool."], 422));
-    renderAt("/", <InputPage />);
+    renderAt("/monte-carlo", <InputPage />);
     await userEvent.click(screen.getByLabelText(/Skip Historical Sprint Validation/));
 
     submit();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("No sprints are available in the sampling pool.");
-    expect(screen.getByTestId("location")).toHaveTextContent("/");
+    expect(screen.getByTestId("location")).toHaveTextContent(/^\/monte-carlo$/);
     expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
   });
 
   it("dismisses the toast", async () => {
     validateMock.mockRejectedValue(new ApiError(["A Sprint History Excel file is required."], 422));
-    renderAt("/", <InputPage />);
+    renderAt("/monte-carlo", <InputPage />);
     submit();
     await screen.findByRole("alert");
 

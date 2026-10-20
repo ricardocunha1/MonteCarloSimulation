@@ -20,13 +20,13 @@ describe("ConfirmPage", () => {
   });
 
   it("redirects to the input step without validation state", () => {
-    renderAt("/confirm", <ConfirmPage />);
-    expect(screen.getByTestId("location")).toHaveTextContent("/");
+    renderAt("/monte-carlo/confirm", <ConfirmPage />);
+    expect(screen.getByTestId("location")).toHaveTextContent(/^\/monte-carlo$/);
     expect(screen.getByText("input page")).toBeInTheDocument();
   });
 
   it("renders the sprint summary table", () => {
-    renderAt("/confirm", <ConfirmPage />, { validation });
+    renderAt("/monte-carlo/confirm", <ConfirmPage />, { validation });
     const rows = screen.getAllByRole("row");
     expect(within(rows[0]).getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
       "Sprint", "Items Resolved", "Story Points", "Last Resolved Date", "Recency Rank", "In Sampling Pool?",
@@ -40,21 +40,21 @@ describe("ConfirmPage", () => {
 
   it("runs the simulation and goes to results", async () => {
     simulateMock.mockResolvedValue(result);
-    renderAt("/confirm", <ConfirmPage />, { validation });
+    renderAt("/monte-carlo/confirm", <ConfirmPage />, { validation });
     await userEvent.click(screen.getByRole("button", { name: "Confirm and Run Simulation" }));
-    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/results"));
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\/monte-carlo\/results$/));
     expect(simulateMock).toHaveBeenCalledWith(validation.summary, validation.params);
   });
 
   it("shows simulation errors in a toast and stays on the confirm step", async () => {
     simulateMock.mockRejectedValue(new ApiError(["No sprints are available in the sampling pool."], 422));
-    renderAt("/confirm", <ConfirmPage />, { validation });
+    renderAt("/monte-carlo/confirm", <ConfirmPage />, { validation });
     await userEvent.click(screen.getByRole("button", { name: "Confirm and Run Simulation" }));
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Simulation error");
     expect(alert).toHaveTextContent("No sprints are available in the sampling pool.");
-    expect(screen.getByTestId("location")).toHaveTextContent("/confirm");
+    expect(screen.getByTestId("location")).toHaveTextContent(/^\/monte-carlo\/confirm$/);
     expect(screen.getByRole("button", { name: "Confirm and Run Simulation" })).toBeEnabled();
   });
 });

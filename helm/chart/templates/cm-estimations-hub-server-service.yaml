@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: monte-carlo-sim-client-service
+  name: cm-estimations-hub-server-service
   namespace: {{ .Values.namespace }}
 spec:
   selector:
-    app: monte-carlo-sim-client
+    app: cm-estimations-hub-server
   ports:
     - port: 80
-      targetPort: 8080
+      targetPort: 8000
