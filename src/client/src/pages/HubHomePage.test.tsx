@@ -42,4 +42,27 @@ describe("HubHomePage", () => {
     await user.click(screen.getByRole("link", { name: "Monte Carlo" }));
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/monte-carlo$/);
   });
+
+  it("shows a card for both tools", () => {
+    renderAt("/", <HubHomePage />);
+    const section = screen.getByRole("region", { name: "Estimations" });
+    const cards = within(section).getAllByRole("link");
+    expect(cards.map((card) => card.getAttribute("aria-label"))).toEqual(["Open Monte Carlo", "Open Release Plan"]);
+  });
+
+  it("lists the Release Plan tool with its description and goal", () => {
+    renderAt("/", <HubHomePage />);
+    const card = screen.getByRole("link", { name: "Open Release Plan" });
+    expect(card).toHaveAttribute("href", "/release-plan");
+    expect(within(card).getByText("Plan Feature releases on an interactive drag-and-drop board.")).toBeInTheDocument();
+    expect(within(card).getByText("Decide which Features ship in which release or sprint, per Epic.")).toBeInTheDocument();
+  });
+
+  it("navigates to Release Plan from the card", async () => {
+    const user = userEvent.setup();
+    renderAt("/", <HubHomePage />);
+    await user.click(screen.getByRole("link", { name: "Open Release Plan" }));
+    expect(screen.getByTestId("location")).toHaveTextContent(/^\/release-plan$/);
+    expect(screen.getByText("release plan home page")).toBeInTheDocument();
+  });
 });

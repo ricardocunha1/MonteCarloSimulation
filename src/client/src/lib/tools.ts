@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { DiceIcon } from "../components/icons/DiceIcon";
+import { RoadmapIcon } from "../components/icons/RoadmapIcon";
 
 /** A sub-application of the CM Estimations Hub, shown in the sidebar and on the home page. */
 export interface HubTool {
@@ -26,6 +27,14 @@ export const ESTIMATION_TOOLS: readonly HubTool[] = [
     description: "Simulates thousands of future sprints from your historical sprint data.",
     goal: "Forecast how many sprints are needed to hit an Items Resolved or Story Points target, with confidence levels.",
     icon: DiceIcon,
+  },
+  {
+    id: "release-plan",
+    name: "Release Plan",
+    path: "/release-plan",
+    description: "Plan Feature releases on an interactive drag-and-drop board.",
+    goal: "Decide which Features ship in which release or sprint, per Epic.",
+    icon: RoadmapIcon,
   },
 ];
 

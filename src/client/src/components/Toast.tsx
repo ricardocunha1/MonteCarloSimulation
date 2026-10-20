@@ -2,15 +2,29 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { ApiError } from "../api";
 
 const AUTO_DISMISS_MS = 8000;
+const INFO_AUTO_DISMISS_MS = 2200;
 
-interface Toast {
+interface ErrorToast {
+  kind: "error";
   id: number;
   title: string;
   messages: string[];
 }
 
+interface InfoToast {
+  kind: "info";
+  id: number;
+  message: string;
+}
+
+type Toast = ErrorToast | InfoToast;
+
+/** Toast API returned by {@link useToast}. */
 interface ToastState {
+  /** Red error toast (`role="alert"`) listing `messages`; auto-dismisses after 8s unless hovered. */
   showError: (messages: string[], title?: string) => void;
+  /** Short neutral (navy) notice with `role="status"` that auto-dismisses after ~2.2s. */
+  showInfo: (message: string) => void;
 }
 
 const ToastContext = createContext<ToastState | null>(null);
@@ -26,24 +40,50 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const showError = useCallback((messages: string[], title = "Something went wrong") => {
     const id = nextId.current++;
-    setToasts((current) => [...current, { id, title, messages }]);
+    setToasts((current) => [...current, { kind: "error", id, title, messages }]);
   }, []);
 
-  const value = useMemo(() => ({ showError }), [showError]);
+  const showInfo = useCallback((message: string) => {
+    const id = nextId.current++;
+    setToasts((current) => [...current, { kind: "info", id, message }]);
+  }, []);
+
+  const value = useMemo(() => ({ showError, showInfo }), [showError, showInfo]);
 
   return (
     <ToastContext.Provider value={value}>
       {children}
       <div className="fixed top-4 right-4 z-50 flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3">
         {toasts.map((toast) => (
-          <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} />
+          toast.kind === "error" ? (
+            <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} />
+          ) : (
+            <InfoToastItem key={toast.id} toast={toast} onDismiss={dismiss} />
+          )
         ))}
       </div>
     </ToastContext.Provider>
   );
 }
 
-function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number) => void }) {
+function InfoToastItem({ toast, onDismiss }: { toast: InfoToast; onDismiss: (id: number) => void }) {
+  useEffect(() => {
+    const timer = setTimeout(() => onDismiss(toast.id), INFO_AUTO_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [toast.id, onDismiss]);
+
+  return (
+    <div
+      role="status"
+      className="flex items-center gap-3 rounded-lg border border-slate-600 p-3 text-sm text-slate-100 shadow-lg"
+      style={{ backgroundColor: "var(--cm-dark-blue)" }}
+    >
+      <p className="min-w-0 flex-1 break-words">{toast.message}</p>
+    </div>
+  );
+}
+
+function ToastItem({ toast, onDismiss }: { toast: ErrorToast; onDismiss: (id: number) => void }) {
   const [paused, setPaused] = useState(false);
 
   useEffect(() => {

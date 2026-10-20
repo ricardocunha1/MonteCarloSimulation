@@ -7,11 +7,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **CM Estimations Hub** — a dashboard web app hosting estimation tools for
 Critical Manufacturing (CM) projects (formerly "Monte Carlo Simulator";
 `plans/cm-estimations-hub-dashboard.md` records the rename/refactor). Its
-first and currently only tool, **Monte Carlo**, runs Monte Carlo
+first tool, **Monte Carlo**, runs Monte Carlo
 simulations to forecast how many sprints are needed to hit a target (Items
 Resolved or Story Points), based on historical sprint data uploaded as an
 Excel file. Three-step flow: Data Input → Data Validation (optional,
-skippable) → Simulation Execution.
+skippable) → Simulation Execution. A second, client-only tool, **Release
+Plan** (`/release-plan`), is being built per `plans/release-plan-board.md`:
+JSON import and the full board without drag-and-drop are done (Phases 0–1);
+drag-and-drop is Phase 2.
 
 Two tiers: a FastAPI server (`src/server`) and a React SPA (`src/client`).
 It used to be a single Flask app; `plans/client-server-migration.md`
@@ -106,9 +109,11 @@ client's type-check.
     `CONFIDENCE_LABELS`.
 - **`src/client/`** — Vite + React 18 + TypeScript + Tailwind 3 SPA,
   react-router: `/` hub home (`HubHomePage`), `/monte-carlo` (Data
-  Input), `/monte-carlo/confirm`, `/monte-carlo/results`; unknown paths →
-  `/`. Confirm/Results redirect to `/monte-carlo` when the store has no
-  data.
+  Input), `/monte-carlo/confirm`, `/monte-carlo/results`, `/release-plan`
+  (`ReleasePlanHomePage`), `/release-plan/board` (`ReleasePlanBoardPage`);
+  unknown paths → `/`. Confirm/Results redirect to `/monte-carlo` when the
+  store has no data; the board redirects to `/release-plan` when there is
+  no plan.
   - Dashboard shell: `components/Layout.tsx` (header with CM logo + hub
     name, left `Sidebar`, main area; sets `document.title`).
     `components/Sidebar.tsx` renders an "Estimations" group (label
@@ -118,9 +123,9 @@ client's type-check.
     "How to Use" button opening `HelpModal`, step `Breadcrumb`) and titles
     like "CM Estimations Hub – Monte Carlo – Data Input". Help lives only
     there, not in the global header.
-  - `lib/tools.ts` is the tool registry (`HubTool`, `ESTIMATION_TOOLS`,
-    `HUB_NAME`) feeding both the sidebar and the home page cards; adding a
-    tool = one registry entry + its routes in `App.tsx`. Icons are inline
+  - `lib/tools.ts` is the tool registry (`HubTool`, `ESTIMATION_TOOLS` —
+    currently Monte Carlo and Release Plan — `HUB_NAME`) feeding both the
+    sidebar and the home page cards; adding a tool = one registry entry + its routes in `App.tsx`. Icons are inline
     SVG components in `components/icons/` (e.g. `DiceIcon`), no icon
     library.
   - `api.ts` / `types.ts` mirror the server schemas; a 422 becomes a
@@ -132,7 +137,8 @@ client's type-check.
     their behavior is identical by construction — don't duplicate it.
   - API failures are shown as toasts (`components/Toast.tsx`:
     `ToastProvider` in `main.tsx` and the test `renderAt` helper
-    (`test/render.tsx`, which also stubs `/` and the `/monte-carlo/*` routes),
+    (`test/render.tsx`, which also stubs `/`, the `/monte-carlo/*` and the
+    `/release-plan/*` routes),
     `useToast().showError`, `errorMessages(exc)`); the page stays where it
     is, so `store.tsx`'s `Execution` only represents success. `api.ts`
     pulls the server's own message out of `{errors}`, FastAPI `{detail}`,
@@ -143,6 +149,36 @@ client's type-check.
     the Plotly histogram (`components/HistogramChart.tsx`, lazy-loaded
     `plotly.js-basic-dist-min`, x axis forced to `category` so `>50` is its
     own bar; mocked in tests).
+  - **Release Plan** (client-only, no API calls). The behavioral source
+    of truth is the *Template reference* in `plans/release-plan-board.md`
+    (the template HTML/JSON under `specs/templates/` are not committed —
+    never import or read them; tests use the synthetic builders in
+    `test/releasePlanFixtures.ts` and `test/renderBoard.tsx`).
+    - `lib/releasePlan/` is pure logic: `types`, `constants`, `validate`
+      (`parsePlanFile`/`normalizePlan`, throws `PlanValidationError`),
+      `selectors`, `layout` (`computeLayout`, shared with the future PNG
+      export), `reducer` (`createPlanReducer(makeId)`/`planReducer`, every
+      plan mutation; confirmations and toasts stay in the UI), `sanitize`
+      (`safeHtml` whitelist for ADO descriptions), `storage`
+      (`PlanStorage`, `localPlanStorage`), `modeSwitch`, `zoom`.
+    - `releasePlanStore.tsx`: `ReleasePlanProvider` is mounted in
+      **`App.tsx`** around the routes (not in `main.tsx`); it hydrates from
+      localStorage key `cmEstimationsHub.releasePlan.v1` and autosaves after
+      every change (`storage={null}` = in-memory). `useReleasePlan()` gives
+      `plan`, `dispatch`, `replacePlan`, `restoredFromStorage`,
+      `consumeRestoredNotice()`. `renderAt` takes `initialPlan` /
+      `planStorage`. UI-only state (view, zoom, open item, gap menu, table
+      filters) stays in the components.
+    - Dialogs: `components/useDialog.ts` (dialog stack so Esc closes only
+      the topmost dialog, focus trap, focus restore, callbacks via refs)
+      backs `ConfirmDialog` (controlled props, portal to `body`),
+      `ImportJsonModal` and `WorkItemModal`. No `window.confirm/alert/
+      prompt`; info messages use `useToast().showInfo`.
+    - `components/releasePlan/` holds the board components;
+      `releasePlan.css` is plain CSS (absolute geometry, dark palette) with
+      **every selector scoped under `.rp`** (the board page's root class),
+      imported by `ReleasePlanBoardPage`. Chrome outside the board uses
+      Tailwind.
   - `InputPage` builds `FormData` exactly as a native form submit would
     (blank fields included, `skip_validation=on` only when checked, empty
     `File` when none chosen) so server messages match.

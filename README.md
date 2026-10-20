@@ -4,6 +4,8 @@ A web application that hosts estimation tools for Critical Manufacturing
 (CM) projects. Its first tool is **Monte Carlo**, which forecasts how many
 sprints are needed to hit a target (Items Resolved or Story Points), using a
 Monte Carlo simulation driven by historical sprint data from CM projects.
+A second tool, **Release Plan**, plans which Features ship in which release
+or sprint on an interactive board built from an imported JSON plan.
 
 Instead of a single-point estimate, the Monte Carlo tool runs thousands of
 randomized simulations sampled from a team's own historical sprint
@@ -18,8 +20,8 @@ The app is a dashboard: a header with the CM logo and the hub name, a left
 sidebar, and a main content area.
 
 - **Sidebar** — tools are grouped by category. The "Estimations" group
-  holds the **Monte Carlo** item (dice icon), which is highlighted on every
-  Monte Carlo page.
+  holds the **Monte Carlo** item (dice icon) and the **Release Plan** item
+  (roadmap icon); each is highlighted on every page of its tool.
 - **Home page (`/`)** — a card per available tool with a short description
   and its goal; click a card to open the tool. Unknown URLs land here.
 - **Monte Carlo (`/monte-carlo`)** — the three-step flow described below:
@@ -28,6 +30,12 @@ sidebar, and a main content area.
   in the Monte Carlo view header opens the in-app help. Results and
   validation data are kept in memory only, so reloading the Confirm or
   Results page sends you back to `/monte-carlo`.
+- **Release Plan (`/release-plan`)** — the entry page lets you choose how
+  to create a board (**Import a JSON file**, or **Create from Azure DevOps**,
+  shown as "Coming soon") and, when a board already exists, **Continue last
+  board**. The board itself is at `/release-plan/board`; opening it with no
+  plan sends you back to `/release-plan`. See
+  [How the Release Plan tool works](#how-the-release-plan-tool-works).
 
 ## How the Monte Carlo tool works
 
@@ -93,6 +101,64 @@ time part is optional), e.g. `03/27/2025` or `03/27/2025 14:30`.
 If a mandatory column is missing, or the file can't be parsed as Excel, the
 app reports the specific problem instead of failing silently.
 
+## How the Release Plan tool works
+
+The Release Plan tool runs entirely in the browser (no server calls). It
+lays out a plan's Epics and Features on a board: Epics are columns, and
+each Feature sits in the row (band) of the milestone it is planned for, or
+in **Unplanned**.
+
+### Creating a board
+
+- **Import a JSON file** — pick a previously exported plan
+  (`"schema": "release-planner-features"`, `"version": 1`) and click
+  **Create board**. The file is validated and normalized; problems (not a
+  `.json` file, invalid JSON, wrong or missing schema, a User Story plan,
+  missing `milestones`/`epics`, entries that aren't objects) are shown
+  inline in the dialog, which stays open. If a board already exists you
+  are asked **Replace the current board?** first, because the current
+  board's changes would be lost.
+- **Create from Azure DevOps** — coming soon.
+
+### The board
+
+- **Summary** — one box per milestone (Feature count, size chips, Epics
+  completed), one for Unplanned, and one per milestone flag (cumulative
+  counts up to that flag).
+- **Milestones** — the frozen left column lets you rename a milestone, set
+  its date, move it up/down, or delete it (after confirmation; its
+  Features become Unplanned). The **+** between milestones inserts a new
+  one.
+- **Releases / Sprints** — in Releases mode milestones are free-form
+  releases. Switching to Sprints (after a confirmation) creates one
+  milestone per Iteration Path leaf, dated from the iteration's finish
+  date, and resets every Feature to the sprint of its Iteration Path;
+  switching back resets everything to a single "MVP" milestone. Either
+  switch discards manual planning and flags.
+- **Milestone flags** (Sprints mode) — the **+** menu also offers "Add
+  milestone flag here"; a flag has a name and a date and appears as a gold
+  row on the board.
+- **Epics** — ◀/▶ move an Epic left or right.
+- **Zoom** — −/+ (30%–150%) and **Fit** (scales the board to the width of
+  its scroll area, never above 100%).
+- **Table view** — the same plan as a table, with a text search, Epic and
+  milestone filters, and a per-Feature milestone select for re-planning.
+- **Work-item details** — clicking a Feature card or an Epic title opens a
+  modal with its state, size, milestone, Iteration Path and (sanitized)
+  description; you can navigate between an Epic and its Features.
+
+Drag-and-drop of Epics and Features is not available yet; use ◀/▶ and the
+Table view's milestone select instead.
+
+### Autosave
+
+The current plan is saved in the browser's `localStorage` under the key
+`cmEstimationsHub.releasePlan.v1` after every change. Reloading the board
+restores it ("Restored your last session"), and the entry page offers
+**Continue last board**. Nothing is stored on the server, and if storage is
+unavailable the board still works, in memory only. Saving to or loading
+from a file inside the board is not available yet.
+
 ## Architecture
 
 ![Architecture Diagram](docs/architecture.png)
@@ -105,7 +171,9 @@ The app is split into two tiers under `src/`:
   served by nginx in production. nginx proxies `/api` to the server, so the
   browser only ever talks to one origin. The dashboard's tools come from a
   small registry (`src/client/src/lib/tools.ts`) that feeds both the
-  sidebar and the home page.
+  sidebar and the home page. The Release Plan tool is client-only: its
+  logic lives in `src/client/src/lib/releasePlan/` and its state in the
+  browser's `localStorage`.
 
 ## Running with Docker Compose
 

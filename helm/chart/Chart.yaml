@@ -2,4 +2,4 @@ apiVersion: v2
 name: cm-estimations-hub
 description: A Helm chart to deploy the CM Estimations Hub in a k8s cluster
 type: application
-version: 0.2.0
+version: 0.3.0

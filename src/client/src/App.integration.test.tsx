@@ -38,6 +38,13 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 const fetchMock = vi.fn<typeof fetch>();
 
+// The multi-page flows below run several renders, an upload, typing and two
+// mocked fetches. Under a loaded full-suite run (many files in parallel) they
+// took 2.3-3.4s and occasionally exceeded Vitest's 5s default, so give them
+// headroom; `findBy` waits get the same treatment instead of the 1s default.
+const FLOW_TIMEOUT_MS = 20_000;
+const FIND = { timeout: 5_000 };
+
 function sidebarMonteCarlo() {
   // Each page renders its own Layout, so re-query after every navigation.
   const nav = screen.getByRole("navigation", { name: "Hub navigation" });
@@ -97,9 +104,11 @@ describe("CM Estimations Hub – full app flow", () => {
 
     await fillInputAndSubmit(user, { skip: false });
 
-    expect(await screen.findByRole("button", { name: "Confirm and Run Simulation" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Confirm and Run Simulation" }, FIND)).toBeInTheDocument();
     expect(location()).toBe("/monte-carlo/confirm");
-    expect(document.title).toBe("CM Estimations Hub – Monte Carlo – Confirm Sprint Data");
+    // Layout sets the title in a passive effect, which can run just after the
+    // fetch-driven commit that findBy observed; wait for it like Results does.
+    await waitFor(() => expect(document.title).toBe("CM Estimations Hub – Monte Carlo – Confirm Sprint Data"), FIND);
     expect(screen.getByText("Sprint 1")).toBeInTheDocument();
 
     const [validateUrl, validateInit] = fetchMock.mock.calls[0];
@@ -113,15 +122,15 @@ describe("CM Estimations Hub – full app flow", () => {
 
     await user.click(screen.getByRole("button", { name: "Confirm and Run Simulation" }));
 
-    expect(await screen.findByText("Calendar View")).toBeInTheDocument();
+    expect(await screen.findByText("Calendar View", undefined, FIND)).toBeInTheDocument();
     expect(location()).toBe("/monte-carlo/results");
-    await waitFor(() => expect(document.title).toBe("CM Estimations Hub – Monte Carlo – Results"));
+    await waitFor(() => expect(document.title).toBe("CM Estimations Hub – Monte Carlo – Results"), FIND);
     expect(sidebarMonteCarlo()).toHaveAttribute("aria-current", "page");
 
     const [simulateUrl, simulateInit] = fetchMock.mock.calls[1];
     expect(simulateUrl).toBe("/api/simulate");
     expect(JSON.parse(simulateInit?.body as string)).toEqual({ summary: validation.summary, params: validation.params });
-  });
+  }, FLOW_TIMEOUT_MS);
 
   it("skips validation straight from input to /monte-carlo/results", async () => {
     const skipped = { ...validation, params: { ...validation.params, skip_validation: true } };
@@ -134,11 +143,11 @@ describe("CM Estimations Hub – full app flow", () => {
 
     await fillInputAndSubmit(user, { skip: true });
 
-    expect(await screen.findByText("Calendar View")).toBeInTheDocument();
+    expect(await screen.findByText("Calendar View", undefined, FIND)).toBeInTheDocument();
     expect(location()).toBe("/monte-carlo/results");
     expect((fetchMock.mock.calls[0][1]?.body as FormData).get("skip_validation")).toBe("on");
     expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
+  }, FLOW_TIMEOUT_MS);
 
   it("shows a 422 {errors} from /api/validate as a toast and stays on /monte-carlo", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ errors: ["Could not read Excel file: File is not a zip file"] }, 422));
@@ -147,10 +156,10 @@ describe("CM Estimations Hub – full app flow", () => {
 
     await fillInputAndSubmit(user, { skip: false });
 
-    const alert = await screen.findByRole("alert");
+    const alert = await screen.findByRole("alert", undefined, FIND);
     expect(alert).toHaveTextContent("Could not read Excel file: File is not a zip file");
     expect(location()).toBe("/monte-carlo");
-  });
+  }, FLOW_TIMEOUT_MS);
 
   it("shows a simulate failure as a toast and stays on /monte-carlo/confirm", async () => {
     fetchMock
@@ -160,12 +169,12 @@ describe("CM Estimations Hub – full app flow", () => {
     renderApp("/monte-carlo");
 
     await fillInputAndSubmit(user, { skip: false });
-    await user.click(await screen.findByRole("button", { name: "Confirm and Run Simulation" }));
+    await user.click(await screen.findByRole("button", { name: "Confirm and Run Simulation" }, FIND));
 
-    const alert = await screen.findByRole("alert");
+    const alert = await screen.findByRole("alert", undefined, FIND);
     expect(alert).toHaveTextContent("The sampling pool is empty.");
     expect(location()).toBe("/monte-carlo/confirm");
-  });
+  }, FLOW_TIMEOUT_MS);
 
   it("opens the Help modal from every Monte Carlo step", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(validation)).mockResolvedValueOnce(jsonResponse(result));
@@ -181,12 +190,12 @@ describe("CM Estimations Hub – full app flow", () => {
 
     await openAndCloseHelp();
     await fillInputAndSubmit(user, { skip: false });
-    await screen.findByRole("button", { name: "Confirm and Run Simulation" });
+    await screen.findByRole("button", { name: "Confirm and Run Simulation" }, FIND);
     await openAndCloseHelp();
     await user.click(screen.getByRole("button", { name: "Confirm and Run Simulation" }));
-    await screen.findByText("Calendar View");
+    await screen.findByText("Calendar View", undefined, FIND);
     await openAndCloseHelp();
-  });
+  }, FLOW_TIMEOUT_MS);
 
   it("returns to the hub home from the header logo and from unknown paths", async () => {
     const user = userEvent.setup();
@@ -200,6 +209,79 @@ describe("CM Estimations Hub – full app flow", () => {
     expect(location()).toBe("/");
     expect(screen.getByRole("link", { name: "Monte Carlo" })).not.toHaveAttribute("aria-current");
   });
+
+  it("goes home → Release Plan card → /release-plan → opens the JSON import modal", async () => {
+    const user = userEvent.setup();
+    renderApp("/");
+
+    // Home: both tool cards, Release Plan not active yet.
+    expect(screen.getByRole("link", { name: "Open Monte Carlo" })).toBeInTheDocument();
+    const nav = () => screen.getByRole("navigation", { name: "Hub navigation" });
+    expect(within(nav()).getByRole("link", { name: "Release Plan" })).not.toHaveAttribute("aria-current");
+
+    await user.click(screen.getByRole("link", { name: "Open Release Plan" }));
+    expect(location()).toBe("/release-plan");
+    expect(document.title).toBe("CM Estimations Hub – Release Plan");
+    expect(screen.getByRole("heading", { level: 2, name: "Release Plan" })).toBeInTheDocument();
+    expect(within(nav()).getByRole("link", { name: "Release Plan" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav()).getByRole("link", { name: "Monte Carlo" })).not.toHaveAttribute("aria-current");
+    // Monte Carlo's Help lives only in its own view header.
+    expect(screen.queryByRole("button", { name: "How to Use" })).not.toBeInTheDocument();
+
+    // The Azure DevOps card is disabled ("Coming soon") and inert.
+    const adoCard = screen.getByRole("button", { name: /Create from Azure DevOps/ });
+    expect(adoCard).toHaveAttribute("aria-disabled", "true");
+    expect(adoCard).toHaveTextContent("Coming soon");
+    await user.click(adoCard);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(location()).toBe("/release-plan");
+
+    // The JSON card opens the import modal shell.
+    const jsonCard = screen.getByRole("button", { name: /Import a JSON file/ });
+    await user.click(jsonCard);
+    const dialog = screen.getByRole("dialog", { name: "Import a JSON file" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(within(dialog).getByLabelText("Release plan file")).toHaveAttribute("accept", ".json,application/json");
+
+    // Phase 0: "Create board" without a file shows the inline error and stays open.
+    await user.click(within(dialog).getByRole("button", { name: "Create board" }));
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(/^Select a \.json file\.$/);
+    expect(screen.getByRole("dialog", { name: "Import a JSON file" })).toBeInTheDocument();
+    expect(location()).toBe("/release-plan");
+
+    // Esc closes it and focus returns to the JSON card.
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(jsonCard).toHaveFocus();
+
+    // Re-opening starts clean (no stale error), and Cancel closes it.
+    await user.click(jsonCard);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("No file selected.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    // Client-only in Phase 0: no API traffic.
+    expect(fetchMock).not.toHaveBeenCalled();
+  }, FLOW_TIMEOUT_MS);
+
+  it("switches between the tools from the sidebar", async () => {
+    const user = userEvent.setup();
+    renderApp("/monte-carlo");
+    const navLink = (name: string) =>
+      within(screen.getByRole("navigation", { name: "Hub navigation" })).getByRole("link", { name });
+
+    await user.click(navLink("Release Plan"));
+    expect(location()).toBe("/release-plan");
+    expect(document.title).toBe("CM Estimations Hub – Release Plan");
+    expect(navLink("Release Plan")).toHaveAttribute("aria-current", "page");
+
+    await user.click(navLink("Monte Carlo"));
+    expect(location()).toBe("/monte-carlo");
+    expect(document.title).toBe("CM Estimations Hub – Monte Carlo – Data Input");
+    expect(navLink("Monte Carlo")).toHaveAttribute("aria-current", "page");
+    expect(navLink("Release Plan")).not.toHaveAttribute("aria-current");
+  }, FLOW_TIMEOUT_MS);
 
   it.each(["/monte-carlo/confirm", "/monte-carlo/results"])("redirects %s without data to /monte-carlo", (path) => {
     renderApp(path);

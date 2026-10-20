@@ -31,4 +31,23 @@ describe("Sidebar", () => {
       expect(screen.getByRole("link", { name: "Monte Carlo" })).toHaveAttribute("aria-current", "page");
     },
   );
+
+  it("lists Monte Carlo and Release Plan, in registry order", () => {
+    renderSidebar("/");
+    const group = screen.getByRole("group", { name: "Estimations" });
+    const links = within(group).getAllByRole("link");
+    expect(links.map((link) => link.textContent)).toEqual(["Monte Carlo", "Release Plan"]);
+    expect(within(group).getByRole("link", { name: "Release Plan" })).toHaveAttribute("href", "/release-plan");
+  });
+
+  it.each(["/release-plan", "/release-plan/board"])("marks Release Plan (and only it) active on %s", (path) => {
+    renderSidebar(path);
+    expect(screen.getByRole("link", { name: "Release Plan" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Monte Carlo" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("does not mark Release Plan active on Monte Carlo pages", () => {
+    renderSidebar("/monte-carlo");
+    expect(screen.getByRole("link", { name: "Release Plan" })).not.toHaveAttribute("aria-current");
+  });
 });
