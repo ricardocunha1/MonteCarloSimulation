@@ -8,8 +8,8 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
-CLIENT_IMAGE="montecarlosim/montecarlosim-client"
-SERVER_IMAGE="montecarlosim/montecarlosim-server"
+CLIENT_IMAGE="estimationshub/estimationshub-client"
+SERVER_IMAGE="estimationshub/estimationshub-server"
 REGISTRY="dev.criticalmanufacturing.io"
 NO_PUSH=false
 

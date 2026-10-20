@@ -1,47 +1,28 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Breadcrumb } from "./Breadcrumb";
-import { HelpModal } from "./HelpModal";
+import { HUB_NAME } from "../lib/tools";
+import { Sidebar } from "./Sidebar";
 
-// Port of base.html.
-export function Layout({
-  title,
-  currentStep,
-  children,
-}: {
-  title: string;
-  currentStep?: number;
-  children: ReactNode;
-}) {
-  const [helpOpen, setHelpOpen] = useState(false);
-  const closeHelp = useCallback(() => setHelpOpen(false), []);
-
+/** Dashboard shell: global header (logo + hub name), left sidebar and main content area. */
+export function Layout({ title, children }: { title: string; children: ReactNode }) {
   useEffect(() => {
     document.title = title;
   }, [title]);
 
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
       <header className="flex items-center gap-4 px-6 py-4 border-b border-slate-800" style={{ backgroundColor: "var(--cm-dark-blue)" }}>
-        <Link to="/">
+        <Link to="/" aria-label={`${HUB_NAME} home`}>
           <img src="/cmlogo.png" alt="CM Logo" className="h-10 w-auto" />
         </Link>
-        <h1 className="text-xl font-semibold">Monte Carlo Simulator</h1>
-        <button
-          type="button"
-          onClick={() => setHelpOpen(true)}
-          className="ml-auto flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors hover:brightness-110"
-          style={{ backgroundColor: "var(--cm-teal)", color: "#04101d" }}
-        >
-          <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zM11 6a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h.01a1 1 0 100-2V10a1 1 0 00-1-1H9z" clipRule="evenodd" />
-          </svg>
-          How to Use
-        </button>
+        <h1 className="text-xl font-semibold">{HUB_NAME}</h1>
       </header>
-      <HelpModal open={helpOpen} onClose={closeHelp} />
-      {currentStep !== undefined && <Breadcrumb currentStep={currentStep} />}
-      <main className="px-6 py-8 max-w-5xl mx-auto">{children}</main>
-    </>
+      <div className="flex flex-1 flex-col md:flex-row">
+        <aside className="border-b border-slate-800 bg-slate-900 md:w-60 md:shrink-0 md:border-b-0 md:border-r">
+          <Sidebar />
+        </aside>
+        <main className="min-w-0 flex-1">{children}</main>
+      </div>
+    </div>
   );
 }

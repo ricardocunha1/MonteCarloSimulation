@@ -2,7 +2,7 @@ import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { validate } from "../api";
 import { InfoIcon } from "../components/InfoIcon";
-import { Layout } from "../components/Layout";
+import { MonteCarloLayout } from "../components/MonteCarloLayout";
 import { errorMessages, useToast } from "../components/Toast";
 import { runSimulation } from "../lib/runSimulation";
 import { useForecast } from "../store";
@@ -61,10 +61,10 @@ export function InputPage() {
       setValidation(validation);
       if (values.skip_validation) {
         setExecution(await runSimulation(validation));
-        navigate("/results");
+        navigate("/monte-carlo/results");
       } else {
         setExecution(null);
-        navigate("/confirm");
+        navigate("/monte-carlo/confirm");
       }
     } catch (exc) {
       showError(errorMessages(exc), "Please correct the following:");
@@ -73,7 +73,7 @@ export function InputPage() {
   }
 
   return (
-    <Layout title="Monte Carlo Simulator – Data Input" currentStep={1}>
+    <MonteCarloLayout pageTitle="Data Input" currentStep={1}>
       <form onSubmit={onSubmit} encType="multipart/form-data" className="space-y-6 max-w-xl mx-auto">
         <div>
           <label className={labelClass} htmlFor="sprint_history_file">
@@ -180,6 +180,6 @@ export function InputPage() {
           </button>
         </div>
       </form>
-    </Layout>
+    </MonteCarloLayout>
   );
 }

@@ -1,7 +1,7 @@
 services:
   server:
     build: ./src/server
-    image: montecarlosim/montecarlosim-server:local
+    image: estimationshub/estimationshub-server:local
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
       interval: 10s
@@ -11,7 +11,7 @@ services:
 
   client:
     build: ./src/client
-    image: montecarlosim/montecarlosim-client:local
+    image: estimationshub/estimationshub-client:local
     environment:
       API_UPSTREAM: http://server:8000
     ports:

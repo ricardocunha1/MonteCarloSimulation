@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo } from "react";
 import { Navigate } from "react-router-dom";
-import { Layout } from "../components/Layout";
+import { MonteCarloLayout } from "../components/MonteCarloLayout";
 import { buildCalendarData, type CalendarData } from "../lib/calendar";
 import { confidenceColor, OVERFLOW_LABEL } from "../lib/confidence";
 import { useForecast } from "../store";
@@ -16,7 +16,7 @@ export function ResultsPage() {
   const { execution } = useForecast();
 
   if (!execution) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/monte-carlo" replace />;
   }
 
   return <Results result={execution.result} sprintStartDate={execution.sprintStartDate} />;
@@ -30,7 +30,7 @@ function Results({ result, sprintStartDate }: { result: SimulateResponse; sprint
   const { histogram } = result;
 
   return (
-    <Layout title="Monte Carlo Simulator – Results" currentStep={3}>
+    <MonteCarloLayout pageTitle="Results" currentStep={3}>
       <p className="text-slate-400 mb-6">
         Target: <span className="text-slate-200 font-medium">{result.target_value} {result.target_type}</span>
       </p>
@@ -82,7 +82,7 @@ function Results({ result, sprintStartDate }: { result: SimulateResponse; sprint
           </Suspense>
         </div>
       </div>
-    </Layout>
+    </MonteCarloLayout>
   );
 }
 

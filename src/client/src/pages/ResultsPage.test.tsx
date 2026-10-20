@@ -13,12 +13,12 @@ vi.mock("../components/HistogramChart", () => ({
 
 describe("ResultsPage", () => {
   it("redirects to the input step without results", () => {
-    renderAt("/results", <ResultsPage />);
-    expect(screen.getByTestId("location")).toHaveTextContent("/");
+    renderAt("/monte-carlo/results", <ResultsPage />);
+    expect(screen.getByTestId("location")).toHaveTextContent(/^\/monte-carlo$/);
   });
 
   it("renders percentile cards, including the >50 sentinel", async () => {
-    renderAt("/results", <ResultsPage />, {
+    renderAt("/monte-carlo/results", <ResultsPage />, {
       execution: { result, sprintStartDate: "2026-01-05" },
     });
 
@@ -38,7 +38,7 @@ describe("ResultsPage", () => {
   });
 
   it("renders the calendar without the unreached percentile", () => {
-    renderAt("/results", <ResultsPage />, {
+    renderAt("/monte-carlo/results", <ResultsPage />, {
       execution: { result, sprintStartDate: "2026-01-05" },
     });
     expect(screen.getByText("Calendar View")).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe("ResultsPage", () => {
   });
 
   it("lists only non-empty histogram buckets in the count table", () => {
-    renderAt("/results", <ResultsPage />, {
+    renderAt("/monte-carlo/results", <ResultsPage />, {
       execution: { result, sprintStartDate: "2026-01-05" },
     });
     const table = screen.getByRole("columnheader", { name: "Count" }).closest("table")!;

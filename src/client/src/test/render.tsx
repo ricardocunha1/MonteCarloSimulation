@@ -26,9 +26,10 @@ export function renderAt(
   } = {},
 ) {
   const stubs: Record<string, ReactElement> = {
-    "/": <p>input page</p>,
-    "/confirm": <p>confirm page</p>,
-    "/results": <p>results page</p>,
+    "/": <p>hub home page</p>,
+    "/monte-carlo": <p>input page</p>,
+    "/monte-carlo/confirm": <p>confirm page</p>,
+    "/monte-carlo/results": <p>results page</p>,
     ...routes,
     [path]: element,
   };

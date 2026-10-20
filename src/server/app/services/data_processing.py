@@ -1,3 +1,5 @@
+import io
+
 import pandas as pd
 
 MANDATORY_COLUMNS = ("State", "Iteration Path", "Resolved Date", "Story Points")
@@ -17,6 +19,21 @@ class DataValidationError(Exception):
     pass
 
 
+def _buffer_upload(file_storage):
+    """Copy a file-like upload into an in-memory, seekable BytesIO.
+
+    pandas/openpyxl need a seekable stream; on Python < 3.11 the
+    SpooledTemporaryFile behind a Starlette upload lacks `seekable()`.
+    Anything without `read()` (e.g. a path) is passed through unchanged.
+    """
+    read = getattr(file_storage, "read", None)
+    if read is None:
+        return file_storage
+    if hasattr(file_storage, "seek"):
+        file_storage.seek(0)
+    return io.BytesIO(read())
+
+
 def parse_sprint_history(file_storage) -> pd.DataFrame:
     """Read and lightly clean the uploaded sprint history workbook.
 
@@ -24,7 +41,7 @@ def parse_sprint_history(file_storage) -> pd.DataFrame:
     can always turn a bad upload into a user-facing error message.
     """
     try:
-        df = pd.read_excel(file_storage, sheet_name=0)
+        df = pd.read_excel(_buffer_upload(file_storage), sheet_name=0)
     except Exception as exc:
         raise DataValidationError(f"Could not read Excel file: {exc}") from exc
 

@@ -11,7 +11,7 @@ function NavigateProbe() {
 
 function renderScrollToTop() {
   render(
-    <MemoryRouter initialEntries={["/confirm"]}>
+    <MemoryRouter initialEntries={["/monte-carlo/confirm"]}>
       <ScrollToTop />
       <NavigateProbe />
     </MemoryRouter>,
@@ -26,7 +26,7 @@ describe("ScrollToTop", () => {
     renderScrollToTop();
     scrollTo.mockClear();
 
-    act(() => navigate("/results"));
+    act(() => navigate("/monte-carlo/results"));
 
     expect(scrollTo).toHaveBeenCalledWith(0, 0);
   });
@@ -34,7 +34,7 @@ describe("ScrollToTop", () => {
   it("leaves the scroll position alone on back/forward navigation", () => {
     const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
     renderScrollToTop();
-    act(() => navigate("/results"));
+    act(() => navigate("/monte-carlo/results"));
     scrollTo.mockClear();
 
     act(() => navigate(-1));

@@ -4,10 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A web app that runs Monte Carlo simulations to forecast how many sprints
-are needed to hit a target (Items Resolved or Story Points), based on
-historical sprint data from Critical Manufacturing (CM) projects uploaded as
-an Excel file. Three-step flow: Data Input → Data Validation (optional,
+**CM Estimations Hub** — a dashboard web app hosting estimation tools for
+Critical Manufacturing (CM) projects (formerly "Monte Carlo Simulator";
+`plans/cm-estimations-hub-dashboard.md` records the rename/refactor). Its
+first and currently only tool, **Monte Carlo**, runs Monte Carlo
+simulations to forecast how many sprints are needed to hit a target (Items
+Resolved or Story Points), based on historical sprint data uploaded as an
+Excel file. Three-step flow: Data Input → Data Validation (optional,
 skippable) → Simulation Execution.
 
 Two tiers: a FastAPI server (`src/server`) and a React SPA (`src/client`).
@@ -61,7 +64,8 @@ client's type-check.
   decisions. If you add a new phase of work to a plan, follow that plan's
   own "For Future Agents" instructions (checkboxes, phase status, Phase
   Summary on completion).
-- **`src/server/`** — FastAPI app `app.main:app`, all routes under `/api`
+- **`src/server/`** — FastAPI app `app.main:app` (OpenAPI title "CM
+  Estimations Hub API"), all routes under `/api`
   (`app/api/routes.py`, Pydantic models in `app/schemas.py`):
   - `POST /api/validate` (multipart, same field names as the original
     form) → `{summary, params}`. It reads `await request.form()` manually
@@ -83,7 +87,10 @@ client's type-check.
     simulation cap of 20000, valid date). Never touches file *content*.
   - `data_processing.py` — `parse_sprint_history` (reads the uploaded
     Excel, raises `DataValidationError` — never a raw pandas/openpyxl
-    exception — for unreadable files or missing mandatory columns),
+    exception — for unreadable files or missing mandatory columns; the
+    upload is first copied into an `io.BytesIO` by `_buffer_upload`
+    because on Python < 3.11 Starlette's `SpooledTemporaryFile` lacks
+    `seekable()`, which pandas/openpyxl need),
     `build_sprint_summary` (groups by Sprint, computes Items Resolved /
     Story Points / Recency Rank / In Sampling Pool), and the
     `summary_to_records` / `summary_from_records` pair that round-trips the
@@ -98,16 +105,34 @@ client's type-check.
     sampling pool), `build_histogram` (`1..50` + `>50` buckets),
     `CONFIDENCE_LABELS`.
 - **`src/client/`** — Vite + React 18 + TypeScript + Tailwind 3 SPA,
-  react-router (`/` input, `/confirm`, `/results`; unknown paths → `/`).
+  react-router: `/` hub home (`HubHomePage`), `/monte-carlo` (Data
+  Input), `/monte-carlo/confirm`, `/monte-carlo/results`; unknown paths →
+  `/`. Confirm/Results redirect to `/monte-carlo` when the store has no
+  data.
+  - Dashboard shell: `components/Layout.tsx` (header with CM logo + hub
+    name, left `Sidebar`, main area; sets `document.title`).
+    `components/Sidebar.tsx` renders an "Estimations" group (label
+    centered between two lines) of `NavLink`s, active on any route below
+    the tool's path. `components/MonteCarloLayout.tsx` wraps `Layout` for
+    the three Monte Carlo pages with the Monte Carlo view header (heading,
+    "How to Use" button opening `HelpModal`, step `Breadcrumb`) and titles
+    like "CM Estimations Hub – Monte Carlo – Data Input". Help lives only
+    there, not in the global header.
+  - `lib/tools.ts` is the tool registry (`HubTool`, `ESTIMATION_TOOLS`,
+    `HUB_NAME`) feeding both the sidebar and the home page cards; adding a
+    tool = one registry entry + its routes in `App.tsx`. Icons are inline
+    SVG components in `components/icons/` (e.g. `DiceIcon`), no icon
+    library.
   - `api.ts` / `types.ts` mirror the server schemas; a 422 becomes a
     thrown `ApiError` carrying `errors`.
   - `store.tsx` holds the validate response and the execution result in
-    memory only — a reload sends you back to `/`.
+    memory only — a reload sends you back to `/monte-carlo`.
   - `lib/runSimulation.ts` is the one simulate → execution helper used by
     both the skip-validation branch of `InputPage` and `ConfirmPage`, so
     their behavior is identical by construction — don't duplicate it.
   - API failures are shown as toasts (`components/Toast.tsx`:
-    `ToastProvider` in `main.tsx` and the test `renderAt` helper,
+    `ToastProvider` in `main.tsx` and the test `renderAt` helper
+    (`test/render.tsx`, which also stubs `/` and the `/monte-carlo/*` routes),
     `useToast().showError`, `errorMessages(exc)`); the page stays where it
     is, so `store.tsx`'s `Execution` only represents success. `api.ts`
     pulls the server's own message out of `{errors}`, FastAPI `{detail}`,
@@ -129,7 +154,7 @@ client's type-check.
 - **Root `docker-compose.yml`**: `server` (healthcheck) + `client`
   (`8080:8080`, waits for server healthy).
 - **Deployment**: `deploy/build-docker-image.sh` (run from the repo root)
-  builds `montecarlosim/montecarlosim-{client,server}` (same tag, contexts
+  builds `estimationshub/estimationshub-{client,server}` (same tag, contexts
   `src/client` / `src/server`, always both) and pushes to
   `dev.criticalmanufacturing.io`. `.github/workflows/deploy.yml` (manual
   dispatch) computes the tag with GitVersion, runs server pytest + client

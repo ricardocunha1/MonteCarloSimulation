@@ -1,6 +1,6 @@
-# Monte Carlo Simulator - Data Input
+# CM Estimations Hub — Monte Carlo - Data Input
 
-This document describes the data input requirements for the Monte Carlo Simulator application.
+This document describes the data input requirements for the Monte Carlo sub-application of the CM Estimations Hub.
 
 The following table outlines the expected input parameters for the simulation:
 

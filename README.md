@@ -1,18 +1,37 @@
-# Monte Carlo Simulator
+# CM Estimations Hub
 
-A web application that forecasts how many sprints are needed to hit a
-target (Items Resolved or Story Points), using a Monte Carlo simulation
-driven by historical sprint data from Critical Manufacturing (CM) projects.
+A web application that hosts estimation tools for Critical Manufacturing
+(CM) projects. Its first tool is **Monte Carlo**, which forecasts how many
+sprints are needed to hit a target (Items Resolved or Story Points), using a
+Monte Carlo simulation driven by historical sprint data from CM projects.
 
-Instead of a single-point estimate, the app runs thousands of randomized
-simulations sampled from a team's own historical sprint throughput and
-reports a distribution of outcomes — e.g. "50% of simulations reach the
-target within 4 sprints, 95% reach it within 8 sprints" — along with the
-projected completion dates for each confidence level.
+Instead of a single-point estimate, the Monte Carlo tool runs thousands of
+randomized simulations sampled from a team's own historical sprint
+throughput and reports a distribution of outcomes — e.g. "50% of
+simulations reach the target within 4 sprints, 95% reach it within 8
+sprints" — along with the projected completion dates for each confidence
+level.
 
-## How it works
+## Navigation
 
-The application is a three-step wizard:
+The app is a dashboard: a header with the CM logo and the hub name, a left
+sidebar, and a main content area.
+
+- **Sidebar** — tools are grouped by category. The "Estimations" group
+  holds the **Monte Carlo** item (dice icon), which is highlighted on every
+  Monte Carlo page.
+- **Home page (`/`)** — a card per available tool with a short description
+  and its goal; click a card to open the tool. Unknown URLs land here.
+- **Monte Carlo (`/monte-carlo`)** — the three-step flow described below:
+  `/monte-carlo` (Data Input), `/monte-carlo/confirm` (Data Validation) and
+  `/monte-carlo/results` (Simulation Execution). The **How to Use** button
+  in the Monte Carlo view header opens the in-app help. Results and
+  validation data are kept in memory only, so reloading the Confirm or
+  Results page sends you back to `/monte-carlo`.
+
+## How the Monte Carlo tool works
+
+The Monte Carlo tool is a three-step wizard:
 
 ### 1. Data Input
 
@@ -84,7 +103,9 @@ The app is split into two tiers under `src/`:
   Endpoints: `POST /api/validate`, `POST /api/simulate`, `GET /api/health`.
 - **`src/client`** — React + TypeScript single-page app (Vite, Tailwind),
   served by nginx in production. nginx proxies `/api` to the server, so the
-  browser only ever talks to one origin.
+  browser only ever talks to one origin. The dashboard's tools come from a
+  small registry (`src/client/src/lib/tools.ts`) that feeds both the
+  sidebar and the home page.
 
 ## Running with Docker Compose
 
@@ -106,7 +127,7 @@ server through `API_UPSTREAM` (default `http://server:8000`).
 
 Releases are made by the manual **Deploy** GitHub workflow: it computes the
 version with GitVersion, runs the server and client tests, builds and pushes
-`montecarlosim/montecarlosim-client` and `montecarlosim/montecarlosim-server`
+`estimationshub/estimationshub-client` and `estimationshub/estimationshub-server`
 with that tag, and tags the commit. The Helm chart in `helm/chart` deploys
 both (set `tag` in `values.yaml`); the ingress sends `/api` to the server and
 everything else to the client.

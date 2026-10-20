@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: monte-carlo-sim-client-deployment
+  name: cm-estimations-hub-client-deployment
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: monte-carlo-sim-client
+      app: cm-estimations-hub-client
   template:
     metadata:
       labels:
-        app: monte-carlo-sim-client
+        app: cm-estimations-hub-client
     spec:
       containers:
-        - name: monte-carlo-sim-client
+        - name: cm-estimations-hub-client
           image: {{ .Values.registry }}/{{ .Values.client_image }}:{{ .Values.tag }}
           ports:
             - containerPort: 8080
           env:
             - name: API_UPSTREAM
-              value: http://monte-carlo-sim-server-service:80
+              value: http://cm-estimations-hub-server-service:80
           readinessProbe:
             httpGet:
               path: /

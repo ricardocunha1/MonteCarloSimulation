@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Monte Carlo Simulator API")
+    app = FastAPI(title="CM Estimations Hub API")
 
     @app.exception_handler(RequestValidationError)
     async def request_validation_error(request: Request, exc: RequestValidationError):
