@@ -146,7 +146,7 @@ src/client/src/
 {
   "schema": "release-planner-features", "version": 1,
   "mode": "releases",                    // "releases" | "sprints"
-  "name": "FN Herstal – Feature Release Plan",
+  "name": "Project – Feature Release Plan",
   "source": { "system": "Azure DevOps", "project": "…", "scope": "Area Path: …", "fetchedAt": "2026-10-16T12:27:00Z" },
   "iterations": [ { "path": "Proj\\Sprint 1", "finishDate": "2026-09-18" } ],   // used by Sprints mode for dates
   "milestones": [ { "id": "ms_40uwnu8", "name": "MVP", "date": "", "color": "#4E98D1" } ], // ordered top→bottom
@@ -156,7 +156,7 @@ src/client/src/
       "features": [ {                                            // ordered left→right (columns)
           "id": 3, "title": "…", "state": "New", "description": "",
           "size": "XL",                                          // "", XS, S, M, L, XL, XXL (or other upper-cased text)
-          "iterationPath": "FN Herstal", "milestoneId": "ms_5ku1kkv" // null = Unplanned
+          "iterationPath": "Project", "milestoneId": "ms_5ku1kkv" // null = Unplanned
       } ] } ],
   "savedAt": "2026-10-20T…Z"
 }

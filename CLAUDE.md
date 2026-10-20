@@ -116,16 +116,18 @@ client's type-check.
   no plan.
   - Dashboard shell: `components/Layout.tsx` (header with CM logo + hub
     name, left `Sidebar`, main area; sets `document.title`).
-    `components/Sidebar.tsx` renders an "Estimations" group (label
-    centered between two lines) of `NavLink`s, active on any route below
-    the tool's path. `components/MonteCarloLayout.tsx` wraps `Layout` for
+    `components/Sidebar.tsx` renders one group per `TOOL_GROUPS` entry
+    (label centered between two lines) of `NavLink`s, active on any route
+    below the tool's path. `components/MonteCarloLayout.tsx` wraps `Layout` for
     the three Monte Carlo pages with the Monte Carlo view header (heading,
     "How to Use" button opening `HelpModal`, step `Breadcrumb`) and titles
     like "CM Estimations Hub – Monte Carlo – Data Input". Help lives only
     there, not in the global header.
-  - `lib/tools.ts` is the tool registry (`HubTool`, `ESTIMATION_TOOLS` —
-    currently Monte Carlo and Release Plan — `HUB_NAME`) feeding both the
-    sidebar and the home page cards; adding a tool = one registry entry + its routes in `App.tsx`. Icons are inline
+  - `lib/tools.ts` is the tool registry (`HubTool`, `HubToolGroup`,
+    `TOOL_GROUPS` = "Estimations" (`ESTIMATION_TOOLS`: Monte Carlo) then
+    "Planning" (`PLANNING_TOOLS`: Release Plan), `HUB_NAME`) feeding both
+    the sidebar groups and the home page sections; adding a tool = one
+    entry in a group's list + its routes in `App.tsx`. Icons are inline
     SVG components in `components/icons/` (e.g. `DiceIcon`), no icon
     library.
   - `api.ts` / `types.ts` mirror the server schemas; a 422 becomes a

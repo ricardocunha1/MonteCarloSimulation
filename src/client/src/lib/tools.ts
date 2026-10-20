@@ -18,7 +18,16 @@ export interface HubTool {
   icon: ComponentType<{ className?: string }>;
 }
 
-/** Estimation tools hosted by the hub. Adding a tool is one entry here (plus its routes in App.tsx). */
+/** A category of tools, rendered as one sidebar group and one home page section. */
+export interface HubToolGroup {
+  /** Stable key, also used for element ids. */
+  id: string;
+  /** Group heading shown in the sidebar and on the home page. */
+  label: string;
+  tools: readonly HubTool[];
+}
+
+/** Estimation tools hosted by the hub. Adding a tool is one entry in a group (plus its routes in App.tsx). */
 export const ESTIMATION_TOOLS: readonly HubTool[] = [
   {
     id: "monte-carlo",
@@ -28,6 +37,10 @@ export const ESTIMATION_TOOLS: readonly HubTool[] = [
     goal: "Forecast how many sprints are needed to hit an Items Resolved or Story Points target, with confidence levels.",
     icon: DiceIcon,
   },
+];
+
+/** Planning tools hosted by the hub. */
+export const PLANNING_TOOLS: readonly HubTool[] = [
   {
     id: "release-plan",
     name: "Release Plan",
@@ -36,6 +49,12 @@ export const ESTIMATION_TOOLS: readonly HubTool[] = [
     goal: "Decide which Features ship in which release or sprint, per Epic.",
     icon: RoadmapIcon,
   },
+];
+
+/** Tool groups in display order (sidebar and home page). */
+export const TOOL_GROUPS: readonly HubToolGroup[] = [
+  { id: "estimations", label: "Estimations", tools: ESTIMATION_TOOLS },
+  { id: "planning", label: "Planning", tools: PLANNING_TOOLS },
 ];
 
 /** Product name used in the header, document titles and the home page. */

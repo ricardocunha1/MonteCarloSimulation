@@ -43,11 +43,14 @@ describe("HubHomePage", () => {
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/monte-carlo$/);
   });
 
-  it("shows a card for both tools", () => {
+  it("shows an Estimations section with Monte Carlo and a Planning section with Release Plan", () => {
     renderAt("/", <HubHomePage />);
-    const section = screen.getByRole("region", { name: "Estimations" });
-    const cards = within(section).getAllByRole("link");
-    expect(cards.map((card) => card.getAttribute("aria-label"))).toEqual(["Open Monte Carlo", "Open Release Plan"]);
+    const cardLabels = (name: string) =>
+      within(screen.getByRole("region", { name }))
+        .getAllByRole("link")
+        .map((card) => card.getAttribute("aria-label"));
+    expect(cardLabels("Estimations")).toEqual(["Open Monte Carlo"]);
+    expect(cardLabels("Planning")).toEqual(["Open Release Plan"]);
   });
 
   it("lists the Release Plan tool with its description and goal", () => {

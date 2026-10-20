@@ -20,9 +20,10 @@ The app is a dashboard: a header with the CM logo and the hub name, a left
 sidebar, and a main content area.
 
 - **Sidebar** — tools are grouped by category. The "Estimations" group
-  holds the **Monte Carlo** item (dice icon) and the **Release Plan** item
-  (roadmap icon); each is highlighted on every page of its tool.
-- **Home page (`/`)** — a card per available tool with a short description
+  holds the **Monte Carlo** item (dice icon) and the "Planning" group
+  holds the **Release Plan** item (roadmap icon); each is highlighted on
+  every page of its tool.
+- **Home page (`/`)** — a section per category with a card per tool with a short description
   and its goal; click a card to open the tool. Unknown URLs land here.
 - **Monte Carlo (`/monte-carlo`)** — the three-step flow described below:
   `/monte-carlo` (Data Input), `/monte-carlo/confirm` (Data Validation) and
