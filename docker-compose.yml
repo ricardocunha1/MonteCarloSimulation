@@ -1,7 +1,9 @@
+name: planninghub
+
 services:
   server:
     build: ./src/server
-    image: estimationshub/estimationshub-server:local
+    image: planninghub/planninghub-server:local
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
       interval: 10s
@@ -11,7 +13,7 @@ services:
 
   client:
     build: ./src/client
-    image: estimationshub/estimationshub-client:local
+    image: planninghub/planninghub-client:local
     environment:
       API_UPSTREAM: http://server:8000
     ports:

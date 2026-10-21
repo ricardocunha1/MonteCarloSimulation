@@ -1,7 +1,7 @@
 # variables:
 namespace: cm-estimations-hub
 registry: dev.criticalmanufacturing.io
-client_image: estimationshub/estimationshub-client
-server_image: estimationshub/estimationshub-server
-tag: 0.3.0 # Shared by both images. Update when estimationshub-client/-server are released (the deploy workflow tags both identically)
+client_image: planninghub/planninghub-client
+server_image: planninghub/planninghub-server
+tag: 0.3.0 # Shared by both images. Update when planninghub-client/-server are released (the deploy workflow tags both identically)
 public_http_address: cm-estimations-hub.apps.rhos.cm-mes.dev

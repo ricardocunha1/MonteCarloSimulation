@@ -212,7 +212,7 @@ server through `API_UPSTREAM` (default `http://server:8000`).
 
 Releases are made by the manual **Deploy** GitHub workflow: it computes the
 version with GitVersion, runs the server and client tests, builds and pushes
-`estimationshub/estimationshub-client` and `estimationshub/estimationshub-server`
+`planninghub/planninghub-client` and `planninghub/planninghub-server`
 with that tag, and tags the commit. The Helm chart in `helm/chart` deploys
 both (set `tag` in `values.yaml`); the ingress sends `/api` to the server and
 everything else to the client.

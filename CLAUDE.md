@@ -210,10 +210,13 @@ client's type-check.
     rendered by the image entrypoint with `API_UPSTREAM` (default
     `http://server:8000`) and proxies `/api/` there (20m uploads, 600s
     timeout) with an SPA `try_files` fallback.
-- **Root `docker-compose.yml`**: `server` (healthcheck) + `client`
-  (`8080:8080`, waits for server healthy).
+- **Root `docker-compose.yml`**: project `name: planninghub` (containers
+  `planninghub-{server,client}-1`, network `planninghub_default`, regardless
+  of the checkout folder name); `server` (healthcheck) + `client`
+  (`8080:8080`, waits for server healthy), images
+  `planninghub/planninghub-{server,client}:local`.
 - **Deployment**: `deploy/build-docker-image.sh` (run from the repo root)
-  builds `estimationshub/estimationshub-{client,server}` (same tag, contexts
+  builds `planninghub/planninghub-{client,server}` (same tag, contexts
   `src/client` / `src/server`, always both) and pushes to
   `dev.criticalmanufacturing.io`. `.github/workflows/deploy.yml` (manual
   dispatch) computes the tag with GitVersion, runs server pytest + client

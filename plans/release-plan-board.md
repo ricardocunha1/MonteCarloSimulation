@@ -929,21 +929,27 @@ remain to be added as new phases here. Open Minor findings from Phases 1–2
 are listed in their Phase Summaries.
 
 ## Deployment Plan
-This is a client-only change: no server code, API, configuration, Helm
-values or data migration changes.
+This is a client-only change: no server code, API or data migration
+changes. (The later image rename to `planninghub/planninghub-{client,server}`
+changed the image names in `helm/chart/values.yaml`; see step 3.)
 1. Merge the branch to `main` after CI-equivalent checks pass locally:
    `cd src/client && npm ci && npm test -- --run && npm run build`, and
    `pytest src/server -q`.
 2. Run the manual **Deploy** GitHub workflow (`.github/workflows/deploy.yml`).
    It computes the tag with GitVersion, runs server pytest and client
    Vitest/build, then `./deploy/build-docker-image.sh -t <tag>`, which always
-   builds and pushes **both** `estimationshub/estimationshub-client` and
-   `estimationshub/estimationshub-server` with the same tag to
+   builds and pushes **both** `planninghub/planninghub-client` and
+   `planninghub/planninghub-server` with the same tag to
    `dev.criticalmanufacturing.io`, and pushes a git tag. (Manual
    alternative from the repo root: `./deploy/build-docker-image.sh -t <tag>
    -u <user> -p <pat>`.)
-3. Set the shared `tag` in `helm/chart/values.yaml` (or the release's values
-   override) to the new tag and upgrade the Helm release. No other values
+3. Only after step 2 has pushed the images, set the shared `tag` in
+   `helm/chart/values.yaml` (or the release's values override) to the new
+   tag and upgrade the Helm release. The images were renamed from
+   `estimationshub/*` to `planninghub/*`, so the previous `tag` does not
+   exist under the new paths: bumping the chart before the images are
+   pushed ends in `ImagePullBackOff`, and the CI registry account must be
+   allowed to push to the `planninghub` namespace. No other values
    change; the server image is rebuilt only because the script always builds
    both.
 4. Saved boards keep working: the localStorage key
