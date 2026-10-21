@@ -1,6 +1,6 @@
-# CM Estimations Hub
+# Planning Hub
 
-A web application that hosts estimation tools for Critical Manufacturing
+A web application that hosts estimation and planning tools for Critical Manufacturing
 (CM) projects. Its first tool is **Monte Carlo**, which forecasts how many
 sprints are needed to hit a target (Items Resolved or Story Points), using a
 Monte Carlo simulation driven by historical sprint data from CM projects.
@@ -28,7 +28,7 @@ sidebar, and a main content area.
 - **Monte Carlo (`/monte-carlo`)** — the three-step flow described below:
   `/monte-carlo` (Data Input), `/monte-carlo/confirm` (Data Validation) and
   `/monte-carlo/results` (Simulation Execution). The **How to Use** button
-  in the Monte Carlo view header opens the in-app help. Results and
+  next to the Monte Carlo step breadcrumb opens the in-app help. Results and
   validation data are kept in memory only, so reloading the Confirm or
   Results page sends you back to `/monte-carlo`.
 - **Release Plan (`/release-plan`)** — the entry page lets you choose how

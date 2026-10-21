@@ -7,8 +7,8 @@ const STEPS: [number, string][] = [
 
 export function Breadcrumb({ currentStep }: { currentStep: number }) {
   return (
-    <nav className="px-6 py-3 border-b border-slate-800 bg-slate-900" aria-label="Progress">
-      <ol className="flex items-center justify-center gap-2 max-w-3xl mx-auto text-sm">
+    <nav aria-label="Progress">
+      <ol className="flex items-center justify-center gap-2 text-sm">
         {STEPS.map(([stepNumber, stepLabel], index) => {
           const active = stepNumber === currentStep;
           return (

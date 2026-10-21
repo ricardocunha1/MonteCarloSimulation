@@ -12,7 +12,7 @@ connection, ADO sync) are **out of scope** for this plan.
 - **Name / routes**: registry entry "Release Plan", `path: "/release-plan"`,
   inline SVG roadmap/flag icon in `components/icons/` (no icon library).
   Routes: `/release-plan` (card selection), `/release-plan/board` (board).
-  Titles: "CM Estimations Hub – Release Plan" and "CM Estimations Hub –
+  Titles: "Planning Hub – Release Plan" and "Planning Hub –
   Release Plan – Board". `/release-plan/board` with no plan in the store →
   redirect to `/release-plan`.
 - **Phase split**: Phase 1 = the full board with *every* non-drag-and-drop
@@ -99,7 +99,7 @@ src/client/src/
   releasePlanStore.tsx  ReleasePlanProvider (useReducer + autosave effect), useReleasePlan()
   components/releasePlan/
     releasePlan.css     ported template CSS (dark palette), every selector scoped under .rp
-    ReleasePlanLayout.tsx  wraps Layout: "Release Plan" heading, title per page
+    ReleasePlanLayout.tsx  wraps Layout: title per page (no view heading)
     ImportJsonModal.tsx
     BoardToolbar.tsx    plan name input, source info, Board/Table tabs, Releases/Sprints radio, zoom
     ModeSwitch.tsx      Releases/Sprints radio group + its ConfirmDialog (Phase 1)
@@ -494,7 +494,7 @@ Status: Complete   <!-- Not started | In progress | Complete -->
 Develop (frontend-developer):
 - [x] Add `components/icons/RoadmapIcon.tsx` (inline SVG, `className` prop, `aria-hidden`), following the `DiceIcon` pattern.
 - [x] Add a `release-plan` entry to `ESTIMATION_TOOLS` in `lib/tools.ts` (name "Release Plan", path `/release-plan`, a one-line description such as "Plan Feature releases on an interactive drag-and-drop board.", and a goal such as "Decide which Features ship in which release or sprint, per Epic."). The sidebar and home card then pick it up automatically.
-- [x] Add `components/releasePlan/ReleasePlanLayout.tsx`: wraps `Layout` with a "Release Plan" view heading and sets the page title ("CM Estimations Hub – Release Plan" / "… – Board").
+- [x] Add `components/releasePlan/ReleasePlanLayout.tsx`: wraps `Layout` with a "Release Plan" view heading and sets the page title ("Planning Hub – Release Plan" / "… – Board").
 - [x] Add `components/ConfirmDialog.tsx`: an accessible modal (`role="dialog"`, `aria-modal`, labelled title, message rendered with `white-space: pre-line`, Confirm/Cancel buttons, Esc = cancel, focus on the confirm button, closes on a backdrop click). Its API is `({open, title, message, confirmLabel, onConfirm, onCancel})` or a `useConfirm()` hook returning `confirm(opts): Promise<boolean>` (pick one and document it in the Phase Summary).
 - [x] Add `showInfo(message: string)` to `components/Toast.tsx`: neutral/navy style, `role="status"`, auto-dismiss after about 2.2s. Leave the `showError` behavior and its tests unchanged.
 - [x] Add `pages/ReleasePlanHomePage.tsx` at `/release-plan` with two cards: (1) "Create from Azure DevOps", disabled with a "Coming soon" badge, `aria-disabled="true"` and no handler; (2) "Import a JSON file", which opens `ImportJsonModal`.
@@ -533,7 +533,7 @@ Docs (documentation-writer):
   follow the `DiceIcon` pattern (`className`, `aria-hidden`, `focusable=false`).
 - `components/releasePlan/ReleasePlanLayout.tsx`: wraps `Layout` with a
   "Release Plan" `<h2>`; optional `page` prop → title
-  "CM Estimations Hub – Release Plan[ – <page>]" (Phase 1 passes `"Board"`).
+  "Planning Hub – Release Plan[ – <page>]" (Phase 1 passes `"Board"`).
 - `components/releasePlan/ImportJsonModal.tsx` (shell): `{open, onClose,
   onFileSelected?}`. "Create board" without a file whose name ends in `.json`
   (case-insensitive) shows the inline `role="alert"` "Select a .json file." and

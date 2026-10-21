@@ -123,7 +123,7 @@ describe("Release Plan – full app flow (Phase 1)", () => {
       await importFromHome(user, planFile(RAW_PLAN));
       expect(await screen.findByRole("region", { name: "Milestone summary" }, FIND)).toBeInTheDocument();
       expect(location()).toBe("/release-plan/board");
-      expect(document.title).toBe("CM Estimations Hub – Release Plan – Board");
+      expect(document.title).toBe("Planning Hub – Release Plan – Board");
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(screen.getByText("Plan loaded: Integration Plan")).toBeInTheDocument();
       expect(screen.getByRole("textbox", { name: "Plan name" })).toHaveValue("Integration Plan");

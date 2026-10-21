@@ -19,7 +19,7 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
 
   it("renders the board with its title, toolbar, summary and hint, and nothing draggable", () => {
     const { container } = renderBoard(samplePlan());
-    expect(document.title).toBe("CM Estimations Hub – Release Plan – Board");
+    expect(document.title).toBe("Planning Hub – Release Plan – Board");
     expect(container.querySelector(".rp")).not.toBeNull();
     expect(screen.getByLabelText("Plan name")).toHaveValue("Sample Release Plan");
     expect(screen.getByTestId("source-info")).toHaveTextContent("Azure DevOps · Area Path: Proj\\Team");

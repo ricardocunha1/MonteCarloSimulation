@@ -1,4 +1,4 @@
-"""Integration tests for the CM Estimations Hub rename and the upload-buffering fix.
+"""Integration tests for the Planning Hub rename and the upload-buffering fix.
 
 These go through the real FastAPI app (TestClient, real multipart upload of the
 canonical fixture) rather than calling services directly.
@@ -25,7 +25,7 @@ def test_openapi_title_is_cm_estimations_hub(client):
     response = client.get("/openapi.json")
 
     assert response.status_code == 200
-    assert response.json()["info"]["title"] == "CM Estimations Hub API"
+    assert response.json()["info"]["title"] == "Planning Hub API"
 
 
 def test_api_paths_are_unchanged(client):

@@ -1,7 +1,7 @@
-# CM Estimations Hub — Monte Carlo
+# Planning Hub — Monte Carlo
 
 > **Note:** the app formerly called "Monte Carlo Simulator" is now the
-> **CM Estimations Hub**, a dashboard hosting estimation tools. This spec
+> **Planning Hub**, a dashboard hosting estimation and planning tools. This spec
 > (and the Data Input / Data Validation / Simulation Execution specs)
 > describes its **Monte Carlo** sub-application, served under
 > `/monte-carlo`. The business rules below are unchanged.

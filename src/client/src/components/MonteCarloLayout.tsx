@@ -4,13 +4,13 @@ import { Breadcrumb } from "./Breadcrumb";
 import { HelpModal } from "./HelpModal";
 import { Layout } from "./Layout";
 
-/** Hub layout plus the Monte Carlo view header (heading, Help button, step breadcrumb). */
+/** Hub layout plus the Monte Carlo view header: step breadcrumb with the Help button on the same row. */
 export function MonteCarloLayout({
   pageTitle,
   currentStep,
   children,
 }: {
-  /** Step name, used in the document title ("CM Estimations Hub – Monte Carlo – <pageTitle>"). */
+  /** Step name, used in the document title ("Planning Hub – Monte Carlo – <pageTitle>"). */
   pageTitle: string;
   /** 1-based step highlighted in the breadcrumb (1 Data Input, 2 Confirm, 3 Results). */
   currentStep: number;
@@ -21,12 +21,14 @@ export function MonteCarloLayout({
 
   return (
     <Layout title={`${HUB_NAME} – Monte Carlo – ${pageTitle}`}>
-      <div className="flex items-center gap-4 px-6 py-4 border-b border-slate-800">
-        <h2 className="text-lg font-semibold">Monte Carlo</h2>
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-6 py-3 border-b border-slate-800 bg-slate-900">
+        <div className="col-start-2">
+          <Breadcrumb currentStep={currentStep} />
+        </div>
         <button
           type="button"
           onClick={() => setHelpOpen(true)}
-          className="ml-auto flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-light-blue)]"
+          className="justify-self-end flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-light-blue)]"
           style={{ backgroundColor: "var(--cm-teal)", color: "#04101d" }}
         >
           <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -36,7 +38,6 @@ export function MonteCarloLayout({
         </button>
       </div>
       <HelpModal open={helpOpen} onClose={closeHelp} />
-      <Breadcrumb currentStep={currentStep} />
       <div className="px-6 py-8 max-w-5xl mx-auto">{children}</div>
     </Layout>
   );

@@ -1,6 +1,6 @@
-# CM Estimations Hub — Monte Carlo - Data Input
+# Planning Hub — Monte Carlo - Data Input
 
-This document describes the data input requirements for the Monte Carlo sub-application of the CM Estimations Hub.
+This document describes the data input requirements for the Monte Carlo sub-application of the Planning Hub.
 
 The following table outlines the expected input parameters for the simulation:
 

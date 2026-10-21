@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**CM Estimations Hub** — a dashboard web app hosting estimation tools for
+**Planning Hub** — a dashboard web app hosting estimation and planning tools for
 Critical Manufacturing (CM) projects (formerly "Monte Carlo Simulator";
 `plans/cm-estimations-hub-dashboard.md` records the rename/refactor). Its
 first tool, **Monte Carlo**, runs Monte Carlo
@@ -67,8 +67,8 @@ client's type-check.
   decisions. If you add a new phase of work to a plan, follow that plan's
   own "For Future Agents" instructions (checkboxes, phase status, Phase
   Summary on completion).
-- **`src/server/`** — FastAPI app `app.main:app` (OpenAPI title "CM
-  Estimations Hub API"), all routes under `/api`
+- **`src/server/`** — FastAPI app `app.main:app` (OpenAPI title "Planning
+  Hub API"), all routes under `/api`
   (`app/api/routes.py`, Pydantic models in `app/schemas.py`):
   - `POST /api/validate` (multipart, same field names as the original
     form) → `{summary, params}`. It reads `await request.form()` manually
@@ -119,9 +119,10 @@ client's type-check.
     `components/Sidebar.tsx` renders one group per `TOOL_GROUPS` entry
     (label centered between two lines) of `NavLink`s, active on any route
     below the tool's path. `components/MonteCarloLayout.tsx` wraps `Layout` for
-    the three Monte Carlo pages with the Monte Carlo view header (heading,
-    "How to Use" button opening `HelpModal`, step `Breadcrumb`) and titles
-    like "CM Estimations Hub – Monte Carlo – Data Input". Help lives only
+    the three Monte Carlo pages with one header row (step `Breadcrumb`
+    centered, "How to Use" button opening `HelpModal` on the right; no
+    tool heading — the sidebar shows where you are) and titles
+    like "Planning Hub – Monte Carlo – Data Input". Help lives only
     there, not in the global header.
   - `lib/tools.ts` is the tool registry (`HubTool`, `HubToolGroup`,
     `TOOL_GROUPS` = "Estimations" (`ESTIMATION_TOOLS`: Monte Carlo) then

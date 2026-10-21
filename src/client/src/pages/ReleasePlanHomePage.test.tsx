@@ -28,8 +28,8 @@ async function importFile(user: ReturnType<typeof userEvent.setup>, file: File) 
 describe("ReleasePlanHomePage", () => {
   it("renders inside the Release Plan layout with its title", () => {
     renderAt("/release-plan", <ReleasePlanHomePage />);
-    expect(screen.getByRole("heading", { level: 2, name: "Release Plan" })).toBeInTheDocument();
-    expect(document.title).toBe("CM Estimations Hub – Release Plan");
+    expect(screen.queryByRole("heading", { name: "Release Plan" })).not.toBeInTheDocument();
+    expect(document.title).toBe("Planning Hub – Release Plan");
   });
 
   it("shows the Azure DevOps card as disabled with a Coming soon badge", () => {

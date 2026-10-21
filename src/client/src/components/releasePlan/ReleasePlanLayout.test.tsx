@@ -14,20 +14,20 @@ function renderView(page?: string) {
 }
 
 describe("ReleasePlanLayout", () => {
-  it("renders the hub header, the Release Plan heading and content", () => {
+  it("renders the hub header and content, without a Release Plan heading", () => {
     renderView();
-    expect(screen.getByRole("heading", { level: 1, name: "CM Estimations Hub" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Release Plan" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Planning Hub" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Release Plan" })).not.toBeInTheDocument();
     expect(screen.getByText("page content")).toBeInTheDocument();
   });
 
   it("sets the home document title without a page", () => {
     renderView();
-    expect(document.title).toBe("CM Estimations Hub – Release Plan");
+    expect(document.title).toBe("Planning Hub – Release Plan");
   });
 
   it("appends the page to the document title", () => {
     renderView("Board");
-    expect(document.title).toBe("CM Estimations Hub – Release Plan – Board");
+    expect(document.title).toBe("Planning Hub – Release Plan – Board");
   });
 });

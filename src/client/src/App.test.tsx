@@ -31,7 +31,7 @@ describe("App routing", () => {
 
   it("renders the Monte Carlo input step at /monte-carlo", () => {
     renderApp("/monte-carlo");
-    expect(screen.getByRole("heading", { level: 2, name: "Monte Carlo" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Monte Carlo" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "How to Use" })).toBeInTheDocument();
   });
 
@@ -42,6 +42,6 @@ describe("App routing", () => {
 
   it("redirects Monte Carlo steps without data to the input step", () => {
     renderApp("/monte-carlo/results");
-    expect(document.title).toBe("CM Estimations Hub – Monte Carlo – Data Input");
+    expect(document.title).toBe("Planning Hub – Monte Carlo – Data Input");
   });
 });

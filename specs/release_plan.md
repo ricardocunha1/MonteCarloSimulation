@@ -1,4 +1,4 @@
-# CM Estimations Hub — Release Plan
+# Planning Hub — Release Plan
 
 This application will create interactive drag-and-drop boards to create release plans, based on the backlog of selectable CM Projects.
 

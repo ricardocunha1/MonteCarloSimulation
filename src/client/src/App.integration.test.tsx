@@ -72,7 +72,7 @@ async function fillInputAndSubmit(user: ReturnType<typeof userEvent.setup>, { sk
   fireEvent.submit(screen.getByRole("button", { name: "Continue" }).closest("form")!);
 }
 
-describe("CM Estimations Hub – full app flow", () => {
+describe("Planning Hub – full app flow", () => {
   beforeEach(() => {
     vi.spyOn(window, "scrollTo").mockImplementation(() => {});
     fetchMock.mockReset();
@@ -91,8 +91,8 @@ describe("CM Estimations Hub – full app flow", () => {
     renderApp("/");
 
     // Home: hub title, tool card, no Help button.
-    expect(document.title).toBe("CM Estimations Hub");
-    expect(screen.getByRole("heading", { level: 1, name: "CM Estimations Hub" })).toBeInTheDocument();
+    expect(document.title).toBe("Planning Hub");
+    expect(screen.getByRole("heading", { level: 1, name: "Planning Hub" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "How to Use" })).not.toBeInTheDocument();
 
     // Sidebar → Monte Carlo.
@@ -100,7 +100,7 @@ describe("CM Estimations Hub – full app flow", () => {
     await user.click(sidebarMonteCarlo());
     expect(location()).toBe("/monte-carlo");
     expect(sidebarMonteCarlo()).toHaveAttribute("aria-current", "page");
-    expect(document.title).toBe("CM Estimations Hub – Monte Carlo – Data Input");
+    expect(document.title).toBe("Planning Hub – Monte Carlo – Data Input");
 
     await fillInputAndSubmit(user, { skip: false });
 
@@ -108,7 +108,7 @@ describe("CM Estimations Hub – full app flow", () => {
     expect(location()).toBe("/monte-carlo/confirm");
     // Layout sets the title in a passive effect, which can run just after the
     // fetch-driven commit that findBy observed; wait for it like Results does.
-    await waitFor(() => expect(document.title).toBe("CM Estimations Hub – Monte Carlo – Confirm Sprint Data"), FIND);
+    await waitFor(() => expect(document.title).toBe("Planning Hub – Monte Carlo – Confirm Sprint Data"), FIND);
     expect(screen.getByText("Sprint 1")).toBeInTheDocument();
 
     const [validateUrl, validateInit] = fetchMock.mock.calls[0];
@@ -124,7 +124,7 @@ describe("CM Estimations Hub – full app flow", () => {
 
     expect(await screen.findByText("Calendar View", undefined, FIND)).toBeInTheDocument();
     expect(location()).toBe("/monte-carlo/results");
-    await waitFor(() => expect(document.title).toBe("CM Estimations Hub – Monte Carlo – Results"), FIND);
+    await waitFor(() => expect(document.title).toBe("Planning Hub – Monte Carlo – Results"), FIND);
     expect(sidebarMonteCarlo()).toHaveAttribute("aria-current", "page");
 
     const [simulateUrl, simulateInit] = fetchMock.mock.calls[1];
@@ -205,7 +205,7 @@ describe("CM Estimations Hub – full app flow", () => {
     await user.click(screen.getByRole("link", { name: "Open Monte Carlo" }));
     expect(location()).toBe("/monte-carlo");
 
-    await user.click(screen.getByRole("link", { name: "CM Estimations Hub home" }));
+    await user.click(screen.getByRole("link", { name: "Planning Hub home" }));
     expect(location()).toBe("/");
     expect(screen.getByRole("link", { name: "Monte Carlo" })).not.toHaveAttribute("aria-current");
   });
@@ -221,8 +221,8 @@ describe("CM Estimations Hub – full app flow", () => {
 
     await user.click(screen.getByRole("link", { name: "Open Release Plan" }));
     expect(location()).toBe("/release-plan");
-    expect(document.title).toBe("CM Estimations Hub – Release Plan");
-    expect(screen.getByRole("heading", { level: 2, name: "Release Plan" })).toBeInTheDocument();
+    expect(document.title).toBe("Planning Hub – Release Plan");
+    expect(screen.queryByRole("heading", { name: "Release Plan" })).not.toBeInTheDocument();
     expect(within(nav()).getByRole("link", { name: "Release Plan" })).toHaveAttribute("aria-current", "page");
     expect(within(nav()).getByRole("link", { name: "Monte Carlo" })).not.toHaveAttribute("aria-current");
     // Monte Carlo's Help lives only in its own view header.
@@ -273,12 +273,12 @@ describe("CM Estimations Hub – full app flow", () => {
 
     await user.click(navLink("Release Plan"));
     expect(location()).toBe("/release-plan");
-    expect(document.title).toBe("CM Estimations Hub – Release Plan");
+    expect(document.title).toBe("Planning Hub – Release Plan");
     expect(navLink("Release Plan")).toHaveAttribute("aria-current", "page");
 
     await user.click(navLink("Monte Carlo"));
     expect(location()).toBe("/monte-carlo");
-    expect(document.title).toBe("CM Estimations Hub – Monte Carlo – Data Input");
+    expect(document.title).toBe("Planning Hub – Monte Carlo – Data Input");
     expect(navLink("Monte Carlo")).toHaveAttribute("aria-current", "page");
     expect(navLink("Release Plan")).not.toHaveAttribute("aria-current");
   }, FLOW_TIMEOUT_MS);

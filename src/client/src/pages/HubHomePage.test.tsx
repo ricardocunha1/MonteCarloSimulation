@@ -8,9 +8,9 @@ import { HubHomePage } from "./HubHomePage";
 describe("HubHomePage", () => {
   it("shows the hub title and sets the document title", () => {
     renderAt("/", <HubHomePage />);
-    expect(screen.getByRole("heading", { level: 1, name: "CM Estimations Hub" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "CM Estimations Hub home" })).toHaveAttribute("href", "/");
-    expect(document.title).toBe("CM Estimations Hub");
+    expect(screen.getByRole("heading", { level: 1, name: "Planning Hub" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Planning Hub home" })).toHaveAttribute("href", "/");
+    expect(document.title).toBe("Planning Hub");
   });
 
   it("lists the Monte Carlo tool with its description and goal", () => {

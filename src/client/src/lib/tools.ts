@@ -2,7 +2,7 @@ import type { ComponentType } from "react";
 import { DiceIcon } from "../components/icons/DiceIcon";
 import { RoadmapIcon } from "../components/icons/RoadmapIcon";
 
-/** A sub-application of the CM Estimations Hub, shown in the sidebar and on the home page. */
+/** A sub-application of the Planning Hub, shown in the sidebar and on the home page. */
 export interface HubTool {
   /** Stable key, also used as the React list key. */
   id: string;
@@ -58,4 +58,4 @@ export const TOOL_GROUPS: readonly HubToolGroup[] = [
 ];
 
 /** Product name used in the header, document titles and the home page. */
-export const HUB_NAME = "CM Estimations Hub";
+export const HUB_NAME = "Planning Hub";

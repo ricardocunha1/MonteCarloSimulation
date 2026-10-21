@@ -22,4 +22,4 @@ def test_unhandled_exception_returns_generic_500():
 
 
 def test_app_title_is_cm_estimations_hub():
-    assert create_app().title == "CM Estimations Hub API"
+    assert create_app().title == "Planning Hub API"
