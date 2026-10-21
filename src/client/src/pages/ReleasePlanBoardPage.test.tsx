@@ -1,14 +1,26 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { replaceBoardMessage } from "../components/releasePlan/ReplaceBoardDialog";
+import { planToJson } from "../lib/releasePlan/exportFile";
 import type { PlanStorage } from "../lib/releasePlan/storage";
-import { makeEpic, makeFeature, samplePlan, sprintsPlan } from "../test/releasePlanFixtures";
+import type { ReleasePlan } from "../lib/releasePlan/types";
+import { makeEpic, makeFeature, makeMilestone, samplePlan, sprintsPlan } from "../test/releasePlanFixtures";
 import { BOARD_TEST_TIMEOUT_MS, renderBoard } from "../test/renderBoard";
 
 const location = () => screen.getByTestId("location").textContent;
 const summaryBox = (name: string) => within(screen.getByRole("region", { name: "Milestone summary" })).getByRole("group", { name });
 const featureCount = (name: string) => summaryBox(name).querySelector(".n")?.textContent;
 const zoomValue = () => screen.getByTestId("zoom-value").textContent;
+
+function readBlob(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error("read failed"));
+    reader.readAsText(blob);
+  });
+}
 
 describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
   it("redirects to /release-plan when there is no plan", () => {
@@ -31,7 +43,9 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
     expect(draggable.every((el) => el.matches(".epic, .fcard"))).toBe(true);
     expect(draggable).toHaveLength(3 + 5);
     expect([...container.querySelectorAll('[draggable="false"]')].map((el) => el.textContent)).toEqual(["◀", "▶", "◀", "▶", "◀", "▶"]);
-    expect(screen.queryByRole("button", { name: /Load Plan|Save Plan|Export PNG/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load Plan" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save Plan" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Export PNG/ })).not.toBeInTheDocument();
   });
 
   it("shows 'Restored your last session' once when hydrated from storage, and autosaves changes", async () => {
@@ -85,25 +99,34 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
     expect(summaryBox("MVP")).toBeInTheDocument();
   });
 
-  it("zooms with −/+ in 0.1 steps clamped to [30%, 150%], scales the board, and fits the scroll box", async () => {
-    const user = userEvent.setup();
+  it("zooms with −/+ in 0.1 steps clamped to [30%, 150%], scales the board, and fits the scroll box", () => {
+    // ~25 clicks that each re-render the whole board: fireEvent (not userEvent) and the buttons are looked up
+    // once (role queries over the full board are slow), so this stays fast under parallel load.
     renderBoard(samplePlan());
+    const zoomGroup = within(screen.getByRole("group", { name: "Zoom" }));
+    const zoomInBtn = zoomGroup.getByRole("button", { name: "Zoom in" });
+    const zoomOutBtn = zoomGroup.getByRole("button", { name: "Zoom out" });
+    const fitBtn = zoomGroup.getByRole("button", { name: "Fit" });
     expect(zoomValue()).toBe("100%");
-    for (let i = 0; i < 8; i++) {
-      await user.click(screen.getByRole("button", { name: "Zoom in" }));
+    fireEvent.click(zoomInBtn);
+    expect(zoomValue()).toBe("110%");
+    for (let i = 1; i < 8; i++) {
+      fireEvent.click(zoomInBtn);
     }
     expect(zoomValue()).toBe("150%");
     expect(screen.getByTestId("board-scale")).toHaveStyle({ transform: "scale(1.5)", width: "1950px", height: "840px" });
-    for (let i = 0; i < 15; i++) {
-      await user.click(screen.getByRole("button", { name: "Zoom out" }));
+    fireEvent.click(zoomOutBtn);
+    expect(zoomValue()).toBe("140%");
+    for (let i = 1; i < 15; i++) {
+      fireEvent.click(zoomOutBtn);
     }
     expect(zoomValue()).toBe("30%");
     // Fit = min(1, (clientWidth - 4) / layout.width); the sample layout is 1300px wide.
     Object.defineProperty(screen.getByTestId("board-scroll"), "clientWidth", { configurable: true, value: 654 });
-    await user.click(screen.getByRole("button", { name: "Fit" }));
+    fireEvent.click(fitBtn);
     expect(zoomValue()).toBe("50%");
     Object.defineProperty(screen.getByTestId("board-scroll"), "clientWidth", { configurable: true, value: 5000 });
-    await user.click(screen.getByRole("button", { name: "Fit" }));
+    fireEvent.click(fitBtn);
     expect(zoomValue()).toBe("100%");
   });
 
@@ -169,6 +192,160 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(screen.getByRole("status")).toHaveTextContent("No Iteration Paths below the project root were found");
       expect(radio("Releases")).toHaveAttribute("aria-checked", "true");
+    });
+  });
+
+  it("shows Load Plan and Save Plan in both the Board and Table views", () => {
+    renderBoard(samplePlan());
+    const toolbarButtons = () => screen.getAllByRole("button").filter((b) => b.closest(".toolbar")).map((b) => b.textContent);
+    expect(toolbarButtons().slice(-2)).toEqual(["Load Plan", "Save Plan"]);
+    fireEvent.click(screen.getByRole("tab", { name: "Table" }));
+    expect(screen.queryByRole("group", { name: "Zoom" })).not.toBeInTheDocument();
+    expect(toolbarButtons().slice(-2)).toEqual(["Load Plan", "Save Plan"]);
+    expect(screen.getByRole("button", { name: "Load Plan" })).toHaveClass("btn");
+    expect(screen.getByRole("button", { name: "Save Plan" })).toHaveClass("btn");
+    expect(document.querySelector(".rp .toolbar .spacer")).not.toBeNull();
+  });
+
+  it("shows a decorative icon before the Load Plan / Save Plan labels in both views", () => {
+    const { container } = renderBoard(samplePlan());
+    const toolbar = () => {
+      const el = container.querySelector<HTMLElement>(".rp .toolbar");
+      if (!el) throw new Error("toolbar not rendered");
+      return el;
+    };
+    const expectIcons = () => {
+      for (const name of ["Load Plan", "Save Plan"]) {
+        const button = within(toolbar()).getByRole("button", { name });
+        const svg = button.querySelector("svg");
+        expect(svg).not.toBeNull();
+        expect(svg).toHaveAttribute("aria-hidden", "true");
+        expect(button.firstElementChild).toBe(svg);
+        expect(button).toHaveTextContent(name);
+      }
+    };
+    expectIcons();
+    fireEvent.click(within(toolbar()).getByRole("tab", { name: "Table" }));
+    expectIcons();
+  });
+
+  describe("Save Plan", () => {
+    const NOW = new Date("2026-10-21T09:15:00.000Z");
+    let blobs: Blob[] = [];
+    let downloads: string[] = [];
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(NOW);
+      blobs = [];
+      downloads = [];
+      Object.assign(URL, {
+        createObjectURL: (blob: Blob) => {
+          blobs.push(blob);
+          return "blob:plan";
+        },
+        revokeObjectURL: () => undefined,
+      });
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+        downloads.push(this.download);
+      });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    });
+
+    it("downloads the plan JSON as <name>_<date>.json, toasts, and leaves the store untouched", async () => {
+      const plan = samplePlan();
+      const save = vi.fn<PlanStorage["save"]>();
+      renderBoard(null, { load: () => plan, save });
+      const savesBefore = save.mock.calls.length;
+      fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+
+      expect(downloads).toEqual(["Sample_Release_Plan_2026-10-21.json"]);
+      expect(blobs).toHaveLength(1);
+      expect(blobs[0].type).toBe("application/json");
+      expect(await readBlob(blobs[0])).toBe(planToJson(plan, NOW));
+      expect(JSON.parse(await readBlob(blobs[0]))).toMatchObject({ schema: "release-planner-features", version: 1, savedAt: NOW.toISOString() });
+      expect(screen.getAllByRole("status").some((s) => s.textContent === "Plan saved")).toBe(true);
+      // No store change: no autosave and no savedAt in the in-memory plan.
+      expect(save.mock.calls.length).toBe(savesBefore);
+      expect(screen.getByLabelText("Plan name")).toHaveValue("Sample Release Plan");
+    });
+  });
+
+  describe("Load Plan", () => {
+    const planFile = (plan: ReleasePlan, name = "other.json") => new File([JSON.stringify(plan)], name, { type: "application/json" });
+    const otherPlan = () => samplePlan({ name: "Other Plan", milestones: [makeMilestone({ id: "ms_x", name: "Gamma" })], epics: [makeEpic({ id: 7, title: "Loaded Epic", features: [makeFeature({ id: 71, title: "Loaded Feature", milestoneId: "ms_x" })] })] });
+    const loadDialog = () => screen.getByRole("dialog", { name: "Load a plan" });
+
+    async function chooseFile(file: File) {
+      const user = userEvent.setup();
+      fireEvent.click(screen.getByRole("button", { name: "Load Plan" }));
+      await user.upload(within(loadDialog()).getByLabelText("Release plan file"), file);
+      await user.click(within(loadDialog()).getByRole("button", { name: "Load" }));
+      return user;
+    }
+
+    it("shows an invalid file's error inline and keeps the board", async () => {
+      renderBoard(samplePlan());
+      await chooseFile(new File(["{oops"], "bad.json", { type: "application/json" }));
+      expect(await within(loadDialog()).findByRole("alert")).toHaveTextContent("Could not read the file: it is not valid JSON.");
+      expect(screen.queryByRole("dialog", { name: "Replace the current board?" })).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Plan name")).toHaveValue("Sample Release Plan");
+    });
+
+    it("asks to replace the board; Replace loads it, closes the dialogs, toasts and stays on the board", async () => {
+      renderBoard(samplePlan());
+      const user = await chooseFile(planFile(otherPlan()));
+      const confirm = await screen.findByRole("dialog", { name: "Replace the current board?" });
+      expect(confirm).toHaveTextContent(replaceBoardMessage("Sample Release Plan", "Other Plan"));
+      await user.click(within(confirm).getByRole("button", { name: "Replace" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Plan name")).toHaveValue("Other Plan");
+      expect(summaryBox("Gamma")).toBeInTheDocument();
+      expect(screen.getByText("Loaded Feature")).toBeInTheDocument();
+      expect(screen.getAllByRole("status").some((s) => s.textContent === "Plan loaded: Other Plan")).toBe(true);
+      expect(location()).toBe("/release-plan/board");
+    });
+
+    it("Cancel closes only the confirmation and keeps the current board", async () => {
+      renderBoard(samplePlan());
+      const user = await chooseFile(planFile(otherPlan()));
+      const confirm = await screen.findByRole("dialog", { name: "Replace the current board?" });
+      await user.click(within(confirm).getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByRole("dialog", { name: "Replace the current board?" })).not.toBeInTheDocument();
+      expect(loadDialog()).toBeInTheDocument();
+      expect(screen.getByLabelText("Plan name")).toHaveValue("Sample Release Plan");
+      expect(summaryBox("MVP")).toBeInTheDocument();
+    });
+
+    it("clears the Ctrl+click selection and keeps the view and zoom after a load", async () => {
+      renderBoard(samplePlan());
+      const card = (title: string) => within(screen.getByRole("region", { name: "Board" })).getByRole("button", { name: new RegExp(title) });
+      fireEvent.click(card("Reports"), { ctrlKey: true });
+      expect(card("Reports")).toHaveClass("selected");
+      fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+      // Reload the same plan: the cards are the same, only the remount clears the selection.
+      const user = await chooseFile(planFile(samplePlan({ name: "Same Cards" })));
+      await user.click(await screen.findByRole("button", { name: "Replace" }));
+      expect(screen.getByLabelText("Plan name")).toHaveValue("Same Cards");
+      expect(card("Reports")).not.toHaveClass("selected");
+      expect(document.querySelectorAll(".fcard.selected")).toHaveLength(0);
+      expect(zoomValue()).toBe("110%");
+      expect(screen.getByRole("tab", { name: "Board" })).toHaveAttribute("aria-selected", "true");
+    });
+
+    it("closes the open work-item modal when a plan is loaded", async () => {
+      renderBoard(samplePlan());
+      fireEvent.click(within(screen.getByRole("region", { name: "Board" })).getByRole("button", { name: /Reports/ }));
+      expect(screen.getAllByRole("dialog")).toHaveLength(1);
+      const workItem = screen.getByRole("dialog");
+      expect(workItem).not.toHaveAccessibleName("Load a plan");
+      const user = await chooseFile(planFile(otherPlan()));
+      await user.click(await screen.findByRole("button", { name: "Replace" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
   });
 

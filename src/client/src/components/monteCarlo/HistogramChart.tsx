@@ -1,7 +1,7 @@
 import Plotly from "plotly.js-basic-dist-min";
 import createPlotlyComponent from "react-plotly.js/factory";
-import { confidenceColor, OVERFLOW_LABEL } from "../lib/confidence";
-import type { Histogram, ResultRow } from "../types";
+import { confidenceColor, OVERFLOW_LABEL } from "../../lib/monteCarlo/confidence";
+import type { Histogram, ResultRow } from "../../lib/monteCarlo/types";
 
 const Plot = createPlotlyComponent(Plotly);
 

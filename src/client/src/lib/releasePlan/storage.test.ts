@@ -13,7 +13,7 @@ describe("plan storage", () => {
   it("round-trips a plan under the v1 key", () => {
     const plan = samplePlan();
     savePlan(plan);
-    expect(STORAGE_KEY).toBe("cmEstimationsHub.releasePlan.v1");
+    expect(STORAGE_KEY).toBe("cmPlanningHub.releasePlan.v1");
     expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull();
     expect(loadSavedPlan()).toEqual(plan);
   });

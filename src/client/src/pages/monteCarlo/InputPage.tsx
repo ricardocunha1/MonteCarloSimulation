@@ -1,11 +1,11 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { validate } from "../api";
-import { InfoIcon } from "../components/InfoIcon";
-import { MonteCarloLayout } from "../components/MonteCarloLayout";
-import { errorMessages, useToast } from "../components/Toast";
-import { runSimulation } from "../lib/runSimulation";
-import { useForecast } from "../store";
+import { validate } from "../../lib/monteCarlo/api";
+import { InfoIcon } from "../../components/monteCarlo/InfoIcon";
+import { MonteCarloLayout } from "../../components/monteCarlo/MonteCarloLayout";
+import { errorMessages, useToast } from "../../components/Toast";
+import { runSimulation } from "../../lib/monteCarlo/runSimulation";
+import { useForecast } from "../../monteCarloStore";
 
 // Port of input.html.
 export const DEFAULT_FORM_VALUES = {

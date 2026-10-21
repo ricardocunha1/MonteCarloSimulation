@@ -5,7 +5,7 @@ export const SCHEMA = "release-planner-features";
 export const VERSION = 1;
 
 /** localStorage key of the autosaved plan. */
-export const STORAGE_KEY = "cmEstimationsHub.releasePlan.v1";
+export const STORAGE_KEY = "cmPlanningHub.releasePlan.v1";
 
 /** Fallback when a plan name is empty. */
 export const DEFAULT_PLAN_NAME = "Feature Release Plan";

@@ -14,8 +14,10 @@ Excel file. Three-step flow: Data Input → Data Validation (optional,
 skippable) → Simulation Execution. A second, client-only tool, **Release
 Plan** (`/release-plan`), was built per `plans/release-plan-board.md`
 (Phases 0–2 complete: card-selection entry page, JSON import, the full
-board and native HTML5 drag-and-drop); spec phases 3–5 (in-board
-export/PNG, Azure DevOps) are not started.
+board and native HTML5 drag-and-drop). Spec phase 3 is in progress per
+`plans/release-plan-import-export.md` (its Phase 1, toolbar Load Plan /
+Save Plan JSON, is complete; Export PNG is next); spec phases 4–5 (Azure
+DevOps) are not started.
 
 Two tiers: a FastAPI server (`src/server`) and a React SPA (`src/client`).
 It used to be a single Flask app; `plans/client-server-migration.md`
@@ -119,24 +121,36 @@ client's type-check.
     name, left `Sidebar`, main area; sets `document.title`).
     `components/Sidebar.tsx` renders one group per `TOOL_GROUPS` entry
     (label centered between two lines) of `NavLink`s, active on any route
-    below the tool's path. `components/MonteCarloLayout.tsx` wraps `Layout` for
+    below the tool's path. `components/monteCarlo/MonteCarloLayout.tsx` wraps `Layout` for
     the three Monte Carlo pages with one header row (step `Breadcrumb`
     centered, "How to Use" button opening `HelpModal` on the right; no
     tool heading — the sidebar shows where you are) and titles
     like "Planning Hub – Monte Carlo – Data Input". Help lives only
     there, not in the global header.
+  - Per-tool folders: Monte Carlo code lives in `components/monteCarlo/`
+    (`MonteCarloLayout`, `Breadcrumb`, `HelpModal`, `HistogramChart`,
+    `InfoIcon`), `lib/monteCarlo/` (`api`, `types`, `runSimulation`,
+    `confidence`, `calendar`), `pages/monteCarlo/` (`InputPage`,
+    `ConfirmPage`, `ResultsPage`), `monteCarloStore.tsx` and
+    `test/monteCarloFixtures.ts`; Release Plan mirrors it with
+    `components/releasePlan/`, `lib/releasePlan/`, `releasePlanStore.tsx`
+    and `test/releasePlanFixtures.ts` (its pages are
+    `pages/ReleasePlan*Page.tsx`). Shared hub pieces (`Layout`, `Sidebar`,
+    `Toast`, `ConfirmDialog`, `useDialog`, `ScrollToTop`, `icons/`,
+    `lib/tools.ts`) stay at the top of `components/` / `lib/`.
   - `lib/tools.ts` is the tool registry (`HubTool`, `HubToolGroup`,
     `TOOL_GROUPS` = "Estimations" (`ESTIMATION_TOOLS`: Monte Carlo) then
     "Planning" (`PLANNING_TOOLS`: Release Plan), `HUB_NAME`) feeding both
     the sidebar groups and the home page sections; adding a tool = one
     entry in a group's list + its routes in `App.tsx`. Icons are inline
-    SVG components in `components/icons/` (e.g. `DiceIcon`), no icon
-    library.
-  - `api.ts` / `types.ts` mirror the server schemas; a 422 becomes a
+    SVG components in `components/icons/` (e.g. `DiceIcon`;
+    `UploadIcon`/`DownloadIcon` on the board's Load/Save Plan buttons,
+    decorative `aria-hidden`), no icon library.
+  - `lib/monteCarlo/api.ts` / `lib/monteCarlo/types.ts` mirror the server schemas; a 422 becomes a
     thrown `ApiError` carrying `errors`.
-  - `store.tsx` holds the validate response and the execution result in
+  - `monteCarloStore.tsx` (`ForecastProvider`) holds the validate response and the execution result in
     memory only — a reload sends you back to `/monte-carlo`.
-  - `lib/runSimulation.ts` is the one simulate → execution helper used by
+  - `lib/monteCarlo/runSimulation.ts` is the one simulate → execution helper used by
     both the skip-validation branch of `InputPage` and `ConfirmPage`, so
     their behavior is identical by construction — don't duplicate it.
   - API failures are shown as toasts (`components/Toast.tsx`:
@@ -144,13 +158,13 @@ client's type-check.
     (`test/render.tsx`, which also stubs `/`, the `/monte-carlo/*` and the
     `/release-plan/*` routes),
     `useToast().showError`, `errorMessages(exc)`); the page stays where it
-    is, so `store.tsx`'s `Execution` only represents success. `api.ts`
+    is, so `monteCarloStore.tsx`'s `Execution` only represents success. `api.ts`
     pulls the server's own message out of `{errors}`, FastAPI `{detail}`,
     `{message}` or a short plain-text body, else a generic HTTP message.
-  - The client owns presentation: confidence colors (`lib/confidence.ts`,
+  - The client owns presentation: confidence colors (`lib/monteCarlo/confidence.ts`,
     mirroring the `--cm-*` CSS vars in `index.css`), calendar month grids
-    (`lib/calendar.ts`, integer UTC day arithmetic — no timezone shifts),
-    the Plotly histogram (`components/HistogramChart.tsx`, lazy-loaded
+    (`lib/monteCarlo/calendar.ts`, integer UTC day arithmetic — no timezone shifts),
+    the Plotly histogram (`components/monteCarlo/HistogramChart.tsx`, lazy-loaded
     `plotly.js-basic-dist-min`, x axis forced to `category` so `>50` is its
     own bar; mocked in tests).
   - **Release Plan** (client-only, no API calls). The behavioral source
@@ -167,10 +181,14 @@ client's type-check.
       confirmations and toasts stay in the UI), `sanitize`
       (`safeHtml` whitelist for ADO descriptions), `storage`
       (`PlanStorage`, `localPlanStorage`), `modeSwitch`, `zoom`,
-      `autoScroll` (`edgeSpeed`).
+      `autoScroll` (`edgeSpeed`), `exportFile` (`fileBase`, `planToJson`,
+      `downloadBlob`: the toolbar's Save Plan JSON download, spec phase 3,
+      `plans/release-plan-import-export.md`).
     - `releasePlanStore.tsx`: `ReleasePlanProvider` is mounted in
       **`App.tsx`** around the routes (not in `main.tsx`); it hydrates from
-      localStorage key `cmEstimationsHub.releasePlan.v1` and autosaves after
+      localStorage key `cmPlanningHub.releasePlan.v1` (renamed from
+      `cmEstimationsHub.releasePlan.v1` with no migration; the old key is
+      ignored) and autosaves after
       every change (`storage={null}` = in-memory). `useReleasePlan()` gives
       `plan`, `dispatch`, `replacePlan`, `restoredFromStorage`,
       `consumeRestoredNotice()`. `renderAt` takes `initialPlan` /
@@ -180,7 +198,9 @@ client's type-check.
       the topmost dialog, focus trap, focus restore, callbacks via refs;
       `isDialogOpen()` lets global Esc handlers stand aside) backs
       `ConfirmDialog` (controlled props, portal to `body`),
-      `ImportJsonModal` and `WorkItemModal`. No `window.confirm/alert/
+      `ImportJsonModal` and `WorkItemModal`. The "Replace the current
+      board?" confirmation is the shared `ReplaceBoardDialog` (home page
+      import and board Load Plan). No `window.confirm/alert/
       prompt`; info messages use `useToast().showInfo`. The `GapMenu` is
       not on the dialog stack.
     - Drag-and-drop: `components/releasePlan/useBoardDrag.ts`

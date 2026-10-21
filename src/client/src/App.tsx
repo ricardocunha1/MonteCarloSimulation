@@ -1,11 +1,11 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
-import { ConfirmPage } from "./pages/ConfirmPage";
+import { ConfirmPage } from "./pages/monteCarlo/ConfirmPage";
 import { HubHomePage } from "./pages/HubHomePage";
-import { InputPage } from "./pages/InputPage";
+import { InputPage } from "./pages/monteCarlo/InputPage";
 import { ReleasePlanBoardPage } from "./pages/ReleasePlanBoardPage";
 import { ReleasePlanHomePage } from "./pages/ReleasePlanHomePage";
-import { ResultsPage } from "./pages/ResultsPage";
+import { ResultsPage } from "./pages/monteCarlo/ResultsPage";
 import { ReleasePlanProvider } from "./releasePlanStore";
 
 /**

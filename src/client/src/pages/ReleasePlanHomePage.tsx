@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
 import { FileJsonIcon } from "../components/icons/FileJsonIcon";
 import { ImportJsonModal } from "../components/releasePlan/ImportJsonModal";
 import { ReleasePlanLayout } from "../components/releasePlan/ReleasePlanLayout";
+import { ReplaceBoardDialog } from "../components/releasePlan/ReplaceBoardDialog";
 import { useToast } from "../components/Toast";
 import { sourceInfo } from "../lib/releasePlan/selectors";
 import type { ReleasePlan } from "../lib/releasePlan/types";
@@ -107,15 +107,9 @@ export function ReleasePlanHomePage() {
         </ul>
       </div>
       <ImportJsonModal open={importOpen} onClose={closeImport} onPlanLoaded={onPlanLoaded} />
-      <ConfirmDialog
-        open={pendingPlan !== null}
-        title="Replace the current board?"
-        message={
-          plan && pendingPlan
-            ? `The current board "${plan.name}" will be replaced by "${pendingPlan.name}". Changes to the current board will be lost.`
-            : ""
-        }
-        confirmLabel="Replace"
+      <ReplaceBoardDialog
+        currentName={plan?.name ?? ""}
+        nextName={plan && pendingPlan ? pendingPlan.name : null}
         onConfirm={() => {
           if (pendingPlan) {
             openBoard(pendingPlan);

@@ -19,8 +19,9 @@ function readFileText(file: File): Promise<string> {
 
 /**
  * Modal for picking a previously exported release plan JSON file. Esc, Cancel
- * and a backdrop click close it. "Create board" requires a file whose name ends
- * in `.json` ("Select a .json file." otherwise), reads and validates it with
+ * and a backdrop click close it. The confirm button ("Create board" by
+ * default, see `submitLabel`) requires a file whose name ends in `.json`
+ * ("Select a .json file." otherwise), reads and validates it with
  * `parsePlanFile`, shows any validation error inline (the modal stays open) and
  * hands a valid plan to `onPlanLoaded`; the caller decides what happens next
  * (confirmation, store, navigation) and closes the modal.
@@ -29,6 +30,8 @@ export function ImportJsonModal({
   open,
   onClose,
   onPlanLoaded,
+  title = "Import a JSON file",
+  submitLabel = "Create board",
 }: {
   /** Whether the modal is shown; reopening resets the chosen file and error. */
   open: boolean;
@@ -36,6 +39,10 @@ export function ImportJsonModal({
   onClose: () => void;
   /** Called with the normalized plan when the chosen file is a valid plan. */
   onPlanLoaded?: (plan: ReleasePlan) => void;
+  /** Dialog heading and accessible name (default "Import a JSON file"). */
+  title?: string;
+  /** Label of the confirm button (default "Create board"). */
+  submitLabel?: string;
 }) {
   const titleId = useId();
   const inputId = useId();
@@ -95,7 +102,7 @@ export function ImportJsonModal({
       >
         <div className="px-6 py-4 border-b border-slate-800">
           <h2 id={titleId} className="text-lg font-semibold">
-            Import a JSON file
+            {title}
           </h2>
         </div>
         <div className="px-6 py-5 space-y-3 text-sm">
@@ -143,7 +150,7 @@ export function ImportJsonModal({
             className="rounded px-4 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-light-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
             style={{ backgroundColor: "var(--cm-light-blue)" }}
           >
-            Create board
+            {submitLabel}
           </button>
         </div>
       </div>

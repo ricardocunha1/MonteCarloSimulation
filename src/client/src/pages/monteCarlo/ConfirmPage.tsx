@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { MonteCarloLayout } from "../components/MonteCarloLayout";
-import { errorMessages, useToast } from "../components/Toast";
-import { runSimulation } from "../lib/runSimulation";
-import { useForecast } from "../store";
+import { MonteCarloLayout } from "../../components/monteCarlo/MonteCarloLayout";
+import { errorMessages, useToast } from "../../components/Toast";
+import { runSimulation } from "../../lib/monteCarlo/runSimulation";
+import { useForecast } from "../../monteCarloStore";
 
 // Port of confirm.html.
 export function ConfirmPage() {

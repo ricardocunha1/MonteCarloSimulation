@@ -24,6 +24,20 @@ describe("ImportJsonModal", () => {
     expect(screen.getByText("No file selected.")).toBeInTheDocument();
   });
 
+  it("accepts a custom title and submit label (board Load Plan)", async () => {
+    const user = userEvent.setup();
+    const onPlanLoaded = vi.fn();
+    render(<ImportJsonModal open onClose={vi.fn()} onPlanLoaded={onPlanLoaded} title="Load a plan" submitLabel="Load" />);
+    expect(screen.getByRole("dialog", { name: "Load a plan" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create board" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Load" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Select a .json file.");
+    await user.upload(fileInput(), jsonFile(JSON.stringify(samplePlan())));
+    await user.click(screen.getByRole("button", { name: "Load" }));
+    await vi.waitFor(() => expect(onPlanLoaded).toHaveBeenCalledTimes(1));
+    expect(onPlanLoaded.mock.calls[0][0]).toEqual(samplePlan());
+  });
+
   it("renders nothing when closed", () => {
     render(<ImportJsonModal open={false} onClose={vi.fn()} />);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

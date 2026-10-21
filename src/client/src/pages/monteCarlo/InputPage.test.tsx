@@ -1,14 +1,14 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as api from "../api";
-import { ApiError } from "../api";
-import { result, validation } from "../test/fixtures";
-import { renderAt } from "../test/render";
+import * as api from "../../lib/monteCarlo/api";
+import { ApiError } from "../../lib/monteCarlo/api";
+import { result, validation } from "../../test/monteCarloFixtures";
+import { renderAt } from "../../test/render";
 import { InputPage } from "./InputPage";
 
-vi.mock("../api", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../api")>();
+vi.mock("../../lib/monteCarlo/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../lib/monteCarlo/api")>();
   return { ...actual, validate: vi.fn(), simulate: vi.fn() };
 });
 

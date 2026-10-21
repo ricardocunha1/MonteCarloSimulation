@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { ToastProvider } from "./components/Toast";
 import { STORAGE_KEY } from "./lib/releasePlan/constants";
-import { ForecastProvider } from "./store";
+import { ForecastProvider } from "./monteCarloStore";
 import { fireDnd, flushDragTick, mockDataTransfer, stubRects } from "./test/dnd";
 
 // Release Plan drag-and-drop integration (Phase 2, QA): the real App with its

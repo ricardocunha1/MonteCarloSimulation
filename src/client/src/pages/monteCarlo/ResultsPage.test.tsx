@@ -1,11 +1,11 @@
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { result } from "../test/fixtures";
-import { renderAt } from "../test/render";
+import { result } from "../../test/monteCarloFixtures";
+import { renderAt } from "../../test/render";
 import { ResultsPage } from "./ResultsPage";
 
 // Plotly needs a real browser (canvas, WebGL); stub the lazy chart.
-vi.mock("../components/HistogramChart", () => ({
+vi.mock("../../components/monteCarlo/HistogramChart", () => ({
   default: ({ histogram }: { histogram: { labels: string[] } }) => (
     <div data-testid="histogram">{histogram.labels.length} buckets</div>
   ),

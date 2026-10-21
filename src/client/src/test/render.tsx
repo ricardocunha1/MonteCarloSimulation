@@ -5,8 +5,8 @@ import { ToastProvider } from "../components/Toast";
 import type { PlanStorage } from "../lib/releasePlan/storage";
 import type { ReleasePlan } from "../lib/releasePlan/types";
 import { ReleasePlanProvider } from "../releasePlanStore";
-import { ForecastProvider, type Execution } from "../store";
-import type { ValidateResponse } from "../types";
+import { ForecastProvider, type Execution } from "../monteCarloStore";
+import type { ValidateResponse } from "../lib/monteCarlo/types";
 
 function LocationProbe() {
   const location = useLocation();

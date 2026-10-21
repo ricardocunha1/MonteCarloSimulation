@@ -1,4 +1,4 @@
-import type { SimulateResponse, ValidateResponse } from "../types";
+import type { SimulateResponse, ValidateResponse } from "../lib/monteCarlo/types";
 
 export const validation: ValidateResponse = {
   summary: [

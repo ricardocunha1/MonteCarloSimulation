@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import type { SimulateResponse, ValidateResponse } from "./types";
+import type { SimulateResponse, ValidateResponse } from "./lib/monteCarlo/types";
 
 // In-memory only (no storage): replaces the legacy hidden-field JSON blob.
 // A page reload drops the state and the step pages redirect back to "/".

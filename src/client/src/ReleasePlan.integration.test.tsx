@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { ToastProvider } from "./components/Toast";
 import { STORAGE_KEY } from "./lib/releasePlan/constants";
-import { ForecastProvider } from "./store";
+import { ForecastProvider } from "./monteCarloStore";
 
 // Release Plan full-app integration (Phase 1): the real App (whose
 // ReleasePlanProvider autosaves to the real jsdom localStorage), real pages and

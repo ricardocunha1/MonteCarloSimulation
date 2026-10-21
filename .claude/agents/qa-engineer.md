@@ -20,7 +20,7 @@ gave you) against:
   every 422 is `{errors: [str]}`.
 - **Best practices**: Python (types, layering routes → services, own error
   types, vectorized NumPy) and React/TS (strict typing, hooks correctness,
-  `api.ts`/`store.tsx`/`runSimulation.ts`/toast conventions, accessibility).
+  `lib/monteCarlo/api.ts`/`monteCarloStore.tsx`/`runSimulation.ts`/toast conventions, accessibility).
 - **Test quality** of the developers' unit tests: do they cover the change,
   edge cases and error paths? Are they real unit tests?
 

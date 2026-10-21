@@ -4,12 +4,12 @@ import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { ToastProvider } from "./components/Toast";
-import { ForecastProvider } from "./store";
-import { result, validation } from "./test/fixtures";
+import { ForecastProvider } from "./monteCarloStore";
+import { result, validation } from "./test/monteCarloFixtures";
 
 // Full-app integration: real App routes, real pages, real api.ts; only the
 // network (`fetch`) and the Plotly chart (needs a real browser) are mocked.
-vi.mock("./components/HistogramChart", () => ({
+vi.mock("./components/monteCarlo/HistogramChart", () => ({
   default: ({ histogram }: { histogram: { labels: string[] } }) => (
     <div data-testid="histogram">{histogram.labels.length} buckets</div>
   ),

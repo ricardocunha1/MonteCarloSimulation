@@ -1,12 +1,12 @@
 import { lazy, Suspense, useMemo } from "react";
 import { Navigate } from "react-router-dom";
-import { MonteCarloLayout } from "../components/MonteCarloLayout";
-import { buildCalendarData, type CalendarData } from "../lib/calendar";
-import { confidenceColor, OVERFLOW_LABEL } from "../lib/confidence";
-import { useForecast } from "../store";
-import type { SimulateResponse } from "../types";
+import { MonteCarloLayout } from "../../components/monteCarlo/MonteCarloLayout";
+import { buildCalendarData, type CalendarData } from "../../lib/monteCarlo/calendar";
+import { confidenceColor, OVERFLOW_LABEL } from "../../lib/monteCarlo/confidence";
+import { useForecast } from "../../monteCarloStore";
+import type { SimulateResponse } from "../../lib/monteCarlo/types";
 
-const HistogramChart = lazy(() => import("../components/HistogramChart"));
+const HistogramChart = lazy(() => import("../../components/monteCarlo/HistogramChart"));
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 

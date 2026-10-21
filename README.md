@@ -163,6 +163,15 @@ in **Unplanned**.
 - **Work-item details** — clicking a Feature card or an Epic title opens a
   modal with its state, size, milestone, Iteration Path and (sanitized)
   description; you can navigate between an Epic and its Features.
+- **Save Plan** (download icon) — downloads the current plan as a JSON file named
+  `<name>_<YYYY-MM-DD>.json` (the plan name with unsafe characters replaced
+  by `_`, or `feature-plan` when it has none, plus today's UTC date). The
+  file can be imported again later. Saving doesn't change the board.
+- **Load Plan** (upload icon) — opens the **Load a plan** dialog (same validation and
+  inline errors as **Import a JSON file**). A valid file asks **Replace the
+  current board?** first; confirming replaces the board, clears the
+  selection and you stay on the board (the view and zoom are kept).
+  Cancelling keeps the current board.
 
 Every move (drag-and-drop, ◀/▶, the Table view's milestone select) is
 saved like any other change.
@@ -170,11 +179,13 @@ saved like any other change.
 ### Autosave
 
 The current plan is saved in the browser's `localStorage` under the key
-`cmEstimationsHub.releasePlan.v1` after every change. Reloading the board
+`cmPlanningHub.releasePlan.v1` after every change. Reloading the board
 restores it ("Restored your last session"), and the entry page offers
 **Continue last board**. Nothing is stored on the server, and if storage is
-unavailable the board still works, in memory only. Saving to or loading
-from a file inside the board is not available yet.
+unavailable the board still works, in memory only. Use **Save Plan** /
+**Load Plan** to keep a plan as a file or move it to another browser.
+(Plans autosaved under the old key `cmEstimationsHub.releasePlan.v1` are
+not restored.)
 
 ## Architecture
 

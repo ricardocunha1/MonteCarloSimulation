@@ -1,8 +1,8 @@
 import { useCallback, useState, type ReactNode } from "react";
-import { HUB_NAME } from "../lib/tools";
+import { HUB_NAME } from "../../lib/tools";
 import { Breadcrumb } from "./Breadcrumb";
 import { HelpModal } from "./HelpModal";
-import { Layout } from "./Layout";
+import { Layout } from "../Layout";
 
 /** Hub layout plus the Monte Carlo view header: step breadcrumb with the Help button on the same row. */
 export function MonteCarloLayout({

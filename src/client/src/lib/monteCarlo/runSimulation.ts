@@ -1,6 +1,6 @@
-import { simulate } from "../api";
-import type { Execution } from "../store";
-import type { ValidateResponse } from "../types";
+import { simulate } from "./api";
+import type { Execution } from "../../monteCarloStore";
+import type { ValidateResponse } from "./types";
 
 /** Shared by the skip-validation path of the Input page and the Confirm
  * page, so both behave identically. Failures (e.g. an `ApiError`) propagate

@@ -2,6 +2,8 @@ import { sourceInfo } from "../../lib/releasePlan/selectors";
 import type { ReleasePlan } from "../../lib/releasePlan/types";
 import { zoomLabel } from "../../lib/releasePlan/zoom";
 import { useReleasePlan } from "../../releasePlanStore";
+import { DownloadIcon } from "../icons/DownloadIcon";
+import { UploadIcon } from "../icons/UploadIcon";
 import { CommitInput } from "./CommitInput";
 import { ModeSwitch } from "./ModeSwitch";
 
@@ -10,8 +12,9 @@ export type BoardView = "board" | "table";
 
 /**
  * Board toolbar: editable plan name + source line, Board/Table tabs,
- * Releases/Sprints switch and zoom (− 100% + Fit, hidden in Table view).
- * Load/Save/Export arrive in Phase 3.
+ * Releases/Sprints switch, zoom (− 100% + Fit, hidden in Table view), then a
+ * spacer and the "Load Plan" / "Save Plan" buttons (shown in both views, each
+ * with a decorative upload/download icon before its label).
  */
 export function BoardToolbar({
   plan,
@@ -21,6 +24,8 @@ export function BoardToolbar({
   onZoomIn,
   onZoomOut,
   onFit,
+  onLoad,
+  onSave,
 }: {
   plan: ReleasePlan;
   view: BoardView;
@@ -29,6 +34,10 @@ export function BoardToolbar({
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFit: () => void;
+  /** "Load Plan": opens the import modal (the page owns it). */
+  onLoad: () => void;
+  /** "Save Plan": downloads the plan as JSON. */
+  onSave: () => void;
 }) {
   const { dispatch } = useReleasePlan();
   return (
@@ -64,6 +73,15 @@ export function BoardToolbar({
           </button>
         </div>
       )}
+      <div className="spacer" />
+      <button type="button" className="btn withIcon" onClick={onLoad}>
+        <UploadIcon className="btnIcon" />
+        Load Plan
+      </button>
+      <button type="button" className="btn withIcon" onClick={onSave}>
+        <DownloadIcon className="btnIcon" />
+        Save Plan
+      </button>
     </div>
   );
 }

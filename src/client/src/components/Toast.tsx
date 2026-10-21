@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ApiError } from "../api";
+import { ApiError } from "../lib/monteCarlo/api";
 
 const AUTO_DISMISS_MS = 8000;
 const INFO_AUTO_DISMISS_MS = 2200;

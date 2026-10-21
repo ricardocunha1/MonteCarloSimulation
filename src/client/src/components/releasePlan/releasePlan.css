@@ -35,8 +35,11 @@
 .rp .btn { border: 1px solid var(--line); background: transparent; color: var(--ink); padding: 6px 11px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
 .rp .btn:hover { background: var(--hover); }
 .rp .btn:disabled { opacity: .45; cursor: not-allowed; background: transparent; }
+.rp .spacer { flex: 1; }
 .rp .zoom { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
 .rp .zoom .btn { padding: 4px 9px; }
+.rp .btn.withIcon { display: inline-flex; align-items: center; gap: 6px; }
+.rp .btn.withIcon .btnIcon { width: 15px; height: 15px; flex: none; }
 
 /* ---------- summary ---------- */
 .rp .summary { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }

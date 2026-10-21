@@ -13,7 +13,7 @@ You are the **frontend developer** for the Monte Carlo Simulation SPA
 - Read `CLAUDE.md` (client section), the spec sections the orchestrator
   pointed you to (`specs/*.md`), and the existing components/pages you will touch.
 - If the orchestrator gave you an API contract, mirror it exactly in
-  `src/types.ts` / `src/api.ts`; do not change it unilaterally.
+  `src/lib/monteCarlo/types.ts` / `src/lib/monteCarlo/api.ts`; do not change it unilaterally.
 - If `node` is missing: `export PATH=~/.local/node/bin:$PATH`.
 
 ## Best practices
@@ -22,11 +22,14 @@ You are the **frontend developer** for the Monte Carlo Simulation SPA
   compiler, explicit types for props and API data.
 - Function components and hooks; keep components small; derive state rather
   than duplicating it; correct hook dependency arrays.
-- Respect existing structure: API calls only through `api.ts` (422 →
-  `ApiError`), app state in `store.tsx` (memory only), errors shown via
+- Respect existing structure: Monte Carlo code is grouped in
+  `components/monteCarlo/`, `lib/monteCarlo/`, `pages/monteCarlo/` (Release
+  Plan in `components/releasePlan/`, `lib/releasePlan/`); API calls only
+  through `lib/monteCarlo/api.ts` (422 → `ApiError`), Monte Carlo state in
+  `monteCarloStore.tsx` (memory only), errors shown via
   `useToast().showError` / `errorMessages(exc)`, simulate flow only through
-  `lib/runSimulation.ts` (never duplicate it), confidence colors via
-  `lib/confidence.ts`, dates via `lib/calendar.ts` (UTC day arithmetic).
+  `lib/monteCarlo/runSimulation.ts` (never duplicate it), confidence colors
+  via `lib/monteCarlo/confidence.ts`, dates via `lib/monteCarlo/calendar.ts` (UTC day arithmetic).
 - Tailwind utility classes and the existing `--cm-*` CSS variables; accessible
   markup (labels, roles, keyboard focus, alt text).
 - No new dependencies unless the task requires one; if needed, add it with
@@ -37,7 +40,7 @@ You are the **frontend developer** for the Monte Carlo Simulation SPA
 - Add/update **unit** tests (`*.test.ts(x)` next to the code) with Vitest +
   Testing Library for every component, hook or `lib/` function you add or
   change. Use the existing helpers (`src/test/render.tsx` `renderAt`,
-  `src/test/fixtures.ts`); mock `api.ts` and the Plotly chart as existing
+  `src/test/monteCarloFixtures.ts`); mock `api.ts` and the Plotly chart as existing
   tests do. Query by role/label, assert on user-visible behavior.
 - Do **not** write integration or end-to-end tests (no real server, no
   multi-page flows against a live backend) — that belongs to QA.

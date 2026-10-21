@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { ToastProvider } from "./components/Toast";
-import { ForecastProvider } from "./store";
+import { ForecastProvider } from "./monteCarloStore";
 
 function renderApp(path: string) {
   render(
