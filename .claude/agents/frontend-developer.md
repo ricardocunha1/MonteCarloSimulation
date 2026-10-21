@@ -22,14 +22,9 @@ You are the **frontend developer** for the Monte Carlo Simulation SPA
   compiler, explicit types for props and API data.
 - Function components and hooks; keep components small; derive state rather
   than duplicating it; correct hook dependency arrays.
-- Respect existing structure: Monte Carlo code is grouped in
-  `components/monteCarlo/`, `lib/monteCarlo/`, `pages/monteCarlo/` (Release
-  Plan in `components/releasePlan/`, `lib/releasePlan/`); API calls only
-  through `lib/monteCarlo/api.ts` (422 → `ApiError`), Monte Carlo state in
-  `monteCarloStore.tsx` (memory only), errors shown via
-  `useToast().showError` / `errorMessages(exc)`, simulate flow only through
-  `lib/monteCarlo/runSimulation.ts` (never duplicate it), confidence colors
-  via `lib/monteCarlo/confidence.ts`, dates via `lib/monteCarlo/calendar.ts` (UTC day arithmetic).
+- Respect existing structure: group specific components by application; Monte Carlo code is grouped in
+  `components/monteCarlo/`, Release Plan is grouped in `components/releasePlan/`,
+  `lib/releasePlan/`);
 - Tailwind utility classes and the existing `--cm-*` CSS variables; accessible
   markup (labels, roles, keyboard focus, alt text).
 - No new dependencies unless the task requires one; if needed, add it with

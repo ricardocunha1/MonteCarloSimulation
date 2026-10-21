@@ -14,8 +14,7 @@ test fixtures/helpers.
 Inspect the change (`git diff` and the changed-files list the orchestrator
 gave you) against:
 
-- **Functional spec**: `specs/data_input.md`, `specs/data_validation.md`,
-  `specs/simulation_execution.md`, `specs/montecarlosimulation.md`).
+- **Functional spec**: `specs/*.md`).
 - **API contract**: `app/schemas.py` ↔ `src/client/src/types.ts` agree;
   every 422 is `{errors: [str]}`.
 - **Best practices**: Python (types, layering routes → services, own error
