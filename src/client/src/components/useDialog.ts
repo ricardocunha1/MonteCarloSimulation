@@ -3,6 +3,11 @@ import { useEffect, useRef, type RefObject } from "react";
 /** Open dialogs, bottom → top. Only the topmost one reacts to Esc/Tab. */
 const dialogStack: symbol[] = [];
 
+/** Whether any `useDialog` dialog is open (lets global Esc handlers stay out of the dialogs' way). */
+export function isDialogOpen(): boolean {
+  return dialogStack.length > 0;
+}
+
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 

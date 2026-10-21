@@ -45,7 +45,7 @@ describe("Board", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
     expect(within(card("Reports")).getByText("?")).toHaveClass("tsize", "none");
     expect(login).toHaveAttribute(
       "title",
-      "Login page\nState: Done\nEstimated size: M\nIteration: Proj\\Sprint 1\nClick to see the description",
+      "Login page\nState: Done\nEstimated size: M\nIteration: Proj\\Sprint 1\nClick to see the description · Ctrl+click to select several features of this Epic",
     );
   });
 

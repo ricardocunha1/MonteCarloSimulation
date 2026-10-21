@@ -111,11 +111,13 @@ src/client/src/
     EpicHeader.tsx, FeatureCell.tsx, FeatureCard.tsx
     TableView.tsx
     WorkItemModal.tsx
-    useBoardDrag.ts     drag + selection state & handlers (Phase 2)
+    useBoardDrag.ts     useBoardDrag({dispatch, scrollRef}) → {selection, activeDrag, dropTarget,
+                        handlers}; cellKey, DRAG_GHOST_ID (Phase 2)
   pages/ReleasePlanHomePage.tsx        card selection (+ Continue last board)
   pages/ReleasePlanBoardPage.tsx       board/table page
   test/releasePlanFixtures.ts          synthetic plans (builders), never the template JSON
   test/renderBoard.tsx                 renders the real board page with a plan (Phase 1)
+  test/dnd.ts                          jsdom DnD helpers: mockDataTransfer, fireDnd, flushDragTick, stubRects (Phase 2)
 ```
 - `ReleasePlanProvider` is mounted in **`App.tsx`** around the routes (not in
   `main.tsx` as originally planned; Phase 1 deviation).
@@ -134,6 +136,14 @@ src/client/src/
   filters, Phase 2 drag + selection) stays local to the board page or its
   components, not in the store. This matches the template, where only `state`
   is saved.
+- Phase 2: `useBoardDrag` keeps the live drag in a ref and exposes
+  `handlers` with a stable identity; `FeatureCell` is `memo`ized (it takes
+  `onOpenItem` rather than a per-cell closure) so a drag only re-renders the
+  cells whose highlight changes. `useDialog.ts` exports `isDialogOpen()` so
+  the board's global Esc handler doesn't clear the selection while a dialog
+  is open. jsdom has no `DragEvent`/`DataTransfer`, so DnD tests go through
+  `test/dnd.ts` (`fireDnd` builds the event via `createEvent` and defines
+  `clientX`/`clientY`/`relatedTarget` on it).
 - Port the CSS as plain CSS (not Tailwind) because the board is
   absolutely-positioned geometry. Prefix every selector with `.rp` (root
   wrapper class) so nothing leaks into the hub. Chrome outside the board (card
@@ -471,6 +481,19 @@ Font: `"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-ser
   `[max(rect.top,0), min(rect.bottom, innerHeight)]`, only if there is room in
   that direction), else the window. It stops on `dragend`/`drop` (capture
   phase) and on unmount.
+- **Rules settled during Phase 2** (implementation choices, not template
+  text): `dropFeatures` with an unknown `milestoneId` is a no-op, and every
+  no-op (`reorderEpic`/`dropFeatures`) returns the same state reference (no
+  autosave churn). `edgeSpeed` clamps to `±24` when the pointer is beyond
+  the range and returns 0 when `EDGE <= 0`. The page fallback scrolls
+  `document.scrollingElement.scrollTop` (not `window.scrollBy`). A Feature
+  `dragstart` also calls `setData("text/plain","feature:<ids>")` (Firefox
+  won't start a drag without data). The background click is a React
+  `onClick` on the scroll box that ignores `.fcard` targets and Ctrl/⌘
+  clicks. Esc clears the selection only when no `useDialog` dialog is open
+  (`isDialogOpen()`) and the event isn't `defaultPrevented`. The
+  `#dragGhost` is appended to `document.body` with inline styles (it is
+  outside `.rp`) and removed on the next tick.
 
 ## For Future Agents
 As work proceeds: mark checkboxes `- [x]` as items complete. When a phase is
@@ -747,17 +770,17 @@ vite build` to the scratchpad output dir → built OK; `pytest src/server -q`
 `draggable`, unscoped CSS) are all clean.
 
 ## Phase 2: Drag-and-drop
-Status: Not started
+Status: Complete
 
 Develop (frontend-developer):
-- [ ] Reducer actions (pure, unit-tested): `reorderEpic(dragId, targetId, after)` and `dropFeatures({epicId, ids, targetFeatureId, side, milestoneId})`, implementing *Drag-and-drop rules → Cell dragover/drop*. Reordering applies only when `ids.length===1 && ids[0]!==targetFeatureId`, and every id gets `milestoneId`. Both are no-ops for unknown ids or a mismatched epic.
-- [ ] `lib/releasePlan/autoScroll.ts`: `edgeSpeed(y, top, bottom)` (pure) per *Auto-scroll*.
-- [ ] `components/releasePlan/useBoardDrag.ts`: holds `drag` (in a ref, so dragover stays cheap) and the selection `{epicId, ids:Set}` (in state). It exposes handlers for epic headers, cards and cells, plus `clearSelection`. Global listeners: Esc clears the selection; a click on the board background clears it; document `dragover` drives the rAF auto-scroll; `dragend`/`drop` (capture) stop it. All listeners are cleaned up on unmount.
-- [ ] `EpicHeader`: `draggable`, with ◀/▶ `draggable=false`, the dragstart/dragover/dragleave/drop/dragend wiring, and the `.dragging/.dropL/.dropR` classes.
-- [ ] `FeatureCard`: `draggable`. Ctrl/⌘+click selection with `.selected` and the ✓ badge; a plain click clears the selection and opens the modal. On dragstart: the multi-drag ghost (`#dragGhost`, "N features"), `.dragging` on the dragged cards, and `.valid`/`.invalid` on the cells. Tooltip suffix per *Behaviors*.
-- [ ] `FeatureCell`: dragover/dragleave/drop per the rules, with the `.over/.dropL/.dropR` classes. Use React state or class toggling; the result must be that classes are cleared on dragend/drop.
-- [ ] Board hint: prepend the Phase 2 drag sentences.
-- [ ] Unit tests:
+- [x] Reducer actions (pure, unit-tested): `reorderEpic(dragId, targetId, after)` and `dropFeatures({epicId, ids, targetFeatureId, side, milestoneId})`, implementing *Drag-and-drop rules → Cell dragover/drop*. Reordering applies only when `ids.length===1 && ids[0]!==targetFeatureId`, and every id gets `milestoneId`. Both are no-ops for unknown ids or a mismatched epic.
+- [x] `lib/releasePlan/autoScroll.ts`: `edgeSpeed(y, top, bottom)` (pure) per *Auto-scroll*.
+- [x] `components/releasePlan/useBoardDrag.ts`: holds `drag` (in a ref, so dragover stays cheap) and the selection `{epicId, ids:Set}` (in state). It exposes handlers for epic headers, cards and cells, plus `clearSelection`. Global listeners: Esc clears the selection; a click on the board background clears it; document `dragover` drives the rAF auto-scroll; `dragend`/`drop` (capture) stop it. All listeners are cleaned up on unmount.
+- [x] `EpicHeader`: `draggable`, with ◀/▶ `draggable=false`, the dragstart/dragover/dragleave/drop/dragend wiring, and the `.dragging/.dropL/.dropR` classes.
+- [x] `FeatureCard`: `draggable`. Ctrl/⌘+click selection with `.selected` and the ✓ badge; a plain click clears the selection and opens the modal. On dragstart: the multi-drag ghost (`#dragGhost`, "N features"), `.dragging` on the dragged cards, and `.valid`/`.invalid` on the cells. Tooltip suffix per *Behaviors*.
+- [x] `FeatureCell`: dragover/dragleave/drop per the rules, with the `.over/.dropL/.dropR` classes. Use React state or class toggling; the result must be that classes are cleared on dragend/drop.
+- [x] Board hint: prepend the Phase 2 drag sentences.
+- [x] Unit tests:
   - Reducer: reorder before/after, multi-move keeping columns, move to Unplanned, cross-epic rejected.
   - `edgeSpeed`: top, bottom, middle, and the small-box EDGE clamp.
   - Component tests with `fireEvent.dragStart/dragOver/drop/dragEnd`, passing a mock `dataTransfer` (`setData`, `setDragImage`, `effectAllowed`, `dropEffect`) and stubbing `getBoundingClientRect` to choose the L/R side:
@@ -773,11 +796,11 @@ Develop (frontend-developer):
   - Auto-scroll: with fake rAF/timers, a dragover near the bottom edge increases `scrollTop`.
 
 QA (qa-engineer):
-- [ ] Review against *Drag-and-drop rules*. Check that there are no leaked listeners or rAF loops after unmount (spy on add/removeEventListener and `cancelAnimationFrame`).
-- [ ] Integration test: import → drag a Feature to the next milestone → Table view shows the new milestone → drag an Epic to first position → the order persists across a provider re-mount.
+- [x] Review against *Drag-and-drop rules*. Check that there are no leaked listeners or rAF loops after unmount (spy on add/removeEventListener and `cancelAnimationFrame`).
+- [x] Integration test: import → drag a Feature to the next milestone → Table view shows the new milestone → drag an Epic to first position → the order persists across a provider re-mount.
 
 Docs (documentation-writer):
-- [ ] TSDoc for `useBoardDrag`, `autoScroll` and the new reducer actions. Add a README note on the board interactions (drag, multi-select). Update `CLAUDE.md` if the architecture notes changed.
+- [x] TSDoc for `useBoardDrag`, `autoScroll` and the new reducer actions. Add a README note on the board interactions (drag, multi-select). Update `CLAUDE.md` if the architecture notes changed.
 
 ### Verification Plan
 - `cd src/client && npm test -- --run` → all pass, 0 failures (record the count, which should exceed Phase 1's).
@@ -789,10 +812,147 @@ Docs (documentation-writer):
 - Optional smoke test (not blocking): `docker compose up --build -d`, then `curl -s -o /dev/null -w "%{http_code}" http://172.17.0.1:8080/release-plan` → `200` (SPA fallback). Then `docker compose down`.
 
 ### Phase Summary
-_(write when phase completes)_
+**Built (client-only, `src/client/src`; no server/Docker/Helm change, no new
+dependency, `releasePlan.css` unchanged — Phase 1 had already ported the DnD
+rules):**
+- `lib/releasePlan/reducer.ts`: actions `reorderEpic {dragId, targetId,
+  after}` and `dropFeatures` (`FeatureDrop {epicId, ids, targetFeatureId,
+  side: "L" | "R", milestoneId}`), plus the exported types `DropSide` and
+  `FeatureDrop`. Reorder applies only for a single dragged Feature dropped on
+  another column; then every dragged id gets `milestoneId`. No-ops (unknown
+  ids, mismatched epic, unknown milestone, nothing changed) return the same
+  state reference.
+- `lib/releasePlan/autoScroll.ts`: `edgeSpeed(y, top, bottom)`,
+  `AUTO_SCROLL_MAX = 24`, `AUTO_SCROLL_EDGE = 70`.
+- `components/releasePlan/useBoardDrag.ts`: `useBoardDrag({dispatch,
+  scrollRef})` → `{selection, activeDrag, dropTarget, handlers}` (types
+  `ActiveDrag`, `FeatureSelection`, `DropTarget`, `BoardDragHandlers`,
+  `BoardDrag`; helpers `cellKey`, `DRAG_GHOST_ID`). `handlers`:
+  `epicDragStart/Over/Leave/Drop`, `cardClick`, `cardDragStart`,
+  `cellDragOver/Leave/Drop`, `dragEnd`, `boardClick`, `clearSelection`.
+  `activeDrag` is set one tick after `dragstart` so the drag image is the
+  undimmed element. Document listeners: `keydown` (Esc), `dragover` (rAF
+  auto-scroll), `drop`/`dragend` (capture); all released on unmount together
+  with the tick timer, the rAF loop and pending ghosts.
+- `components/useDialog.ts`: new export `isDialogOpen()`.
+- `Board` wires the hook and maps its state to classes (and gets the Phase 2
+  hint sentences); `EpicHeader` is `draggable` (◀/▶ `draggable={false}`,
+  `.dragging/.dropL/.dropR`); `FeatureCard` is `draggable`, takes
+  `onClick/onDragStart/onDragEnd/selected/dragging`, renders the ✓ badge and
+  appends `SELECT_TOOLTIP_SUFFIX` to its tooltip; `FeatureCell` is `memo`ized,
+  a drop target with `.valid/.invalid/.over/.dropL/.dropR`, and takes
+  `onOpenItem` instead of `onOpen`.
+- Tests: `test/dnd.ts` (`mockDataTransfer`, `fireDnd`, `flushDragTick`,
+  `stubRects`); unit tests in `reducer.test.ts` (+7), `autoScroll.test.ts`
+  (5), `BoardDrag.test.tsx` (19), `useBoardDrag.test.tsx` (7);
+  `Board.test.tsx` (tooltip suffix) and `ReleasePlanBoardPage.test.tsx`
+  updated. QA added `ReleasePlanDnd.integration.test.tsx` (2 tests: import →
+  drag a Feature to the next milestone → Table shows it → drag an Epic to
+  first → order persists across a provider re-mount; no leaked listeners or
+  rAF loops after unmount).
+
+**Deviations / derived rules (also recorded in *Template reference → Rules
+settled during Phase 2* and the Target architecture):**
+1. `dropFeatures` with an unknown `milestoneId` is a no-op; every no-op
+   returns the same state reference.
+2. `edgeSpeed` clamps to `±24` outside the range and returns 0 when
+   `EDGE <= 0`.
+3. The page fallback auto-scroll uses `document.scrollingElement.scrollTop`.
+4. Feature `dragstart` also sets `text/plain` = `feature:<ids>` (Firefox).
+5. The background click is a React `onClick` on the scroll box, ignoring
+   `.fcard` targets and Ctrl/⌘ clicks.
+6. The tooltip suffix is appended in `FeatureCard` (`featureTooltip` is
+   unchanged).
+7. Esc clears the selection except while a dialog is open (`isDialogOpen()`)
+   or when the event is `defaultPrevented`.
+8. The drag ghost is appended to `document.body` with inline styles (outside
+   `.rp`).
+
+**QA:** PASS, 0 Blocker / 0 Major.
+
+**Open Minor findings (not fixed):**
+1. Firefox may not start a drag from the Epic title `<button>` inside the
+   draggable header (`EpicHeader.tsx`) — verify manually.
+2. Esc with the gap menu open both closes it and clears the selection (the
+   gap menu isn't on the `useDialog` stack; continues Phase 1 Minor #5). Fix:
+   `preventDefault` in the `GapMenu` Esc handler.
+3. Clicks inside the portaled `ConfirmDialog` bubble (React tree) to the
+   board's `boardClick` and clear the selection. Fix: ignore targets outside
+   `currentTarget`.
+4. The selection is visual-only: no ARIA state, no keyboard selection.
+5. `useBoardDrag.test.tsx` (around lines 131–132) uses a raw `dispatchEvent`
+   outside `act` (fragile).
+
+**Suggestions:** the `deps` ref is written during render; `handlers` relies on
+`useMemo([])` rather than a guaranteed-stable ref; the whole `Board`
+re-renders on a `dropTarget` change (only cells are memoized); there is no
+keyboard alternative for reordering Features within an Epic (◀/▶ and the
+Table select cover Epics and milestones).
+
+**Not testable in jsdom; check manually in a browser:** the real drag image
+(single card and `#dragGhost`), real `dragleave` `relatedTarget` behavior,
+the auto-scroll feel, the CSS highlights, and Firefox behavior.
+
+**Verification (2026-10-21, after QA):** `npm test -- --run` → 307/307 tests
+in 38 files (Phase 1: 264 in 34); `npx tsc -b` clean; `npx vite build` to the
+scratchpad output dir → built OK; `pytest src/server -q` → 42 passed. The
+`draggable` grep matches only `EpicHeader` and `FeatureCard` (plus
+`draggable={false}` on ◀/▶); no `specs/templates` references; no
+`window.confirm/alert/prompt`; `package.json`/lock, `src/server`, `helm` and
+`deploy` are unchanged by this phase (the `main...HEAD` diffs there come from
+earlier committed branch work).
 
 ## Final Recap
-_(write when all phases complete: summary of the entire piece of work)_
+Phases 0–2 of `specs/release_plan.md` are complete. The Planning Hub has a
+second, client-only tool, **Release Plan**, in the sidebar's "Planning"
+group:
+- **Phase 0** — `/release-plan` entry page with source cards (Import JSON,
+  Azure DevOps "coming soon"), the reusable `ConfirmDialog`, the registry
+  entry and the roadmap icon.
+- **Phase 1** — JSON import with validation/normalization
+  (`parsePlanFile`/`normalizePlan`), the `ReleasePlanProvider` store
+  (mounted in `App.tsx`, autosaved to localStorage key
+  `cmEstimationsHub.releasePlan.v1`, "Continue last board"), and the full
+  board at `/release-plan/board`: summary boxes, milestones (rename, date,
+  move, delete, insert), Releases/Sprints modes, milestone flags, ◀/▶ Epic
+  moves, zoom/Fit, the Table view with filters and a milestone select, and
+  the sanitized work-item details modal; the shared `useDialog` hook.
+- **Phase 2** — native HTML5 drag-and-drop: Epic reorder, Feature move
+  between milestones and reorder within an Epic, Ctrl/⌘+click multi-select
+  with a "N features" drag ghost, cell highlighting and edge auto-scroll
+  (`useBoardDrag`, `autoScroll`, reducer `reorderEpic`/`dropFeatures`).
+All plan logic is pure and unit-tested under `lib/releasePlan/`; the
+template files are never imported (tests use synthetic fixtures). The client
+suite grew to 307 tests in 38 files; the server is untouched (42 tests).
+Spec phases 3–5 (in-board JSON export/PNG, Azure DevOps connection and sync)
+remain to be added as new phases here. Open Minor findings from Phases 1–2
+are listed in their Phase Summaries.
 
 ## Deployment Plan
-_(write when all phases complete: step-by-step deployment instructions)_
+This is a client-only change: no server code, API, configuration, Helm
+values or data migration changes.
+1. Merge the branch to `main` after CI-equivalent checks pass locally:
+   `cd src/client && npm ci && npm test -- --run && npm run build`, and
+   `pytest src/server -q`.
+2. Run the manual **Deploy** GitHub workflow (`.github/workflows/deploy.yml`).
+   It computes the tag with GitVersion, runs server pytest and client
+   Vitest/build, then `./deploy/build-docker-image.sh -t <tag>`, which always
+   builds and pushes **both** `estimationshub/estimationshub-client` and
+   `estimationshub/estimationshub-server` with the same tag to
+   `dev.criticalmanufacturing.io`, and pushes a git tag. (Manual
+   alternative from the repo root: `./deploy/build-docker-image.sh -t <tag>
+   -u <user> -p <pat>`.)
+3. Set the shared `tag` in `helm/chart/values.yaml` (or the release's values
+   override) to the new tag and upgrade the Helm release. No other values
+   change; the server image is rebuilt only because the script always builds
+   both.
+4. Saved boards keep working: the localStorage key
+   `cmEstimationsHub.releasePlan.v1` and the plan shape are unchanged, and
+   the selection is never persisted.
+5. Smoke check in a browser: open `/release-plan` (SPA fallback returns
+   200), import a plan, drag a Feature to another milestone and check the
+   summary and the Table view, Ctrl+click two Features and drag them
+   together, drag an Epic before/after another (including starting the drag
+   from the Epic **title** in **Firefox** — open Minor #1), check auto-scroll
+   near the board edges, reload and confirm the board is restored.
+6. Rollback: redeploy the previous tag via Helm; no data cleanup is needed.

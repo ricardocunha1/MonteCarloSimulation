@@ -17,16 +17,20 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
     expect(screen.getByText("release plan home page")).toBeInTheDocument();
   });
 
-  it("renders the board with its title, toolbar, summary and hint, and nothing draggable", () => {
+  it("renders the board with its title, toolbar, summary and hint; only epic headers and cards are draggable", () => {
     const { container } = renderBoard(samplePlan());
     expect(document.title).toBe("Planning Hub – Release Plan – Board");
     expect(container.querySelector(".rp")).not.toBeNull();
     expect(screen.getByLabelText("Plan name")).toHaveValue("Sample Release Plan");
     expect(screen.getByTestId("source-info")).toHaveTextContent("Azure DevOps · Area Path: Proj\\Team");
     expect(screen.getByText(/Click any work item to see its description/)).toHaveTextContent(
-      "Click any work item to see its description. Use the + between milestones to insert a new one (in Sprint mode, also a milestone flag). ✓ = Resolved / Done / Closed.",
+      "Drag Epics to reorder them. Drag a Feature card up or down to move it to another milestone, or onto another column of the same Epic to reorder it. Ctrl+click (⌘+click on Mac) selects several Features of the same Epic to move them together. Click any work item to see its description. Use the + between milestones to insert a new one (in Sprint mode, also a milestone flag). ✓ = Resolved / Done / Closed.",
     );
-    expect(container.querySelector("[draggable]")).toBeNull();
+    expect(screen.getByText("Ctrl+click").tagName).toBe("B");
+    const draggable = [...container.querySelectorAll('[draggable="true"]')];
+    expect(draggable.every((el) => el.matches(".epic, .fcard"))).toBe(true);
+    expect(draggable).toHaveLength(3 + 5);
+    expect([...container.querySelectorAll('[draggable="false"]')].map((el) => el.textContent)).toEqual(["◀", "▶", "◀", "▶", "◀", "▶"]);
     expect(screen.queryByRole("button", { name: /Load Plan|Save Plan|Export PNG/ })).not.toBeInTheDocument();
   });
 

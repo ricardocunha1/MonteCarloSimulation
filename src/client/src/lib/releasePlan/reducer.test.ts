@@ -150,3 +150,77 @@ describe("epics and features", () => {
     expect(featureMs(apply(samplePlan(), { type: "setFeatureMilestone", featureId: 11, milestoneId: "nope" }))[11]).toBeNull();
   });
 });
+
+describe("drag-and-drop actions", () => {
+  const order = (plan: ReleasePlan, epicIndex: number) => plan.epics[epicIndex].features.map((f) => f.id);
+  const drop = (over: Partial<Extract<PlanAction, { type: "dropFeatures" }>>): PlanAction => ({
+    type: "dropFeatures",
+    epicId: 2,
+    ids: [21],
+    targetFeatureId: 21,
+    side: "L",
+    milestoneId: "ms_r2",
+    ...over,
+  });
+
+  it("reorderEpic inserts the dragged epic before or after the target", () => {
+    expect(apply(samplePlan(), { type: "reorderEpic", dragId: 3, targetId: 1, after: false }).epics.map((e) => e.id)).toEqual([3, 1, 2]);
+    expect(apply(samplePlan(), { type: "reorderEpic", dragId: 1, targetId: 3, after: true }).epics.map((e) => e.id)).toEqual([2, 3, 1]);
+    expect(apply(samplePlan(), { type: "reorderEpic", dragId: 1, targetId: 3, after: false }).epics.map((e) => e.id)).toEqual([2, 1, 3]);
+    expect(apply(samplePlan(), { type: "reorderEpic", dragId: 3, targetId: 2, after: false }).epics.map((e) => e.id)).toEqual([1, 3, 2]);
+  });
+
+  it("reorderEpic is a no-op (same state) for itself, unknown ids or an unchanged order", () => {
+    const plan = samplePlan();
+    const reduce = createPlanReducer();
+    expect(reduce(plan, { type: "reorderEpic", dragId: 1, targetId: 1, after: true })).toBe(plan);
+    expect(reduce(plan, { type: "reorderEpic", dragId: 99, targetId: 1, after: true })).toBe(plan);
+    expect(reduce(plan, { type: "reorderEpic", dragId: 1, targetId: 99, after: true })).toBe(plan);
+    expect(reduce(plan, { type: "reorderEpic", dragId: 1, targetId: 2, after: false })).toBe(plan);
+    expect(reduce(plan, { type: "reorderEpic", dragId: 2, targetId: 1, after: true })).toBe(plan);
+  });
+
+  it("dropFeatures reorders a single feature before (L) or after (R) the target and sets its milestone", () => {
+    const before = apply(samplePlan(), drop({ ids: [23], targetFeatureId: 21, side: "L", milestoneId: "ms_mvp" }));
+    expect(order(before, 1)).toEqual([23, 21, 22]);
+    expect(featureMs(before)[23]).toBe("ms_mvp");
+    const after = apply(samplePlan(), drop({ ids: [21], targetFeatureId: 22, side: "R", milestoneId: "ms_r2" }));
+    expect(order(after, 1)).toEqual([22, 21, 23]);
+    expect(featureMs(after)[21]).toBe("ms_r2");
+  });
+
+  it("dropFeatures on the feature's own column only changes the milestone; null = Unplanned", () => {
+    const plan = apply(samplePlan(), drop({ ids: [21], targetFeatureId: 21, side: "R", milestoneId: null }));
+    expect(order(plan, 1)).toEqual([21, 22, 23]);
+    expect(featureMs(plan)[21]).toBeNull();
+  });
+
+  it("dropFeatures with several ids keeps the columns and moves every id", () => {
+    const plan = apply(samplePlan(), drop({ ids: [21, 23], targetFeatureId: 22, side: "R", milestoneId: "ms_mvp" }));
+    expect(order(plan, 1)).toEqual([21, 22, 23]);
+    expect(featureMs(plan)).toMatchObject({ 21: "ms_mvp", 22: null, 23: "ms_mvp", 11: "ms_mvp", 12: "ms_mvp" });
+  });
+
+  it("dropFeatures leaves other epics untouched (same references)", () => {
+    const base = samplePlan();
+    const plan = createPlanReducer()(base, drop({ ids: [22], targetFeatureId: 22, milestoneId: "ms_r2" }));
+    expect(plan?.epics[0]).toBe(base.epics[0]);
+    expect(plan?.epics[2]).toBe(base.epics[2]);
+  });
+
+  it("dropFeatures is a no-op (same state) across epics, for unknown ids/milestones or without a change", () => {
+    const plan = samplePlan();
+    const reduce = createPlanReducer();
+    // Feature 11 belongs to epic 1: a drop into epic 2 is rejected.
+    expect(reduce(plan, drop({ ids: [11], targetFeatureId: 21 }))).toBe(plan);
+    expect(reduce(plan, drop({ epicId: 1, ids: [11], targetFeatureId: 21 }))).toBe(plan);
+    expect(reduce(plan, drop({ epicId: 99 }))).toBe(plan);
+    expect(reduce(plan, drop({ ids: [999] }))).toBe(plan);
+    expect(reduce(plan, drop({ ids: [] }))).toBe(plan);
+    expect(reduce(plan, drop({ targetFeatureId: 999 }))).toBe(plan);
+    expect(reduce(plan, drop({ milestoneId: "nope" }))).toBe(plan);
+    expect(reduce(plan, drop({ ids: [21], targetFeatureId: 21, milestoneId: "ms_r2" }))).toBe(plan);
+    // Already right of 21 and already in Release 2: nothing changes.
+    expect(reduce(plan, drop({ ids: [22], targetFeatureId: 21, side: "R", milestoneId: null }))).toBe(plan);
+  });
+});

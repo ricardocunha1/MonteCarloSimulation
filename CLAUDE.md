@@ -12,9 +12,10 @@ simulations to forecast how many sprints are needed to hit a target (Items
 Resolved or Story Points), based on historical sprint data uploaded as an
 Excel file. Three-step flow: Data Input → Data Validation (optional,
 skippable) → Simulation Execution. A second, client-only tool, **Release
-Plan** (`/release-plan`), is being built per `plans/release-plan-board.md`:
-JSON import and the full board without drag-and-drop are done (Phases 0–1);
-drag-and-drop is Phase 2.
+Plan** (`/release-plan`), was built per `plans/release-plan-board.md`
+(Phases 0–2 complete: card-selection entry page, JSON import, the full
+board and native HTML5 drag-and-drop); spec phases 3–5 (in-board
+export/PNG, Azure DevOps) are not started.
 
 Two tiers: a FastAPI server (`src/server`) and a React SPA (`src/client`).
 It used to be a single Flask app; `plans/client-server-migration.md`
@@ -161,9 +162,12 @@ client's type-check.
       (`parsePlanFile`/`normalizePlan`, throws `PlanValidationError`),
       `selectors`, `layout` (`computeLayout`, shared with the future PNG
       export), `reducer` (`createPlanReducer(makeId)`/`planReducer`, every
-      plan mutation; confirmations and toasts stay in the UI), `sanitize`
+      plan mutation incl. the DnD actions `reorderEpic` and `dropFeatures`
+      (`FeatureDrop`); no-ops return the same state reference;
+      confirmations and toasts stay in the UI), `sanitize`
       (`safeHtml` whitelist for ADO descriptions), `storage`
-      (`PlanStorage`, `localPlanStorage`), `modeSwitch`, `zoom`.
+      (`PlanStorage`, `localPlanStorage`), `modeSwitch`, `zoom`,
+      `autoScroll` (`edgeSpeed`).
     - `releasePlanStore.tsx`: `ReleasePlanProvider` is mounted in
       **`App.tsx`** around the routes (not in `main.tsx`); it hydrates from
       localStorage key `cmEstimationsHub.releasePlan.v1` and autosaves after
@@ -173,10 +177,26 @@ client's type-check.
       `planStorage`. UI-only state (view, zoom, open item, gap menu, table
       filters) stays in the components.
     - Dialogs: `components/useDialog.ts` (dialog stack so Esc closes only
-      the topmost dialog, focus trap, focus restore, callbacks via refs)
-      backs `ConfirmDialog` (controlled props, portal to `body`),
+      the topmost dialog, focus trap, focus restore, callbacks via refs;
+      `isDialogOpen()` lets global Esc handlers stand aside) backs
+      `ConfirmDialog` (controlled props, portal to `body`),
       `ImportJsonModal` and `WorkItemModal`. No `window.confirm/alert/
-      prompt`; info messages use `useToast().showInfo`.
+      prompt`; info messages use `useToast().showInfo`. The `GapMenu` is
+      not on the dialog stack.
+    - Drag-and-drop: `components/releasePlan/useBoardDrag.ts`
+      (`useBoardDrag({dispatch, scrollRef})` → `{selection, activeDrag,
+      dropTarget, handlers}`) owns native HTML5 DnD + the Ctrl/⌘+click
+      Feature selection (UI-only, never persisted). The drag lives in a
+      ref; `handlers` has a stable identity so the memoized `FeatureCell`s
+      only re-render when their highlight changes. Its document listeners
+      (Esc, rAF auto-scroll on `dragover`, `drop`/`dragend` capture) are
+      released on unmount. Only `EpicHeader` and `FeatureCard` are
+      `draggable` (◀/▶ are `draggable={false}`). The multi-drag ghost
+      (`#dragGhost`) is appended to `body` with inline styles (outside
+      `.rp`). jsdom has no `DragEvent`/`DataTransfer`: DnD tests use
+      `test/dnd.ts` (`mockDataTransfer`, `fireDnd`, which also defines
+      `clientX`/`clientY`/`relatedTarget`, `flushDragTick` for the
+      next-tick highlight, `stubRects` for the L/R side).
     - `components/releasePlan/` holds the board components;
       `releasePlan.css` is plain CSS (absolute geometry, dark palette) with
       **every selector scoped under `.rp`** (the board page's root class),

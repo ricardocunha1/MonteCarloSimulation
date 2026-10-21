@@ -139,7 +139,23 @@ in **Unplanned**.
 - **Milestone flags** (Sprints mode) — the **+** menu also offers "Add
   milestone flag here"; a flag has a name and a date and appears as a gold
   row on the board.
-- **Epics** — ◀/▶ move an Epic left or right.
+- **Epics** — ◀/▶ move an Epic left or right, or drag the Epic header onto
+  another Epic's header to drop it before or after that Epic (the side
+  follows the pointer).
+- **Moving Features** — drag a Feature card up or down onto another band to
+  plan it for that milestone (or Unplanned), or onto another column of the
+  same Epic to reorder it there (before or after that Feature). While you
+  drag, the cells of the same Epic are highlighted as valid drop targets;
+  Features can't be moved to another Epic.
+- **Multi-select** — **Ctrl+click** (⌘+click on Mac) toggles Feature cards
+  of one Epic in a selection (gold outline and ✓); Ctrl+clicking a card of
+  another Epic starts a new selection. Dragging a selected card moves the
+  whole selection to the target milestone, keeping the column order. A
+  plain click on a card, **Esc**, or a click on the board background clears
+  the selection; it is never saved.
+- **Auto-scroll** — while dragging, moving the pointer near the top or
+  bottom edge of the board scrolls it (then the page, when the board can't
+  scroll further).
 - **Zoom** — −/+ (30%–150%) and **Fit** (scales the board to the width of
   its scroll area, never above 100%).
 - **Table view** — the same plan as a table, with a text search, Epic and
@@ -148,8 +164,8 @@ in **Unplanned**.
   modal with its state, size, milestone, Iteration Path and (sanitized)
   description; you can navigate between an Epic and its Features.
 
-Drag-and-drop of Epics and Features is not available yet; use ◀/▶ and the
-Table view's milestone select instead.
+Every move (drag-and-drop, ◀/▶, the Table view's milestone select) is
+saved like any other change.
 
 ### Autosave
 

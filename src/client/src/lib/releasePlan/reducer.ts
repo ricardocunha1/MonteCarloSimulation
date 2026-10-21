@@ -20,7 +20,28 @@ export type PlanAction =
   | { type: "setFlagDate"; id: string; date: string }
   | { type: "removeFlag"; id: string }
   | { type: "moveEpic"; from: number; to: number }
-  | { type: "setFeatureMilestone"; featureId: WorkItemId; milestoneId: string | null };
+  | { type: "setFeatureMilestone"; featureId: WorkItemId; milestoneId: string | null }
+  /** Drag-and-drop: moves Epic `dragId` before (`after: false`) or after the Epic `targetId`. */
+  | { type: "reorderEpic"; dragId: WorkItemId; targetId: WorkItemId; after: boolean }
+  /** Drag-and-drop of Features onto a cell (see {@link FeatureDrop}). */
+  | ({ type: "dropFeatures" } & FeatureDrop);
+
+/** Side of the drop target the pointer is on (`L` = before, `R` = after). */
+export type DropSide = "L" | "R";
+
+/**
+ * Features of one Epic dropped onto the cell of `targetFeatureId` in the band of
+ * `milestoneId` (`null` = Unplanned). When a single Feature is dropped on another
+ * Feature's column it is first moved before (`L`) or after (`R`) that Feature;
+ * then every dropped Feature gets `milestoneId`.
+ */
+export interface FeatureDrop {
+  epicId: WorkItemId;
+  ids: readonly WorkItemId[];
+  targetFeatureId: WorkItemId;
+  side: DropSide;
+  milestoneId: string | null;
+}
 
 /** Store state: `null` until a plan is imported or restored. */
 export type PlanState = ReleasePlan | null;
@@ -34,6 +55,52 @@ function moveItem<T>(arr: readonly T[], from: number, to: number): readonly T[] 
   const [moved] = next.splice(from, 1);
   next.splice(to, 0, moved);
   return next;
+}
+
+/** `true` when both arrays hold the same items in the same order. */
+function sameOrder<T>(a: readonly T[], b: readonly T[]): boolean {
+  return a.length === b.length && a.every((item, i) => item === b[i]);
+}
+
+/** Removes the item matching `isDragged` and reinserts it before/after the one matching `isTarget`; `null` when either is missing. */
+function moveRelative<T>(arr: readonly T[], isDragged: (item: T) => boolean, isTarget: (item: T) => boolean, after: boolean): T[] | null {
+  const dragged = arr.find(isDragged);
+  if (dragged === undefined || isTarget(dragged)) {
+    return null;
+  }
+  const rest = arr.filter((item) => item !== dragged);
+  const t = rest.findIndex(isTarget);
+  if (t < 0) {
+    return null;
+  }
+  rest.splice(after ? t + 1 : t, 0, dragged);
+  return rest;
+}
+
+/** Applies a {@link FeatureDrop}; returns `plan` itself for unknown ids, a mismatched epic or no change. */
+function dropFeatures(plan: ReleasePlan, drop: FeatureDrop): ReleasePlan {
+  const ei = plan.epics.findIndex((e) => e.id === drop.epicId);
+  if (ei < 0 || !drop.ids.length || (drop.milestoneId !== null && !msById(plan, drop.milestoneId))) {
+    return plan;
+  }
+  const epic = plan.epics[ei];
+  const known = new Set(epic.features.map((f) => f.id));
+  if (!known.has(drop.targetFeatureId) || drop.ids.some((id) => !known.has(id))) {
+    return plan;
+  }
+  let features: readonly Feature[] = epic.features;
+  if (drop.ids.length === 1 && drop.ids[0] !== drop.targetFeatureId) {
+    const [draggedId] = drop.ids;
+    features = moveRelative(features, (f) => f.id === draggedId, (f) => f.id === drop.targetFeatureId, drop.side === "R") ?? features;
+  }
+  const dropped = new Set(drop.ids);
+  const moved = features.map((f) => (dropped.has(f.id) && (f.milestoneId ?? null) !== drop.milestoneId ? { ...f, milestoneId: drop.milestoneId } : f));
+  if (sameOrder(moved, epic.features)) {
+    return plan;
+  }
+  const epics = [...plan.epics];
+  epics[ei] = { ...epic, features: moved };
+  return { ...plan, epics };
 }
 
 /** New epics with `fn` applied to every feature. */
@@ -163,6 +230,12 @@ function reduce(plan: ReleasePlan, action: Exclude<PlanAction, { type: "replace"
       const milestoneId = action.milestoneId !== null && msById(plan, action.milestoneId) ? action.milestoneId : null;
       return { ...plan, epics: mapFeatures(plan, (f) => (f.id === action.featureId ? { ...f, milestoneId } : f)) };
     }
+    case "reorderEpic": {
+      const epics = moveRelative(plan.epics, (e) => e.id === action.dragId, (e) => e.id === action.targetId, action.after);
+      return !epics || sameOrder(epics, plan.epics) ? plan : { ...plan, epics };
+    }
+    case "dropFeatures":
+      return dropFeatures(plan, action);
   }
 }
 

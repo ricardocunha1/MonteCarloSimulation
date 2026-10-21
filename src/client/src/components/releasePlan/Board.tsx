@@ -6,11 +6,12 @@ import type { ReleasePlan, WorkItemRef } from "../../lib/releasePlan/types";
 import { useReleasePlan } from "../../releasePlanStore";
 import { useToast } from "../Toast";
 import { EpicHeader } from "./EpicHeader";
-import { FeatureCell } from "./FeatureCell";
+import { FeatureCell, type CellDragState } from "./FeatureCell";
 import { FlagIcon } from "./FlagIcon";
 import { FlagLabel } from "./FlagLabel";
 import { GapMenu, type AnchorRect } from "./GapMenu";
 import { MilestoneLabel } from "./MilestoneLabel";
+import { cellKey, useBoardDrag } from "./useBoardDrag";
 
 /** The gap menu closes on a board scroll only after this delay (opening it may scroll the board). */
 const GAP_MENU_SCROLL_GRACE_MS = 400;
@@ -25,7 +26,8 @@ interface OpenGapMenu {
  * The board: scroll box with a frozen milestone column (labels, flag labels, "+"
  * gap buttons) and the zoomed canvas (bands, epic backgrounds/headers, feature
  * cells, flag rows). Newly inserted milestones/flags get focus with their name
- * selected. No drag-and-drop in Phase 1.
+ * selected. Drag-and-drop and the Ctrl/⌘+click selection come from
+ * `useBoardDrag`; this component only maps its state to classes.
  */
 export function Board({
   plan,
@@ -47,6 +49,8 @@ export function Board({
   const [gapMenu, setGapMenu] = useState<OpenGapMenu | null>(null);
   const [pendingFocus, setPendingFocus] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const { selection, activeDrag, dropTarget, handlers: drag } = useBoardDrag({ dispatch, scrollRef });
+  const featureDrag = activeDrag?.type === "feature" ? activeDrag : null;
 
   useEffect(() => {
     if (!pendingFocus) {
@@ -104,14 +108,15 @@ export function Board({
   return (
     <section ref={rootRef} aria-label="Board">
       <p className="hint">
-        Click any work item to see its description. Use the <b>+</b> between milestones to insert a new one (in Sprint mode, also a
+        Drag Epics to reorder them. Drag a Feature card up or down to move it to another milestone, or onto another column of the same
+        Epic to reorder it. <b>Ctrl+click</b> (⌘+click on Mac) selects several Features of the same Epic to move them together. Click any work item to see its description. Use the <b>+</b> between milestones to insert a new one (in Sprint mode, also a
         milestone flag).{" "}
         <span className="okmark" aria-hidden="true">
           ✓
         </span>{" "}
         = Resolved / Done / Closed.
       </p>
-      <div ref={scrollRef} className={`boardScroll${scrolledX ? " scrolledX" : ""}`} data-testid="board-scroll" onScroll={onScroll}>
+      <div ref={scrollRef} className={`boardScroll${scrolledX ? " scrolledX" : ""}`} data-testid="board-scroll" onScroll={onScroll} onClick={drag.boardClick}>
         <div style={{ width: layout.width * zoom }}>
           <div className="frz">
             <div
@@ -178,19 +183,35 @@ export function Board({
                     onMoveLeft={() => dispatch({ type: "moveEpic", from: ei, to: ei - 1 })}
                     onMoveRight={() => dispatch({ type: "moveEpic", from: ei, to: ei + 1 })}
                     onOpen={() => onOpenItem({ type: "epic", id: le.epic.id })}
+                    drag={drag}
+                    dragging={activeDrag?.type === "epic" && activeDrag.id === le.epic.id}
+                    dropSide={dropTarget?.kind === "epic" && dropTarget.epicId === le.epic.id ? dropTarget.side : null}
                   />
-                  {le.cols.map((col) =>
-                    layout.bands.map((lb) => (
-                      <FeatureCell
-                        key={`${String(col.feature.id)}:${lb.band.id ?? "unplanned"}`}
-                        epic={le.epic}
-                        feature={col.feature}
-                        x={col.x}
-                        layoutBand={lb}
-                        onOpen={() => onOpenItem({ type: "feature", id: col.feature.id })}
-                      />
-                    )),
-                  )}
+                  {le.cols.map((col) => {
+                    const fid = col.feature.id;
+                    const dragState: CellDragState = featureDrag ? (featureDrag.epicId === le.epic.id ? "valid" : "invalid") : null;
+                    const selected = selection?.epicId === le.epic.id && selection.ids.has(fid);
+                    const dragging = featureDrag?.epicId === le.epic.id && featureDrag.ids.includes(fid);
+                    return layout.bands.map((lb) => {
+                      const over = dropTarget?.kind === "cell" && dropTarget.key === cellKey(le.epic.id, fid, lb.band.id) ? dropTarget : null;
+                      return (
+                        <FeatureCell
+                          key={`${String(fid)}:${lb.band.id ?? "unplanned"}`}
+                          epic={le.epic}
+                          feature={col.feature}
+                          x={col.x}
+                          layoutBand={lb}
+                          onOpenItem={onOpenItem}
+                          drag={drag}
+                          dragState={dragState}
+                          over={over !== null}
+                          dropSide={over?.side ?? null}
+                          selected={selected}
+                          dragging={dragging}
+                        />
+                      );
+                    });
+                  })}
                 </div>
               ))}
               {layout.flags.map((lf) => (
