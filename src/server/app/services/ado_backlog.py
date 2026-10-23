@@ -17,7 +17,8 @@ CLASSIFICATION_DEPTH = 50
 # anything deeper comes from a broken or hostile host.
 MAX_TREE_DEPTH = 100
 
-SIZE_FIELD = "Custom.EstimatedSize"
+# Feature size fields in priority order: the first one with a value wins.
+SIZE_FIELDS: tuple[str, ...] = ("Custom.EstimatedSize", "Custom.FeatureSize")
 WORK_ITEM_FIELDS = (
     "System.Id",
     "System.WorkItemType",
@@ -34,7 +35,7 @@ PARENT_LEVELS = 3
 
 SCOPE_LABELS = {"area": "Area", "iteration": "Iteration"}
 SCOPE_FIELDS = {"area": "System.AreaPath", "iteration": "System.IterationPath"}
-SIZE_FIELD_MISSING = f"The field {SIZE_FIELD} does not exist in this project; sizes are empty."
+SIZE_FIELD_MISSING = f"Neither {SIZE_FIELDS[0]} nor {SIZE_FIELDS[1]} exists in this project; sizes are empty."
 CAP_REACHED = f"Only the first {WIQL_TOP} work items were loaded; narrow the scope."
 SCOPE_REQUIRED = "Choose an Area path or an Iteration path."
 
@@ -164,7 +165,7 @@ async def fetch_backlog(client: AdoClient, ado_project: AdoProject, scope_type: 
     """Fetch the Epics and Features under an Area or Iteration path.
 
     Follows "ADO REST calls used" in plans/release-plan-ado.md: `connect`
-    (validates the PAT and gives both trees), the size field check, the WIQL
+    (validates the PAT and gives both trees), the size field checks, the WIQL
     query, `workitemsbatch` in chunks, then parent completion keeping only
     Epics. `scope_path` is matched case-insensitively against the chosen
     tree, and the tree's own spelling is used from then on.
@@ -189,21 +190,20 @@ async def fetch_backlog(client: AdoClient, ado_project: AdoProject, scope_type: 
         raise AdoError(f"Unknown {SCOPE_LABELS[scope_type]} path: {scope_path.strip()}.")
 
     warnings: list[str] = []
-    fields = list(WORK_ITEM_FIELDS)
-    if await _size_field_exists(client):
-        fields.append(SIZE_FIELD)
-    else:
+    size_fields = await _existing_size_fields(client)
+    if not size_fields:
         warnings.append(SIZE_FIELD_MISSING)
+    fields = [*WORK_ITEM_FIELDS, *size_fields]
 
     ids = await _query_ids(client, project_segment, SCOPE_FIELDS[scope_type], path)
     if len(ids) >= WIQL_TOP:
         warnings.append(CAP_REACHED)
 
     items: dict[int, dict] = {}
-    for item in await _fetch_items(client, project_segment, list(dict.fromkeys(ids)), fields):
+    for item in await _fetch_items(client, project_segment, list(dict.fromkeys(ids)), fields, size_fields):
         if item["type"] in BACKLOG_TYPES:
             items.setdefault(item["id"], item)
-    await _complete_parents(client, project_segment, items, fields)
+    await _complete_parents(client, project_segment, items, fields, size_fields)
 
     return {
         "project": connection["project"],
@@ -242,13 +242,13 @@ def flatten_iterations(root: dict) -> list[dict]:
     return result
 
 
-def normalize_work_item(raw: Any) -> dict | None:
+def normalize_work_item(raw: Any, size_fields: tuple[str, ...] = SIZE_FIELDS) -> dict | None:
     """One `workitemsbatch` entry → an AdoWorkItem dict.
 
     Missing or non-string text fields become "" and characters that can't be
-    UTF-8 encoded are replaced; `size` is trimmed and upper-cased (an integer
-    size is kept as its digits); `parentId` is None unless `System.Parent` is
-    a positive integer.
+    UTF-8 encoded are replaced; `size` is the first of `size_fields` with a
+    non-blank value (see `_size`); `parentId` is None unless `System.Parent`
+    is a positive integer.
 
     Returns:
         The work item dict, or None for an omitted (null) entry.
@@ -263,9 +263,6 @@ def normalize_work_item(raw: Any) -> dict | None:
     item_id = raw.get("id") if isinstance(raw, dict) else None
     if not isinstance(fields, dict) or not _is_id(item_id):
         raise AdoError(UNEXPECTED_RESPONSE)
-    size = fields.get(SIZE_FIELD)
-    if isinstance(size, int) and not isinstance(size, bool):
-        size = str(size)
     parent = fields.get("System.Parent")
     return {
         "id": item_id,
@@ -273,7 +270,7 @@ def normalize_work_item(raw: Any) -> dict | None:
         "title": _text(fields.get("System.Title")),
         "state": _text(fields.get("System.State")),
         "description": _text(fields.get("System.Description")),
-        "size": _text(size).strip().upper(),
+        "size": _size(fields, size_fields),
         "iterationPath": _text(fields.get("System.IterationPath")),
         "parentId": parent if _is_id(parent) else None,
     }
@@ -291,15 +288,37 @@ def _find_path(tree: dict, wanted: str) -> str | None:
     return None
 
 
-async def _size_field_exists(client: AdoClient) -> bool:
-    """False when Azure DevOps answers 404 for SIZE_FIELD."""
-    try:
-        await client.get_json(f"_apis/wit/fields/{SIZE_FIELD}")
-    except AdoError as exc:
-        if exc.status_code == 404:
-            return False
-        raise
-    return True
+def _size(fields: dict, size_fields: tuple[str, ...]) -> str:
+    """The first non-blank size among `size_fields`, in order: a string is
+    trimmed and upper-cased, an integer kept as its digits, anything else
+    ignored; "" when none has a value."""
+    for name in size_fields:
+        value = fields.get(name)
+        if isinstance(value, int) and not isinstance(value, bool):
+            value = str(value)
+        size = _text(value).strip().upper()
+        if size:
+            return size
+    return ""
+
+
+async def _existing_size_fields(client: AdoClient) -> tuple[str, ...]:
+    """The SIZE_FIELDS this project defines, in priority order (checked one by
+    one; a 404 means absent).
+
+    Raises:
+        AdoError: the client's mapped error for any other failure.
+    """
+    existing: list[str] = []
+    for name in SIZE_FIELDS:
+        try:
+            await client.get_json(f"_apis/wit/fields/{name}")
+        except AdoError as exc:
+            if exc.status_code == 404:
+                continue
+            raise
+        existing.append(name)
+    return tuple(existing)
 
 
 async def _query_ids(client: AdoClient, project_segment: str, path_field: str, path: str) -> list[int]:
@@ -327,9 +346,12 @@ async def _query_ids(client: AdoClient, project_segment: str, path_field: str, p
     return ids
 
 
-async def _fetch_items(client: AdoClient, project_segment: str, ids: list[int], fields: list[str]) -> list[dict]:
+async def _fetch_items(
+    client: AdoClient, project_segment: str, ids: list[int], fields: list[str], size_fields: tuple[str, ...]
+) -> list[dict]:
     """`workitemsbatch` in chunks of at most BATCH_SIZE ids; omitted (null)
-    entries are skipped.
+    entries are skipped. `fields` must include `size_fields` (the existing
+    size fields only: ADO fails the batch for an unknown field).
 
     Raises:
         AdoError: UNEXPECTED_RESPONSE when a reply has no `value` list or a
@@ -345,11 +367,18 @@ async def _fetch_items(client: AdoClient, project_segment: str, ids: list[int], 
         values = result.get("value") if isinstance(result, dict) else None
         if not isinstance(values, list):
             raise AdoError(UNEXPECTED_RESPONSE)
-        items.extend(item for item in map(normalize_work_item, values) if item is not None)
+        normalized = (normalize_work_item(value, size_fields) for value in values)
+        items.extend(item for item in normalized if item is not None)
     return items
 
 
-async def _complete_parents(client: AdoClient, project_segment: str, items: dict[int, dict], fields: list[str]) -> None:
+async def _complete_parents(
+    client: AdoClient,
+    project_segment: str,
+    items: dict[int, dict],
+    fields: list[str],
+    size_fields: tuple[str, ...],
+) -> None:
     """Add the missing parent Epics of `items` in place, up to PARENT_LEVELS
     levels up. Parents of other types are dropped and not followed, and each
     id is requested at most once, so cyclic parent links stop early."""
@@ -361,7 +390,7 @@ async def _complete_parents(client: AdoClient, project_segment: str, items: dict
             return
         requested.update(missing)
         added = []
-        for item in await _fetch_items(client, project_segment, missing, fields):
+        for item in await _fetch_items(client, project_segment, missing, fields, size_fields):
             if item["type"] == "Epic" and item["id"] not in items:
                 items[item["id"]] = item
                 added.append(item)
