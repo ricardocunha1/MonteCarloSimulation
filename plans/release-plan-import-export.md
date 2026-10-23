@@ -308,9 +308,6 @@ Develop (frontend-developer):
 QA (qa-engineer):
 - [ ] Review against the *Template reference*; integration test: board (and Table view) → Export PNG with stubbed canvas/`toBlob`/`createObjectURL` → a `.png` download named from the plan name and today's date and the "PNG exported" toast.
 
-Docs (documentation-writer):
-- [ ] TSDoc for `png.ts` and the hook; README: Export PNG. Update `CLAUDE.md` (Release Plan: spec Phase 3 complete; `exportFile`/`png` in the `lib/releasePlan/` list; the logo asset copy).
-
 ### Verification Plan
 - `cd src/client && npx vitest --run` → all tests pass, 0 failures, count above the Phase 1 total.
 - `cd src/client && npx tsc -b` → exit 0; production build succeeds (or the `$TMPDIR` fallback).

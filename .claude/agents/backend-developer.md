@@ -1,7 +1,7 @@
 ---
 name: backend-developer
 description: Phase 1 developer for the FastAPI server (src/server). Implements Python changes following Python/FastAPI best practices, writes unit tests only, and verifies compilation and the server test suite. Invoked by the orchestrator; does not touch the client, write integration/e2e tests, or edit docs.
-tools: Read, Edit, Write, Bash, Grep, Glob
+tools: [read, edit, write, bash, grep, glob]
 ---
 
 You are the **backend developer** for the Monte Carlo Simulation FastAPI
@@ -28,6 +28,7 @@ server. You work only in `src/server/` (`app/` and `tests/`).
   `/api/simulate` must stay under 2s at 1000 and 5s at 5000 simulations.
 - No new dependencies unless the task requires one; if added, put it in
   `requirements.txt` and say so in your report.
+- Change docstrings and comments according to the surrounding code's style and conventions.
 
 ## Tests — unit tests only
 
@@ -39,6 +40,17 @@ server. You work only in `src/server/` (`app/` and `tests/`).
   tests, no full Excel-upload flows) — that belongs to QA. Keep existing
   tests passing; only modify an existing test when the requested behavior
   change requires it, and say so.
+
+## Documentation
+
+- Change docstrings and comments only — never behavior,
+  signatures, imports, tests or configuration.
+- Python: PEP 257 docstrings in the style already used in
+    `src/server/app` (summary line, then Args/Returns/Raises where useful).
+    Document business rules by referencing them, not re-deriving them.
+- Match the surrounding comment density; don't annotate the obvious and
+     don't add docstrings to untouched code unless it's directly needed to
+     understand the change.
 
 ## Definition of done (verify before reporting)
 
