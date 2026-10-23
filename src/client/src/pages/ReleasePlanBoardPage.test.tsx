@@ -1,10 +1,11 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { replaceBoardMessage } from "../components/releasePlan/ReplaceBoardDialog";
 import { planToJson } from "../lib/releasePlan/exportFile";
 import type { PlanStorage } from "../lib/releasePlan/storage";
 import type { ReleasePlan } from "../lib/releasePlan/types";
+import { FakeImage, RecordingContext, stubCanvas } from "../test/canvas";
 import { makeEpic, makeFeature, makeMilestone, samplePlan, sprintsPlan } from "../test/releasePlanFixtures";
 import { BOARD_TEST_TIMEOUT_MS, renderBoard } from "../test/renderBoard";
 
@@ -45,7 +46,7 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
     expect([...container.querySelectorAll('[draggable="false"]')].map((el) => el.textContent)).toEqual(["◀", "▶", "◀", "▶", "◀", "▶"]);
     expect(screen.getByRole("button", { name: "Load Plan" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save Plan" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Export PNG/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export PNG" })).toBeInTheDocument();
   });
 
   it("shows 'Restored your last session' once when hydrated from storage, and autosaves changes", async () => {
@@ -195,15 +196,17 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
     });
   });
 
-  it("shows Load Plan and Save Plan in both the Board and Table views", () => {
+  it("shows Load Plan, Save Plan and Export PNG in both the Board and Table views", () => {
     renderBoard(samplePlan());
     const toolbarButtons = () => screen.getAllByRole("button").filter((b) => b.closest(".toolbar")).map((b) => b.textContent);
-    expect(toolbarButtons().slice(-2)).toEqual(["Load Plan", "Save Plan"]);
+    expect(toolbarButtons().slice(-3)).toEqual(["Load Plan", "Save Plan", "Export PNG"]);
     fireEvent.click(screen.getByRole("tab", { name: "Table" }));
     expect(screen.queryByRole("group", { name: "Zoom" })).not.toBeInTheDocument();
-    expect(toolbarButtons().slice(-2)).toEqual(["Load Plan", "Save Plan"]);
+    expect(toolbarButtons().slice(-3)).toEqual(["Load Plan", "Save Plan", "Export PNG"]);
     expect(screen.getByRole("button", { name: "Load Plan" })).toHaveClass("btn");
     expect(screen.getByRole("button", { name: "Save Plan" })).toHaveClass("btn");
+    expect(screen.getByRole("button", { name: "Export PNG" })).toHaveClass("btn", "primary");
+    expect(screen.getByRole("button", { name: "Export PNG" })).toBeEnabled();
     expect(document.querySelector(".rp .toolbar .spacer")).not.toBeNull();
   });
 
@@ -272,6 +275,54 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
       // No store change: no autosave and no savedAt in the in-memory plan.
       expect(save.mock.calls.length).toBe(savesBefore);
       expect(screen.getByLabelText("Plan name")).toHaveValue("Sample Release Plan");
+    });
+  });
+
+  describe("Export PNG", () => {
+    const NOW = new Date("2026-10-21T09:15:00.000Z");
+    let downloads: string[] = [];
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(NOW);
+      vi.stubGlobal("Image", FakeImage);
+      FakeImage.reset();
+      downloads = [];
+      Object.assign(URL, { createObjectURL: () => "blob:png", revokeObjectURL: () => undefined });
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+        downloads.push(this.download);
+      });
+      stubCanvas({ context: new RecordingContext(), blob: new Blob(["png"], { type: "image/png" }) });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+      FakeImage.reset();
+    });
+
+    for (const view of ["Board", "Table"] as const) {
+      it(`downloads <name>_<date>.png and toasts from the ${view} view`, async () => {
+        renderBoard(samplePlan());
+        fireEvent.click(screen.getByRole("tab", { name: view }));
+        fireEvent.click(screen.getByRole("button", { name: "Export PNG" }));
+        expect(await screen.findByText("PNG exported")).toBeInTheDocument();
+        expect(downloads).toEqual(["Sample_Release_Plan_2026-10-21.png"]);
+      });
+    }
+
+    it("disables Export PNG while an export is running", async () => {
+      FakeImage.hold = true;
+      renderBoard(samplePlan());
+      const button = screen.getByRole("button", { name: "Export PNG" });
+      fireEvent.click(button);
+      await waitFor(() => expect(button).toBeDisabled());
+      fireEvent.click(button);
+      act(() => FakeImage.release());
+      expect(await screen.findByText("PNG exported")).toBeInTheDocument();
+      expect(button).toBeEnabled();
+      expect(downloads).toEqual(["Sample_Release_Plan_2026-10-21.png"]);
     });
   });
 

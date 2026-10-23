@@ -64,6 +64,27 @@ export const ADO = {
   story: { color: "#009CCC", ink: "#04212e" },
 } as const;
 
+/**
+ * Dark board palette, for drawing outside the DOM (the PNG export). Mirrors the
+ * `--navy`, `--panel`, `--ink`, `--muted`, `--line`, `--band-a`, `--band-b`,
+ * `--band-line`, `--unplanned`, `--epicbg` and `--gold` variables at the top of
+ * `releasePlan.css`; keep both in sync. `flagInk` is the flag chip text color.
+ */
+export const PALETTE = {
+  navy: "#274B76",
+  panel: "#152A47",
+  ink: "#E9EFF7",
+  muted: "#9FB3CC",
+  line: "#2A4A73",
+  bandA: "#12243D",
+  bandB: "#172C4A",
+  bandLine: "#2F5180",
+  unplanned: "#2A2617",
+  epicbg: "rgba(255,255,255,.035)",
+  gold: "#EBC160",
+  flagInk: "#3a2a05",
+} as const;
+
 /** Board geometry, in unscaled px. */
 export const L = {
   FLAG_H: 34,

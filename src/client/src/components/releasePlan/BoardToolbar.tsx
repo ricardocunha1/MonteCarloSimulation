@@ -13,8 +13,9 @@ export type BoardView = "board" | "table";
 /**
  * Board toolbar: editable plan name + source line, Board/Table tabs,
  * Releases/Sprints switch, zoom (− 100% + Fit, hidden in Table view), then a
- * spacer and the "Load Plan" / "Save Plan" buttons (shown in both views, each
- * with a decorative upload/download icon before its label).
+ * spacer and the "Load Plan" / "Save Plan" buttons (each with a decorative
+ * upload/download icon before its label) and the primary "Export PNG" button,
+ * all shown in both views.
  */
 export function BoardToolbar({
   plan,
@@ -26,6 +27,8 @@ export function BoardToolbar({
   onFit,
   onLoad,
   onSave,
+  onExportPng,
+  exporting,
 }: {
   plan: ReleasePlan;
   view: BoardView;
@@ -38,6 +41,10 @@ export function BoardToolbar({
   onLoad: () => void;
   /** "Save Plan": downloads the plan as JSON. */
   onSave: () => void;
+  /** "Export PNG": downloads an image of the board. */
+  onExportPng: () => void;
+  /** An export is running: "Export PNG" is disabled. */
+  exporting: boolean;
 }) {
   const { dispatch } = useReleasePlan();
   return (
@@ -81,6 +88,9 @@ export function BoardToolbar({
       <button type="button" className="btn withIcon" onClick={onSave}>
         <DownloadIcon className="btnIcon" />
         Save Plan
+      </button>
+      <button type="button" className="btn primary" onClick={onExportPng} disabled={exporting}>
+        Export PNG
       </button>
     </div>
   );

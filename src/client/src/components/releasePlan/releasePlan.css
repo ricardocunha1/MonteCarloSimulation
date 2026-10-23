@@ -1,6 +1,7 @@
 /* Release Plan board: port of the template CSS, dark palette only.
    Every selector is scoped under .rp so nothing leaks into the hub. */
 
+/* Palette values used by the PNG export are mirrored in PALETTE (lib/releasePlan/constants.ts): keep in sync. */
 .rp {
   --navy: #274B76; --midblue: #0362A4; --sky: #4E98D1; --teal: #60C5B5; --gold: #EBC160;
   --orange: #D8804B; --red: #B64234; --purple: #802D6C;
@@ -35,6 +36,9 @@
 .rp .btn { border: 1px solid var(--line); background: transparent; color: var(--ink); padding: 6px 11px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
 .rp .btn:hover { background: var(--hover); }
 .rp .btn:disabled { opacity: .45; cursor: not-allowed; background: transparent; }
+.rp .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.rp .btn.primary:hover { filter: brightness(1.08); background: var(--accent); }
+.rp .btn.primary:disabled { background: var(--accent); filter: none; }
 .rp .spacer { flex: 1; }
 .rp .zoom { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
 .rp .zoom .btn { padding: 4px 9px; }

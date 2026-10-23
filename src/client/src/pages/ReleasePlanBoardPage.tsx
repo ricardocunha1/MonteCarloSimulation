@@ -8,6 +8,7 @@ import { ReleasePlanLayout } from "../components/releasePlan/ReleasePlanLayout";
 import { ReplaceBoardDialog } from "../components/releasePlan/ReplaceBoardDialog";
 import { SummaryCards } from "../components/releasePlan/SummaryCards";
 import { TableView } from "../components/releasePlan/TableView";
+import { useExportPng } from "../components/releasePlan/useExportPng";
 import { WorkItemModal } from "../components/releasePlan/WorkItemModal";
 import { useToast } from "../components/Toast";
 import { downloadBlob, fileBase, planToJson } from "../lib/releasePlan/exportFile";
@@ -24,7 +25,8 @@ import { useReleasePlan } from "../releasePlanStore";
  * the store. Load Plan opens {@link ImportJsonModal}; a valid file asks
  * {@link ReplaceBoardDialog}, then replaces the plan, closes the work-item
  * modal and remounts `Board` (new `key`) so its selection, gap menu and drag
- * state reset. View and zoom are kept.
+ * state reset. View and zoom are kept. Export PNG ({@link useExportPng}) works
+ * from both views.
  */
 function BoardWorkspace({ plan }: { plan: ReleasePlan }) {
   const { replacePlan } = useReleasePlan();
@@ -39,6 +41,7 @@ function BoardWorkspace({ plan }: { plan: ReleasePlan }) {
   const layout = useMemo(() => computeLayout(plan), [plan]);
   const closeItem = useCallback(() => setOpenItem(null), []);
   const closeLoad = useCallback(() => setLoadOpen(false), []);
+  const { exporting, exportPng } = useExportPng(plan);
 
   const onSave = () => {
     const now = new Date();
@@ -77,6 +80,8 @@ function BoardWorkspace({ plan }: { plan: ReleasePlan }) {
         onFit={onFit}
         onLoad={() => setLoadOpen(true)}
         onSave={onSave}
+        onExportPng={() => void exportPng()}
+        exporting={exporting}
       />
       <SummaryCards plan={plan} />
       {view === "board" ? (
