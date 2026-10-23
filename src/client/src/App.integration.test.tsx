@@ -55,20 +55,25 @@ function location() {
   return screen.getByTestId("location").textContent;
 }
 
-async function fillInputAndSubmit(user: ReturnType<typeof userEvent.setup>, { skip }: { skip: boolean }) {
+/** On the data source page: Excel card → choose the file in the modal → Continue (lands on the input form). */
+async function chooseExcelFile(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: /Import an Excel file/ }));
   await user.upload(
-    screen.getByLabelText(/Sprint History Data/),
+    screen.getByLabelText("Sprint history file"),
     new File(["xlsx"], "Sprint_History.xlsx", {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }),
   );
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+}
+
+async function fillInputAndSubmit(user: ReturnType<typeof userEvent.setup>, { skip }: { skip: boolean }) {
   await user.type(screen.getByLabelText(/Target Value/), "100");
   fireEvent.change(screen.getByLabelText(/Sprint Start Date/), { target: { value: "2026-01-05" } });
   if (skip) {
     await user.click(screen.getByLabelText(/Skip Historical Sprint Validation/));
   }
-  // jsdom does not see files set by user.upload for `required` constraint
-  // validation, so a click would be blocked; submit the form directly.
+  // Submit the form directly (bypasses the browser's `required` checks).
   fireEvent.submit(screen.getByRole("button", { name: "Continue" }).closest("form")!);
 }
 
@@ -99,6 +104,12 @@ describe("Planning Hub – full app flow", () => {
     expect(sidebarMonteCarlo()).not.toHaveAttribute("aria-current");
     await user.click(sidebarMonteCarlo());
     expect(location()).toBe("/monte-carlo");
+    expect(sidebarMonteCarlo()).toHaveAttribute("aria-current", "page");
+    expect(document.title).toBe("Planning Hub – Monte Carlo – Data Source");
+
+    // Data source choice → Excel upload form.
+    await chooseExcelFile(user);
+    expect(location()).toBe("/monte-carlo/input");
     expect(sidebarMonteCarlo()).toHaveAttribute("aria-current", "page");
     expect(document.title).toBe("Planning Hub – Monte Carlo – Data Input");
 
@@ -140,6 +151,8 @@ describe("Planning Hub – full app flow", () => {
 
     await user.click(screen.getByRole("link", { name: "Open Monte Carlo" }));
     expect(location()).toBe("/monte-carlo");
+    await chooseExcelFile(user);
+    expect(location()).toBe("/monte-carlo/input");
 
     await fillInputAndSubmit(user, { skip: true });
 
@@ -149,16 +162,17 @@ describe("Planning Hub – full app flow", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   }, FLOW_TIMEOUT_MS);
 
-  it("shows a 422 {errors} from /api/validate as a toast and stays on /monte-carlo", async () => {
+  it("shows a 422 {errors} from /api/validate as a toast and stays on /monte-carlo/input", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ errors: ["Could not read Excel file: File is not a zip file"] }, 422));
     const user = userEvent.setup();
     renderApp("/monte-carlo");
+    await chooseExcelFile(user);
 
     await fillInputAndSubmit(user, { skip: false });
 
     const alert = await screen.findByRole("alert", undefined, FIND);
     expect(alert).toHaveTextContent("Could not read Excel file: File is not a zip file");
-    expect(location()).toBe("/monte-carlo");
+    expect(location()).toBe("/monte-carlo/input");
   }, FLOW_TIMEOUT_MS);
 
   it("shows a simulate failure as a toast and stays on /monte-carlo/confirm", async () => {
@@ -167,6 +181,7 @@ describe("Planning Hub – full app flow", () => {
       .mockResolvedValueOnce(jsonResponse({ errors: ["The sampling pool is empty."] }, 422));
     const user = userEvent.setup();
     renderApp("/monte-carlo");
+    await chooseExcelFile(user);
 
     await fillInputAndSubmit(user, { skip: false });
     await user.click(await screen.findByRole("button", { name: "Confirm and Run Simulation" }, FIND));
@@ -180,6 +195,7 @@ describe("Planning Hub – full app flow", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(validation)).mockResolvedValueOnce(jsonResponse(result));
     const user = userEvent.setup();
     renderApp("/monte-carlo");
+    await chooseExcelFile(user);
 
     async function openAndCloseHelp() {
       await user.click(screen.getByRole("button", { name: "How to Use" }));
@@ -278,7 +294,7 @@ describe("Planning Hub – full app flow", () => {
 
     await user.click(navLink("Monte Carlo"));
     expect(location()).toBe("/monte-carlo");
-    expect(document.title).toBe("Planning Hub – Monte Carlo – Data Input");
+    expect(document.title).toBe("Planning Hub – Monte Carlo – Data Source");
     expect(navLink("Monte Carlo")).toHaveAttribute("aria-current", "page");
     expect(navLink("Release Plan")).not.toHaveAttribute("aria-current");
   }, FLOW_TIMEOUT_MS);

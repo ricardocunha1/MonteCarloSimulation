@@ -1,4 +1,4 @@
-import type { SimulateResponse, ValidateResponse } from "../lib/monteCarlo/types";
+import type { DataSource, SimulateResponse, ValidateResponse } from "../lib/monteCarlo/types";
 
 export const validation: ValidateResponse = {
   summary: [
@@ -32,4 +32,20 @@ export const result: SimulateResponse = {
     labels,
     counts: labels.map((label) => (label === "9" ? 600 : label === "10" ? 200 : label === "11" ? 150 : label === ">50" ? 50 : 0)),
   },
+};
+
+/** An Excel data source as chosen in the Import Excel modal. */
+export function excelSource(name = "Sprint_History.xlsx"): DataSource {
+  return {
+    kind: "excel",
+    file: new File(["xlsx"], name, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+  };
+}
+
+/** An Azure DevOps data source (not reachable from the UI yet). */
+export const adoSource: DataSource = {
+  kind: "azureDevOps",
+  project: "MES Core",
+  areaPath: "MES Core\\Team A",
+  iterationPath: "MES Core\\Release 11",
 };

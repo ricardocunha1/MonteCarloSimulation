@@ -9,9 +9,10 @@ Critical Manufacturing (CM) projects (formerly "Monte Carlo Simulator";
 `plans/cm-estimations-hub-dashboard.md` records the rename/refactor). Its
 first tool, **Monte Carlo**, runs Monte Carlo
 simulations to forecast how many sprints are needed to hit a target (Items
-Resolved or Story Points), based on historical sprint data uploaded as an
-Excel file. Three-step flow: Data Input → Data Validation (optional,
-skippable) → Simulation Execution. A second, client-only tool, **Release
+Resolved or Story Points), based on historical sprint data. Three-step
+flow: Data Input (starts with a data-source choice: Excel upload now,
+Azure DevOps coming soon) → Data Validation (optional, skippable) →
+Simulation Execution. A second, client-only tool, **Release
 Plan** (`/release-plan`), was built per `plans/release-plan-board.md`
 (Phases 0–2 complete: card-selection entry page, JSON import, the full
 board and native HTML5 drag-and-drop). Spec phase 3 is in progress per
@@ -111,27 +112,29 @@ client's type-check.
     sampling pool), `build_histogram` (`1..50` + `>50` buckets),
     `CONFIDENCE_LABELS`.
 - **`src/client/`** — Vite + React 18 + TypeScript + Tailwind 3 SPA,
-  react-router: `/` hub home (`HubHomePage`), `/monte-carlo` (Data
-  Input), `/monte-carlo/confirm`, `/monte-carlo/results`, `/release-plan`
+  react-router: `/` hub home (`HubHomePage`), `/monte-carlo` (data
+  source selection, `DataSourcePage`), `/monte-carlo/input` (Data Input,
+  `InputPage`), `/monte-carlo/confirm`, `/monte-carlo/results`, `/release-plan`
   (`ReleasePlanHomePage`), `/release-plan/board` (`ReleasePlanBoardPage`);
-  unknown paths → `/`. Confirm/Results redirect to `/monte-carlo` when the
-  store has no data; the board redirects to `/release-plan` when there is
-  no plan.
+  unknown paths → `/`. Input redirects to `/monte-carlo` (the selection
+  page) when no data source is chosen, Confirm/Results when the store has
+  no data; the board redirects to `/release-plan` when there is no plan.
   - Dashboard shell: `components/Layout.tsx` (header with CM logo + hub
     name, left `Sidebar`, main area; sets `document.title`).
     `components/Sidebar.tsx` renders one group per `TOOL_GROUPS` entry
     (label centered between two lines) of `NavLink`s, active on any route
     below the tool's path. `components/monteCarlo/MonteCarloLayout.tsx` wraps `Layout` for
-    the three Monte Carlo pages with one header row (step `Breadcrumb`
+    the four Monte Carlo pages with one header row (step `Breadcrumb`
     centered, "How to Use" button opening `HelpModal` on the right; no
     tool heading — the sidebar shows where you are) and titles
     like "Planning Hub – Monte Carlo – Data Input". Help lives only
     there, not in the global header.
   - Per-tool folders: Monte Carlo code lives in `components/monteCarlo/`
     (`MonteCarloLayout`, `Breadcrumb`, `HelpModal`, `HistogramChart`,
-    `InfoIcon`), `lib/monteCarlo/` (`api`, `types`, `runSimulation`,
-    `confidence`, `calendar`), `pages/monteCarlo/` (`InputPage`,
-    `ConfirmPage`, `ResultsPage`), `monteCarloStore.tsx` and
+    `InfoIcon`, `ImportExcelModal`, `DataSourceCard`), `lib/monteCarlo/`
+    (`api`, `types`, `runSimulation`, `confidence`, `calendar`, `routes`
+    = `MONTE_CARLO_ROUTES`), `pages/monteCarlo/` (`DataSourcePage`,
+    `InputPage`, `ConfirmPage`, `ResultsPage`), `monteCarloStore.tsx` and
     `test/monteCarloFixtures.ts`; Release Plan mirrors it with
     `components/releasePlan/`, `lib/releasePlan/`, `releasePlanStore.tsx`
     and `test/releasePlanFixtures.ts` (its pages are
@@ -144,18 +147,25 @@ client's type-check.
     the sidebar groups and the home page sections; adding a tool = one
     entry in a group's list + its routes in `App.tsx`. Icons are inline
     SVG components in `components/icons/` (e.g. `DiceIcon`;
+    `FileSpreadsheetIcon` on the Monte Carlo Excel data-source card;
     `UploadIcon`/`DownloadIcon` on the board's Load/Save Plan buttons,
     decorative `aria-hidden`), no icon library.
   - `lib/monteCarlo/api.ts` / `lib/monteCarlo/types.ts` mirror the server schemas; a 422 becomes a
     thrown `ApiError` carrying `errors`.
-  - `monteCarloStore.tsx` (`ForecastProvider`) holds the validate response and the execution result in
-    memory only — a reload sends you back to `/monte-carlo`.
+  - `monteCarloStore.tsx` (`ForecastProvider`) holds the chosen
+    `dataSource` (`DataSource`: `{kind: "excel", file}` or `{kind:
+    "azureDevOps", project, areaPath, iterationPath}`), the validate
+    response and the execution result in memory only — a reload sends you
+    back to `/monte-carlo`. Choosing a new source clears validation and
+    execution. `renderAt` takes `dataSource` (fixtures `excelSource()` /
+    `adoSource`).
   - `lib/monteCarlo/runSimulation.ts` is the one simulate → execution helper used by
     both the skip-validation branch of `InputPage` and `ConfirmPage`, so
     their behavior is identical by construction — don't duplicate it.
   - API failures are shown as toasts (`components/Toast.tsx`:
     `ToastProvider` in `main.tsx` and the test `renderAt` helper
-    (`test/render.tsx`, which also stubs `/`, the `/monte-carlo/*` and the
+    (`test/render.tsx`, which also stubs `/`, the `/monte-carlo/*` (incl.
+    `/monte-carlo/input`) and the
     `/release-plan/*` routes),
     `useToast().showError`, `errorMessages(exc)`); the page stays where it
     is, so `monteCarloStore.tsx`'s `Execution` only represents success. `api.ts`
@@ -198,7 +208,8 @@ client's type-check.
       the topmost dialog, focus trap, focus restore, callbacks via refs;
       `isDialogOpen()` lets global Esc handlers stand aside) backs
       `ConfirmDialog` (controlled props, portal to `body`),
-      `ImportJsonModal` and `WorkItemModal`. The "Replace the current
+      `ImportJsonModal`, `WorkItemModal` and Monte Carlo's
+      `ImportExcelModal`. The "Replace the current
       board?" confirmation is the shared `ReplaceBoardDialog` (home page
       import and board Load Plan). No `window.confirm/alert/
       prompt`; info messages use `useToast().showInfo`. The `GapMenu` is
@@ -222,9 +233,12 @@ client's type-check.
       **every selector scoped under `.rp`** (the board page's root class),
       imported by `ReleasePlanBoardPage`. Chrome outside the board uses
       Tailwind.
-  - `InputPage` builds `FormData` exactly as a native form submit would
-    (blank fields included, `skip_validation=on` only when checked, empty
-    `File` when none chosen) so server messages match.
+  - `InputPage` has no file input: `sprint_history_file` is the store's
+    Excel `dataSource.file` (picked in `ImportExcelModal` on `/monte-carlo`,
+    only checked for a `.xlsx` name client-side; an empty `File` for a
+    non-Excel source). Otherwise it builds `FormData` exactly as a native
+    form submit would (blank fields included, `skip_validation=on` only
+    when checked) so server messages match.
   - `Dockerfile`: `node:22-alpine` build → `nginxinc/nginx-unprivileged`
     on **port 8080** (non-root, for OpenShift). `nginx.conf.template` is
     rendered by the image entrypoint with `API_UPSTREAM` (default

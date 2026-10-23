@@ -99,7 +99,7 @@ describe("Sidebar collapse – full app", () => {
       // Icon → Monte Carlo (new page, new Layout mount): still collapsed, MC highlighted.
       await user.click(toolLink("Monte Carlo"));
       expect(location()).toBe("/monte-carlo");
-      expect(document.title).toBe("Planning Hub – Monte Carlo – Data Input");
+      expect(document.title).toBe("Planning Hub – Monte Carlo – Data Source");
       expectCollapsed();
       expectActive("Monte Carlo", "Release Plan");
 

@@ -33,7 +33,7 @@ describe("HubHomePage", () => {
     renderAt("/", <HubHomePage />);
     await user.click(screen.getByRole("link", { name: "Open Monte Carlo" }));
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/monte-carlo$/);
-    expect(screen.getByText("input page")).toBeInTheDocument();
+    expect(screen.getByText("data source page")).toBeInTheDocument();
   });
 
   it("navigates to Monte Carlo from the sidebar", async () => {
