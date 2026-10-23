@@ -8,7 +8,7 @@ import { planFromBacklog } from "../lib/releasePlan/fromBacklog";
 import type { PlanStorage } from "../lib/releasePlan/storage";
 import type { ReleasePlan } from "../lib/releasePlan/types";
 import { FakeImage, RecordingContext, stubCanvas } from "../test/canvas";
-import { makeBacklog, makeConnection, makeConnectResponse, makeFeatureItem } from "../test/adoFixtures";
+import { makeBacklog, makeConnection, makeFeatureItem } from "../test/adoFixtures";
 import { makeEpic, makeFeature, makeMilestone, samplePlan, sequentialIds, sprintsPlan } from "../test/releasePlanFixtures";
 import { BOARD_TEST_TIMEOUT_MS, renderBoard } from "../test/renderBoard";
 
@@ -424,11 +424,8 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
     const toasts = () => screen.queryAllByRole("status").map((s) => s.textContent);
 
     function mockFetch(backlog: AdoBacklog = changedBacklog()) {
-      const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
         const url = String(input);
-        if (url === "/api/ado/connect") {
-          return json(makeConnectResponse());
-        }
         if (url === "/api/ado/backlog") {
           return json(backlog);
         }
@@ -438,14 +435,23 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
       return fetchMock;
     }
 
-    /** Toolbar → connection form (pre-filled) → PAT → Connect → Preview changes → the preview dialog. */
+    /** Toolbar → sync dialog (connection read-only from plan.source) → PAT → Preview changes → the preview dialog. */
     async function openPreview(user: ReturnType<typeof userEvent.setup>) {
       await user.click(screen.getByRole("button", { name: "Sync from ADO" }));
       await user.type(within(connectDialog()).getByLabelText("Personal Access Token"), PAT);
-      await user.click(within(connectDialog()).getByRole("button", { name: "Connect" }));
-      await within(connectDialog()).findByRole("tree", { name: "Area path" });
       await user.click(within(connectDialog()).getByRole("button", { name: "Preview changes" }));
       return screen.findByRole("button", { name: "Apply" });
+    }
+    /** The read-only value shown next to a label in the sync dialog. */
+    const shown = (label: string) => within(connectDialog()).getByText(label, { selector: "dt" }).nextElementSibling?.textContent;
+    const planFile = (plan: ReleasePlan) => new File([planToJson(plan, new Date("2026-10-23T10:00:00Z"))], "board.json", { type: "application/json" });
+    async function loadPlanFile(user: ReturnType<typeof userEvent.setup>, file: File) {
+      await user.click(screen.getByRole("button", { name: "Load Plan" }));
+      const dialog = screen.getByRole("dialog", { name: "Load a plan" });
+      await user.upload(within(dialog).getByLabelText("Release plan file"), file);
+      await user.click(within(dialog).getByRole("button", { name: "Load" }));
+      await user.click(await screen.findByRole("button", { name: "Replace" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     }
 
     beforeEach(() => window.localStorage.clear());
@@ -454,32 +460,90 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
       window.localStorage.clear();
     });
 
-    it("pre-fills the connection and the path from plan.source (never a PAT)", async () => {
+    it("shows the connection from plan.source read-only and asks only for the PAT", async () => {
       const user = userEvent.setup();
-      mockFetch();
+      const fetchMock = mockFetch();
       renderBoard(adoPlan());
       await user.click(screen.getByRole("button", { name: "Sync from ADO" }));
       const dialog = connectDialog();
-      expect(within(dialog).getByRole("radio", { name: "Collaboration Hub" })).toBeChecked();
-      expect(within(dialog).getByLabelText("Project URL")).toHaveValue("https://dev.azure.com/org/Proj");
+      expect(shown("Azure DevOps source")).toBe("Collaboration Hub");
+      expect(shown("Project URL")).toBe("https://dev.azure.com/org/Proj");
+      expect(shown("Area path")).toBe("Proj\\Team A");
+      expect(within(dialog).queryAllByRole("radio")).toHaveLength(0);
+      expect(within(dialog).queryAllByRole("textbox")).toHaveLength(0);
+      expect(within(dialog).queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
       expect(within(dialog).getByLabelText("Personal Access Token")).toHaveValue("");
-      await user.type(within(dialog).getByLabelText("Personal Access Token"), PAT);
-      await user.click(within(dialog).getByRole("button", { name: "Connect" }));
-      const tree = await within(dialog).findByRole("tree", { name: "Area path" });
-      expect(within(tree).getByRole("treeitem", { name: /^Team A/ })).toHaveAttribute("aria-selected", "true");
-      expect(within(dialog).getByRole("button", { name: "Preview changes" })).toBeEnabled();
+      await openPreviewFromOpenDialog(user);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body))).toEqual({ ...makeConnection(), pat: PAT });
     });
 
-    it("shows an empty form (default Collaboration Hub source) for an old plan without connection info", async () => {
+    async function openPreviewFromOpenDialog(user: ReturnType<typeof userEvent.setup>) {
+      await user.type(within(connectDialog()).getByLabelText("Personal Access Token"), PAT);
+      await user.click(within(connectDialog()).getByRole("button", { name: "Preview changes" }));
+      await screen.findByRole("button", { name: "Apply" });
+    }
+
+    it("says an old plan without connection info can't be synced; the toolbar button stays enabled", async () => {
       const user = userEvent.setup();
       renderBoard(samplePlan());
+      expect(screen.getByRole("button", { name: "Sync from ADO" })).toBeEnabled();
       await user.click(screen.getByRole("button", { name: "Sync from ADO" }));
       const dialog = connectDialog();
-      expect(within(dialog).getByRole("radio", { name: "On-Prem" })).not.toBeChecked();
-      expect(within(dialog).getByRole("radio", { name: "Collaboration Hub" })).toBeChecked();
-      expect(within(dialog).getByLabelText("Project URL")).toHaveValue("");
-      await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+      expect(dialog).toHaveTextContent("This board isn't linked to an Azure DevOps project, so it can't be synced.");
+      expect(within(dialog).queryByLabelText("Personal Access Token")).not.toBeInTheDocument();
+      expect(within(dialog).queryByRole("button", { name: "Preview changes" })).not.toBeInTheDocument();
+      await user.click(within(dialog).getByRole("button", { name: "Close" }));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("after Load Plan, the sync dialog shows the loaded file's connection", async () => {
+      const user = userEvent.setup();
+      const fetchMock = mockFetch();
+      renderBoard(adoPlan());
+      const other = planFromBacklog(
+        makeBacklog(),
+        makeConnection({ source: "onprem", projectUrl: "https://tfs.example.com/Coll/Other", scopeType: "iteration", scopePath: "Other\\Phase 2" }),
+        sequentialIds(),
+      );
+      await loadPlanFile(user, planFile({ ...other, name: "Other Board" }));
+      expect(screen.getByLabelText("Plan name")).toHaveValue("Other Board");
+      await user.click(screen.getByRole("button", { name: "Sync from ADO" }));
+      expect(shown("Azure DevOps source")).toBe("On-Prem");
+      expect(shown("Project URL")).toBe("https://tfs.example.com/Coll/Other");
+      expect(shown("Iteration path")).toBe("Other\\Phase 2");
+      expect(within(connectDialog()).queryByText("Area path")).not.toBeInTheDocument();
+      await openPreviewFromOpenDialog(user);
+      expect(JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body))).toEqual({
+        source: "onprem",
+        projectUrl: "https://tfs.example.com/Coll/Other",
+        scopeType: "iteration",
+        scopePath: "Other\\Phase 2",
+        pat: PAT,
+      });
+    });
+
+    it("after Load Plan of a file without a connection, the sync dialog says the board isn't linked (not the previous board's connection)", async () => {
+      const user = userEvent.setup();
+      renderBoard(adoPlan());
+      await loadPlanFile(user, planFile(samplePlan({ name: "Plain Board" })));
+      await user.click(screen.getByRole("button", { name: "Sync from ADO" }));
+      const dialog = connectDialog();
+      expect(dialog).toHaveTextContent("isn't linked to an Azure DevOps project");
+      expect(dialog).not.toHaveTextContent("https://dev.azure.com/org/Proj");
+      expect(within(dialog).queryByLabelText("Personal Access Token")).not.toBeInTheDocument();
+    });
+
+    it("shows a backlog error inline and opens no preview", async () => {
+      const user = userEvent.setup();
+      const fetchMock = vi.fn(async () => json({ errors: ["Unknown Area path: Proj\\Team A."] }, 422));
+      vi.stubGlobal("fetch", fetchMock);
+      renderBoard(adoPlan());
+      await user.click(screen.getByRole("button", { name: "Sync from ADO" }));
+      await user.type(within(connectDialog()).getByLabelText("Personal Access Token"), PAT);
+      await user.click(within(connectDialog()).getByRole("button", { name: "Preview changes" }));
+      expect(await within(connectDialog()).findByRole("alert")).toHaveTextContent("Unknown Area path: Proj\\Team A.");
+      expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
     });
 
     it("previews the diff; Apply updates the board in one autosave, closes the work-item modal and toasts with the warnings", async () => {

@@ -13,7 +13,8 @@ import { makeSprintHistory } from "./test/monteCarloFixtures";
 import { samplePlan } from "./test/releasePlanFixtures";
 
 // QA full-app integration for "Collaboration Hub selected by default" in the
-// shared AdoConnectModal (Monte Carlo load + Release Plan create/sync).
+// shared AdoConnectModal (Monte Carlo load + Release Plan create; Release Plan
+// sync shows the plan's own connection read-only).
 // Real routes, pages, stores and api modules; only `fetch` is mocked.
 
 function LocationProbe() {
@@ -222,7 +223,7 @@ describe("ADO connection modal – Collaboration Hub by default (full app)", { t
     expect(within(mc).getByLabelText("Project URL")).toHaveValue("");
   });
 
-  it("Release Plan sync of an old plan (no connection info) uses the remembered On-Prem connection over the default", async () => {
+  it("Release Plan sync of an old plan (no connection info) ignores the remembered connection: the board isn't linked", async () => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(samplePlan()));
     window.localStorage.setItem(RELEASE_PLAN_KEY, JSON.stringify(ONPREM_SAVED));
     const user = userEvent.setup();
@@ -232,8 +233,9 @@ describe("ADO connection modal – Collaboration Hub by default (full app)", { t
     expect(toolbar).not.toBeNull();
     await user.click(within(toolbar!).getByRole("button", { name: "Sync from ADO" }));
     const dialog = screen.getByRole("dialog", { name: "Sync from Azure DevOps" });
-    expectSourceChecked(dialog, "On-Prem");
-    expect(within(dialog).getByLabelText("Project URL")).toHaveValue(ONPREM_SAVED.projectUrl);
+    expect(dialog).toHaveTextContent("This board isn't linked to an Azure DevOps project, so it can't be synced.");
+    expect(dialog).not.toHaveTextContent(ONPREM_SAVED.projectUrl);
+    expect(within(dialog).queryAllByRole("radio")).toHaveLength(0);
   });
 
   it("Release Plan sync of a plan with cloud connection info wins over a remembered On-Prem connection", async () => {
@@ -259,7 +261,9 @@ describe("ADO connection modal – Collaboration Hub by default (full app)", { t
     const toolbar = document.querySelector<HTMLElement>(".rp .toolbar");
     await user.click(within(toolbar!).getByRole("button", { name: "Sync from ADO" }));
     const dialog = screen.getByRole("dialog", { name: "Sync from Azure DevOps" });
-    expectSourceChecked(dialog, "Collaboration Hub");
-    expect(within(dialog).getByLabelText("Project URL")).toHaveValue(CLOUD_URL);
+    const shown = (label: string) => within(dialog).getByText(label, { selector: "dt" }).nextElementSibling?.textContent;
+    expect(shown("Azure DevOps source")).toBe("Collaboration Hub");
+    expect(shown("Project URL")).toBe(CLOUD_URL);
+    expect(within(dialog).queryAllByRole("radio")).toHaveLength(0);
   });
 });

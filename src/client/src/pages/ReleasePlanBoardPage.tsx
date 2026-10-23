@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { AdoConnectModal, type AdoConnectInitial } from "../components/releasePlan/AdoConnectModal";
+import { AdoSyncModal } from "../components/releasePlan/AdoSyncModal";
 import { Board } from "../components/releasePlan/Board";
 import { BoardToolbar, type BoardView } from "../components/releasePlan/BoardToolbar";
 import { ImportJsonModal } from "../components/releasePlan/ImportJsonModal";
@@ -17,7 +17,7 @@ import { downloadBlob, fileBase, planToJson } from "../lib/releasePlan/exportFil
 import type { AdoBacklog, AdoConnection } from "../lib/releasePlan/adoTypes";
 import { computeLayout } from "../lib/releasePlan/layout";
 import { diffBacklog, type SyncDiff } from "../lib/releasePlan/syncDiff";
-import type { PlanSource, ReleasePlan, WorkItemRef } from "../lib/releasePlan/types";
+import type { ReleasePlan, WorkItemRef } from "../lib/releasePlan/types";
 import { fitZoom, zoomIn, zoomOut } from "../lib/releasePlan/zoom";
 import { useReleasePlan } from "../releasePlanStore";
 
@@ -26,12 +26,6 @@ interface PendingSync {
   backlog: AdoBacklog;
   connection: AdoConnection;
   diff: SyncDiff;
-}
-
-/** The Sync form's pre-fill: the plan's connection when it has all of it (boards created from ADO), else none. */
-function syncInitial(source: PlanSource): AdoConnectInitial | undefined {
-  const { kind, projectUrl, scopeType, scopePath } = source;
-  return kind && projectUrl && scopeType && scopePath ? { source: kind, projectUrl, scopeType, scopePath } : undefined;
 }
 
 /**
@@ -45,9 +39,10 @@ function syncInitial(source: PlanSource): AdoConnectInitial | undefined {
  * state reset. View and zoom are kept. Export PNG ({@link useExportPng}) works
  * from both views.
  *
- * Sync from ADO opens {@link AdoConnectModal} (`purpose="sync"`, pre-filled from
- * `plan.source`); the fetched backlog is diffed and shown in
- * {@link SyncPreviewDialog}. Apply dispatches one `applySync` action, then
+ * Sync from ADO opens {@link AdoSyncModal}: the connection is read-only from
+ * `plan.source` (so a loaded JSON plan brings its own), only the PAT is typed
+ * in, and a board without a connection can't be synced. The fetched backlog
+ * is diffed and shown in {@link SyncPreviewDialog}. Apply dispatches one `applySync` action, then
  * resets the board like Load Plan and toasts (plus any backlog warnings);
  * Cancel changes nothing. The PAT never leaves the modal's state.
  */
@@ -137,7 +132,7 @@ function BoardWorkspace({ plan }: { plan: ReleasePlan }) {
       )}
       <WorkItemModal plan={plan} item={openItem} onNavigate={setOpenItem} onClose={closeItem} />
       <ImportJsonModal open={loadOpen} onClose={closeLoad} onPlanLoaded={setPendingPlan} title="Load a plan" submitLabel="Load" />
-      <AdoConnectModal open={syncOpen} purpose="sync" initial={syncInitial(plan.source)} onClose={closeSync} onBacklog={onBacklog} />
+      <AdoSyncModal open={syncOpen} source={plan.source} onClose={closeSync} onBacklog={onBacklog} />
       <SyncPreviewDialog diff={pendingSync ? pendingSync.diff : null} onApply={onApplySync} onCancel={cancelSync} />
       <ReplaceBoardDialog
         currentName={plan.name}

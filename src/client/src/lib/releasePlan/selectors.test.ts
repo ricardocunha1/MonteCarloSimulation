@@ -12,6 +12,7 @@ import {
   iterationLeaf,
   milestoneSummaryData,
   orderedFlags,
+  planConnection,
   sizeCounts,
   sizeSummary,
   sourceInfo,
@@ -140,5 +141,23 @@ describe("summaries", () => {
     const all = sprintsPlan({ flags: [makeFlag({ id: "end", afterMsId: "sp_2" })] });
     const planned = { ...all, epics: [{ ...all.epics[0], features: all.epics[0].features.slice(0, 2) }] };
     expect(flagSummaryData(planned, planned.flags[0])).toMatchObject({ epicCount: 1 });
+  });
+});
+
+describe("planConnection", () => {
+  const full = { system: "Azure DevOps", kind: "onprem", projectUrl: "https://tfs.example.com/C/P", scopeType: "iteration", scopePath: "P\\Phase 1" } as const;
+
+  it("maps a complete plan source to its connection", () => {
+    expect(planConnection(full)).toEqual({ source: "onprem", projectUrl: "https://tfs.example.com/C/P", scopeType: "iteration", scopePath: "P\\Phase 1" });
+  });
+
+  it.each(["kind", "projectUrl", "scopeType", "scopePath"] as const)("is null without %s", (key) => {
+    const partial = { ...full, [key]: undefined };
+    expect(planConnection(partial)).toBeNull();
+  });
+
+  it("is null for an empty source or an empty string field", () => {
+    expect(planConnection({})).toBeNull();
+    expect(planConnection({ ...full, projectUrl: "" })).toBeNull();
   });
 });

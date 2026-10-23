@@ -2,7 +2,6 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { ADO_CONNECTION_KEY } from "../../lib/releasePlan/constants";
-import type { AdoConnectInitial, AdoConnectPurpose } from "./AdoConnectModal";
 import { makeBacklog, makeConnectResponse } from "../../test/adoFixtures";
 import { AdoConnectModal } from "./AdoConnectModal";
 
@@ -42,10 +41,10 @@ function hanging(signals: AbortSignal[]): Handler {
     });
 }
 
-function renderModal({ purpose = "create", initial }: { purpose?: AdoConnectPurpose; initial?: AdoConnectInitial } = {}) {
+function renderModal() {
   const onClose = vi.fn();
   const onBacklog = vi.fn();
-  const view = render(<AdoConnectModal open purpose={purpose} initial={initial} onClose={onClose} onBacklog={onBacklog} />);
+  const view = render(<AdoConnectModal open onClose={onClose} onBacklog={onBacklog} />);
   return { onClose, onBacklog, ...view };
 }
 
@@ -70,7 +69,7 @@ describe("AdoConnectModal", () => {
   });
 
   it("renders nothing when closed", () => {
-    render(<AdoConnectModal open={false} purpose="create" onClose={vi.fn()} onBacklog={vi.fn()} />);
+    render(<AdoConnectModal open={false} onClose={vi.fn()} onBacklog={vi.fn()} />);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -83,12 +82,6 @@ describe("AdoConnectModal", () => {
     expect(patInput()).toHaveAttribute("autocomplete", "off");
     expect(submitButton()).toBeDisabled();
     expect(screen.queryByRole("tree")).not.toBeInTheDocument();
-  });
-
-  it("uses the sync title and submit label", () => {
-    renderModal({ purpose: "sync" });
-    expect(screen.getByRole("dialog", { name: "Sync from Azure DevOps" })).toBeInTheDocument();
-    expect(submitButton("Preview changes")).toBeDisabled();
   });
 
   it("defaults to Collaboration Hub with its URL placeholder when nothing is remembered", () => {
@@ -357,36 +350,6 @@ describe("AdoConnectModal", () => {
     expect(patInput()).toHaveValue("");
   });
 
-  it("an On-Prem `initial` wins over a remembered Collaboration Hub connection", () => {
-    window.localStorage.setItem(ADO_CONNECTION_KEY, JSON.stringify({ source: "cloud", projectUrl: "https://dev.azure.com/org/Proj" }));
-    renderModal({
-      purpose: "sync",
-      initial: { source: "onprem", projectUrl: "https://tfs.example.com/C/P", scopeType: "area", scopePath: "P\\Team A" },
-    });
-    expect(screen.getByRole("radio", { name: "On-Prem" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "Collaboration Hub" })).not.toBeChecked();
-    expect(urlInput()).toHaveValue("https://tfs.example.com/C/P");
-    expect(urlInput()).toHaveAttribute("placeholder", "https://tfs-projects.cmf.criticalmanufacturing.com/ImplementationProjects/<PROJECT_NAME>");
-  });
-
-  it("pre-fills from `initial` and pre-selects its path after Connect", async () => {
-    const user = userEvent.setup();
-    window.localStorage.setItem(ADO_CONNECTION_KEY, JSON.stringify({ source: "onprem", projectUrl: "https://tfs.example.com/C/P" }));
-    mockFetch();
-    renderModal({
-      purpose: "sync",
-      initial: { source: "cloud", projectUrl: "https://dev.azure.com/org/Proj", scopeType: "iteration", scopePath: "proj\\phase 1\\sprint 02" },
-    });
-    expect(screen.getByRole("radio", { name: "Collaboration Hub" })).toBeChecked();
-    expect(urlInput()).toHaveValue("https://dev.azure.com/org/Proj");
-    await user.type(patInput(), PAT);
-    await user.click(connectButton());
-    const tree = await screen.findByRole("tree", { name: "Iteration path" });
-    expect(within(tree).getByRole("treeitem", { name: /^Sprint 02/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByTestId("ado-selected-path")).toHaveTextContent("Proj\\Phase 1\\Sprint 02");
-    expect(submitButton("Preview changes")).toBeEnabled();
-  });
-
   it("Cancel, Escape and the backdrop close", async () => {
     const user = userEvent.setup();
     const { onClose } = renderModal();
@@ -404,7 +367,7 @@ describe("AdoConnectModal", () => {
     await fillAndConnect(user);
     expect(signals).toHaveLength(1);
     expect(signals[0].aborted).toBe(false);
-    rerender(<AdoConnectModal open={false} purpose="create" onClose={onClose} onBacklog={onBacklog} />);
+    rerender(<AdoConnectModal open={false} onClose={onClose} onBacklog={onBacklog} />);
     expect(signals[0].aborted).toBe(true);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -415,8 +378,8 @@ describe("AdoConnectModal", () => {
     const { onBacklog, rerender, onClose } = renderModal();
     await fillAndConnect(user);
     await screen.findByRole("tree");
-    rerender(<AdoConnectModal open={false} purpose="create" onClose={onClose} onBacklog={onBacklog} />);
-    rerender(<AdoConnectModal open purpose="create" onClose={onClose} onBacklog={onBacklog} />);
+    rerender(<AdoConnectModal open={false} onClose={onClose} onBacklog={onBacklog} />);
+    rerender(<AdoConnectModal open onClose={onClose} onBacklog={onBacklog} />);
     expect(patInput()).toHaveValue("");
     expect(screen.queryByRole("tree")).not.toBeInTheDocument();
     expect(urlInput()).toHaveValue("https://dev.azure.com/org/Proj");
