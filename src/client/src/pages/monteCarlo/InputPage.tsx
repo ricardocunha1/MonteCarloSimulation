@@ -1,9 +1,11 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { validate } from "../../lib/monteCarlo/api";
+import { DataSourceCard } from "../../components/monteCarlo/DataSourceCard";
 import { InfoIcon } from "../../components/monteCarlo/InfoIcon";
 import { MonteCarloLayout } from "../../components/monteCarlo/MonteCarloLayout";
 import { errorMessages, useToast } from "../../components/Toast";
+import { MONTE_CARLO_ROUTES } from "../../lib/monteCarlo/routes";
 import { runSimulation } from "../../lib/monteCarlo/runSimulation";
 import { useForecast } from "../../monteCarloStore";
 
@@ -29,21 +31,30 @@ function Required() {
   return <span style={{ color: "var(--cm-red)" }}>*</span>;
 }
 
+/**
+ * Simulation parameters form (`/monte-carlo/input`) for the data source chosen
+ * on the data source page (shown in a `DataSourceCard`; no source in the store
+ * redirects there). Validates, then confirms or runs.
+ */
 export function InputPage() {
   const navigate = useNavigate();
-  const { setValidation, setExecution } = useForecast();
+  const { dataSource, setValidation, setExecution } = useForecast();
   const { showError } = useToast();
   const [values, setValues] = useState<FormValues>(DEFAULT_FORM_VALUES);
-  const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  if (!dataSource) {
+    return <Navigate to={MONTE_CARLO_ROUTES.dataSource} replace />;
+  }
 
   const onText = (field: TextField) => (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setValues((current) => ({ ...current, [field]: event.target.value }));
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     // Same fields a native form submit would send: every text field (even
-    // blank), the checkbox only when checked, and the file (empty if none).
+    // blank), the checkbox only when checked, and the Excel file chosen on the
+    // data source page (an empty file for other sources, as with no upload).
     const formData = new FormData();
     for (const field of Object.keys(values) as (keyof FormValues)[]) {
       if (field !== "skip_validation") {
@@ -53,7 +64,7 @@ export function InputPage() {
     if (values.skip_validation) {
       formData.append("skip_validation", "on");
     }
-    formData.append("sprint_history_file", file ?? new File([], ""));
+    formData.append("sprint_history_file", dataSource.kind === "excel" ? dataSource.file : new File([], ""));
 
     setSubmitting(true);
     try {
@@ -61,36 +72,23 @@ export function InputPage() {
       setValidation(validation);
       if (values.skip_validation) {
         setExecution(await runSimulation(validation));
-        navigate("/monte-carlo/results");
+        navigate(MONTE_CARLO_ROUTES.results);
       } else {
         setExecution(null);
-        navigate("/monte-carlo/confirm");
+        navigate(MONTE_CARLO_ROUTES.confirm);
       }
     } catch (exc) {
       showError(errorMessages(exc), "Please correct the following:");
       setSubmitting(false);
     }
-  }
+  };
 
   return (
     <MonteCarloLayout pageTitle="Data Input" currentStep={1}>
+      <div className="max-w-xl mx-auto mb-6">
+        <DataSourceCard dataSource={dataSource} />
+      </div>
       <form onSubmit={onSubmit} encType="multipart/form-data" className="space-y-6 max-w-xl mx-auto">
-        <div>
-          <label className={labelClass} htmlFor="sprint_history_file">
-            Sprint History Data (Excel file) <Required />
-            <InfoIcon text="An Excel file containing historical sprint data." />
-          </label>
-          <input
-            className="block w-full text-sm text-slate-300 file:mr-4 file:rounded file:border-0 file:bg-slate-700 file:px-4 file:py-2 file:text-slate-100"
-            type="file"
-            id="sprint_history_file"
-            name="sprint_history_file"
-            accept=".xlsx"
-            required
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-          />
-        </div>
-
         <div>
           <label className={labelClass} htmlFor="target_type">
             Target Type <Required />

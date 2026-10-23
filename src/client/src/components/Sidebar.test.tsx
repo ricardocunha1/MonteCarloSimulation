@@ -25,7 +25,7 @@ describe("Sidebar", () => {
     expect(screen.getByRole("link", { name: "Monte Carlo" })).not.toHaveAttribute("aria-current");
   });
 
-  it.each(["/monte-carlo", "/monte-carlo/confirm", "/monte-carlo/results"])(
+  it.each(["/monte-carlo", "/monte-carlo/input", "/monte-carlo/confirm", "/monte-carlo/results"])(
     "marks Monte Carlo active on %s",
     (path) => {
       renderSidebar(path);

@@ -19,10 +19,10 @@ describe("ConfirmPage", () => {
     simulateMock.mockReset();
   });
 
-  it("redirects to the input step without validation state", () => {
+  it("redirects to the data source step without validation state", () => {
     renderAt("/monte-carlo/confirm", <ConfirmPage />);
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/monte-carlo$/);
-    expect(screen.getByText("input page")).toBeInTheDocument();
+    expect(screen.getByText("data source page")).toBeInTheDocument();
   });
 
   it("renders the sprint summary table", () => {

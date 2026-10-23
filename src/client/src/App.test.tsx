@@ -3,12 +3,14 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { ToastProvider } from "./components/Toast";
+import type { DataSource } from "./lib/monteCarlo/types";
 import { ForecastProvider } from "./monteCarloStore";
+import { excelSource } from "./test/monteCarloFixtures";
 
-function renderApp(path: string) {
+function renderApp(path: string, dataSource: DataSource | null = null) {
   render(
     <ToastProvider>
-      <ForecastProvider>
+      <ForecastProvider initialDataSource={dataSource}>
         <MemoryRouter initialEntries={[path]}>
           <App />
         </MemoryRouter>
@@ -29,10 +31,26 @@ describe("App routing", () => {
     expect(screen.getByRole("link", { name: "Open Monte Carlo" })).toBeInTheDocument();
   });
 
-  it("renders the Monte Carlo input step at /monte-carlo", () => {
+  it("renders the Monte Carlo data source selection at /monte-carlo", () => {
     renderApp("/monte-carlo");
     expect(screen.queryByRole("heading", { name: "Monte Carlo" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "How to Use" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Load sprint history" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Import an Excel file/ })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Target Value/)).not.toBeInTheDocument();
+  });
+
+  it("renders the Monte Carlo input form at /monte-carlo/input once a data source is chosen", () => {
+    renderApp("/monte-carlo/input", excelSource("history.xlsx"));
+    expect(document.title).toBe("Planning Hub – Monte Carlo – Data Input");
+    expect(screen.getByRole("region", { name: "Data source: Excel file" })).toHaveTextContent("history.xlsx");
+    expect(screen.getByLabelText(/Target Value/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "How to Use" })).toBeInTheDocument();
+  });
+
+  it("redirects /monte-carlo/input to the data source page without a data source", () => {
+    renderApp("/monte-carlo/input");
+    expect(screen.getByRole("heading", { name: "Load sprint history" })).toBeInTheDocument();
   });
 
   it("redirects unknown paths to the hub home page", () => {
@@ -40,8 +58,8 @@ describe("App routing", () => {
     expect(screen.getByRole("link", { name: "Open Monte Carlo" })).toBeInTheDocument();
   });
 
-  it("redirects Monte Carlo steps without data to the input step", () => {
+  it("redirects Monte Carlo steps without data to the data source step", () => {
     renderApp("/monte-carlo/results");
-    expect(document.title).toBe("Planning Hub – Monte Carlo – Data Input");
+    expect(document.title).toBe("Planning Hub – Monte Carlo – Data Source");
   });
 });

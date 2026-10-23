@@ -57,3 +57,14 @@ export interface SimulateResponse {
 export interface ErrorResponse {
   errors: string[];
 }
+
+/**
+ * Where the sprint history for a simulation comes from, chosen on the data
+ * source page and held in memory by the store. Client-only (not part of the
+ * server schemas): an Excel `file` is posted to `/api/validate` as
+ * `sprint_history_file`; the Azure DevOps variant is not reachable from the UI
+ * yet (its card is "Coming soon") and only exists so the info card can show it.
+ */
+export type DataSource =
+  | { kind: "excel"; file: File }
+  | { kind: "azureDevOps"; project: string; areaPath: string; iterationPath: string };

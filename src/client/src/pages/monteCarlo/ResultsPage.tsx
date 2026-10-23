@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { MonteCarloLayout } from "../../components/monteCarlo/MonteCarloLayout";
 import { buildCalendarData, type CalendarData } from "../../lib/monteCarlo/calendar";
 import { confidenceColor, OVERFLOW_LABEL } from "../../lib/monteCarlo/confidence";
+import { MONTE_CARLO_ROUTES } from "../../lib/monteCarlo/routes";
 import { useForecast } from "../../monteCarloStore";
 import type { SimulateResponse } from "../../lib/monteCarlo/types";
 
@@ -16,7 +17,7 @@ export function ResultsPage() {
   const { execution } = useForecast();
 
   if (!execution) {
-    return <Navigate to="/monte-carlo" replace />;
+    return <Navigate to={MONTE_CARLO_ROUTES.dataSource} replace />;
   }
 
   return <Results result={execution.result} sprintStartDate={execution.sprintStartDate} />;

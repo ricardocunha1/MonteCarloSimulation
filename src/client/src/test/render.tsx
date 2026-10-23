@@ -6,7 +6,7 @@ import type { PlanStorage } from "../lib/releasePlan/storage";
 import type { ReleasePlan } from "../lib/releasePlan/types";
 import { ReleasePlanProvider } from "../releasePlanStore";
 import { ForecastProvider, type Execution } from "../monteCarloStore";
-import type { ValidateResponse } from "../lib/monteCarlo/types";
+import type { DataSource, ValidateResponse } from "../lib/monteCarlo/types";
 
 function LocationProbe() {
   const location = useLocation();
@@ -14,19 +14,22 @@ function LocationProbe() {
 }
 
 /** Renders `element` at `path` with stub pages for the other routes, so a
- * navigation shows up as `location` changing. The Release Plan store starts
+ * navigation shows up as `location` changing. The Monte Carlo store starts
+ * from `dataSource` / `validation` / `execution` (default none). The Release Plan store starts
  * from `initialPlan` (default none) and is in-memory unless `planStorage` is
  * given (then it hydrates from and saves to it). */
 export function renderAt(
   path: string,
   element: ReactElement,
   {
+    dataSource = null,
     validation = null,
     execution = null,
     routes = {},
     initialPlan,
     planStorage = null,
   }: {
+    dataSource?: DataSource | null;
     validation?: ValidateResponse | null;
     execution?: Execution | null;
     routes?: Record<string, ReactElement>;
@@ -36,7 +39,8 @@ export function renderAt(
 ) {
   const stubs: Record<string, ReactElement> = {
     "/": <p>hub home page</p>,
-    "/monte-carlo": <p>input page</p>,
+    "/monte-carlo": <p>data source page</p>,
+    "/monte-carlo/input": <p>input page</p>,
     "/monte-carlo/confirm": <p>confirm page</p>,
     "/monte-carlo/results": <p>results page</p>,
     "/release-plan": <p>release plan home page</p>,
@@ -46,7 +50,7 @@ export function renderAt(
   };
   return render(
     <ToastProvider>
-    <ForecastProvider initialValidation={validation} initialExecution={execution}>
+    <ForecastProvider initialDataSource={dataSource} initialValidation={validation} initialExecution={execution}>
       <ReleasePlanProvider initialPlan={planStorage ? initialPlan : (initialPlan ?? null)} storage={planStorage}>
         <MemoryRouter initialEntries={[path]}>
           <Routes>

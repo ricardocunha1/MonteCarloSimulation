@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { MonteCarloLayout } from "../../components/monteCarlo/MonteCarloLayout";
 import { errorMessages, useToast } from "../../components/Toast";
+import { MONTE_CARLO_ROUTES } from "../../lib/monteCarlo/routes";
 import { runSimulation } from "../../lib/monteCarlo/runSimulation";
 import { useForecast } from "../../monteCarloStore";
 
@@ -13,14 +14,14 @@ export function ConfirmPage() {
   const [submitting, setSubmitting] = useState(false);
 
   if (!validation) {
-    return <Navigate to="/monte-carlo" replace />;
+    return <Navigate to={MONTE_CARLO_ROUTES.dataSource} replace />;
   }
 
   async function onRun() {
     setSubmitting(true);
     try {
       setExecution(await runSimulation(validation!));
-      navigate("/monte-carlo/results");
+      navigate(MONTE_CARLO_ROUTES.results);
     } catch (exc) {
       showError(errorMessages(exc), "Simulation error");
       setSubmitting(false);
