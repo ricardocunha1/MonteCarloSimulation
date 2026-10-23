@@ -1,21 +1,21 @@
-import type { AdoSource } from "./adoTypes";
-
-/** localStorage key of the last successful Azure DevOps connection. */
-export const ADO_CONNECTION_KEY = "cmPlanningHub.releasePlan.adoConnection.v1";
+import type { AdoSource } from "./types";
 
 /**
  * The remembered connection: source and canonical project URL only. There is
  * deliberately no token field: the personal access token is never persisted.
+ * Each tool remembers its own under its own localStorage key
+ * (Release Plan: `ADO_CONNECTION_KEY` in `lib/releasePlan/constants.ts`,
+ * Monte Carlo: `ADO_CONNECTION_KEY` in `lib/monteCarlo/constants.ts`).
  */
 export interface SavedAdoConnection {
   source: AdoSource;
   projectUrl: string;
 }
 
-/** The remembered connection, or `null` when absent, malformed or storage is unavailable. */
-export function loadAdoConnection(): SavedAdoConnection | null {
+/** The connection remembered under `key`, or `null` when absent, malformed or storage is unavailable. */
+export function loadAdoConnection(key: string): SavedAdoConnection | null {
   try {
-    const raw = window.localStorage.getItem(ADO_CONNECTION_KEY);
+    const raw = window.localStorage.getItem(key);
     if (!raw) {
       return null;
     }
@@ -33,10 +33,10 @@ export function loadAdoConnection(): SavedAdoConnection | null {
   }
 }
 
-/** Remembers `{source, projectUrl}` (any other property is dropped); ignores unavailable storage. */
-export function saveAdoConnection({ source, projectUrl }: SavedAdoConnection): void {
+/** Remembers `{source, projectUrl}` under `key` (any other property is dropped); ignores unavailable storage. */
+export function saveAdoConnection(key: string, { source, projectUrl }: SavedAdoConnection): void {
   try {
-    window.localStorage.setItem(ADO_CONNECTION_KEY, JSON.stringify({ source, projectUrl }));
+    window.localStorage.setItem(key, JSON.stringify({ source, projectUrl }));
   } catch {
     // Storage unavailable: the form just won't be pre-filled next time.
   }

@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { adoSource, excelSource } from "../../test/monteCarloFixtures";
+import { adoSource, excelSource, makeSprintWorkItem } from "../../test/monteCarloFixtures";
 import { renderAt } from "../../test/render";
 import { DataSourceCard } from "./DataSourceCard";
 
@@ -16,13 +16,20 @@ describe("DataSourceCard", () => {
     expect(within(region).queryByText("Project")).not.toBeInTheDocument();
   });
 
-  it("shows the Azure DevOps project, area path and iteration path", () => {
+  it("shows the Azure DevOps project, iteration path and number of work items (no area path)", () => {
     renderAt("/card", <DataSourceCard dataSource={adoSource} />);
     const region = card("Azure DevOps");
     const terms = within(region).getAllByRole("term").map((term) => term.textContent);
     const details = within(region).getAllByRole("definition").map((detail) => detail.textContent);
-    expect(terms).toEqual(["Project", "Area Path", "Iteration Path"]);
-    expect(details).toEqual(["MES Core", "MES Core\\Team A", "MES Core\\Release 11"]);
+    expect(terms).toEqual(["Project", "Iteration Path", "Work items"]);
+    expect(details).toEqual(["MES Core", "MES Core\\Release 11", "3"]);
+    expect(within(region).queryByText("Area Path")).not.toBeInTheDocument();
+  });
+
+  it("counts every loaded work item", () => {
+    const workItems = Array.from({ length: 375 }, (_, i) => makeSprintWorkItem({ id: i + 1 }));
+    renderAt("/card", <DataSourceCard dataSource={{ ...adoSource, workItems }} />);
+    expect(within(card("Azure DevOps")).getByText("375")).toBeInTheDocument();
   });
 
   it("links back to the data source page", async () => {

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, simulate } from "./api";
+import { makeSprintHistory } from "../../test/monteCarloFixtures";
+import { ApiError, adoSprintHistory, simulate } from "./api";
 
 function respondWith(body: string, status: number, contentType = "application/json") {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status, headers: { "Content-Type": contentType } })));
@@ -47,5 +48,31 @@ describe("api error messages", () => {
   it("reports an unreachable server", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     expect(await errorsFrom()).toEqual(["Could not reach the server: Failed to fetch"]);
+  });
+});
+
+describe("adoSprintHistory", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const REQ = { source: "onprem", projectUrl: "https://tfs.example.com/C/P", pat: "pat-1", iterationPath: "P\\Phase 1" } as const;
+
+  it("POSTs the JSON body (PAT in the body only) with the signal", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(makeSprintHistory()), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    await expect(adoSprintHistory(REQ, controller.signal)).resolves.toEqual(makeSprintHistory());
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/ado/sprint-history");
+    expect(url).not.toContain("pat-1");
+    expect(init).toMatchObject({ method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal });
+    expect(JSON.parse(String(init.body))).toEqual(REQ);
+  });
+
+  it("turns a 422 {errors} into an ApiError", async () => {
+    respondWith(JSON.stringify({ errors: ["Choose an Iteration path."] }), 422);
+    const error = await adoSprintHistory(REQ).catch((exc: unknown) => exc);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).errors).toEqual(["Choose an Iteration path."]);
+    expect((error as ApiError).status).toBe(422);
   });
 });

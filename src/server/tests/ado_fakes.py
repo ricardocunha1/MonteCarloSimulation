@@ -117,10 +117,12 @@ def work_item(
     size: Any = None,
     feature_size: Any = None,
     project: str = PROJECT_NAME,
+    extra: dict | None = None,
 ) -> dict:
     """A synthetic work item as stored by FakeAdo: `area` / `iteration` are
     relative to the project root ("" = the root); `size` / `feature_size`
-    fill `Custom.EstimatedSize` / `Custom.FeatureSize` when not None."""
+    fill `Custom.EstimatedSize` / `Custom.FeatureSize` when not None;
+    `extra` adds raw fields."""
     fields = {
         "System.Id": item_id,
         "System.WorkItemType": item_type,
@@ -137,6 +139,7 @@ def work_item(
         fields[ESTIMATED_SIZE] = size
     if feature_size is not None:
         fields[FEATURE_SIZE] = feature_size
+    fields.update(extra or {})
     return {"id": item_id, "fields": fields}
 
 
@@ -158,7 +161,60 @@ def synthetic_backlog(project: str = PROJECT_NAME) -> list[dict]:
     ]
 
 
+STORY_POINTS = "Microsoft.VSTS.Scheduling.StoryPoints"
+RESOLVED_DATE = "Microsoft.VSTS.Common.ResolvedDate"
+CLOSED_DATE = "Microsoft.VSTS.Common.ClosedDate"
+CHANGED_DATE = "System.ChangedDate"
+
+
+def history_item(
+    item_id: int,
+    item_type: str,
+    state: str,
+    iteration: str,
+    *,
+    points: object = None,
+    resolved: str | None = None,
+    closed: str | None = None,
+    changed: str | None = "2026-10-20T08:00:00Z",
+    project: str = PROJECT_NAME,
+) -> dict:
+    """A synthetic Monte Carlo sprint history item (see `work_item`); None
+    leaves the story points / date field unset."""
+    extra = {STORY_POINTS: points, RESOLVED_DATE: resolved, CLOSED_DATE: closed, CHANGED_DATE: changed}
+    return work_item(
+        item_id,
+        item_type,
+        f"Item {item_id}",
+        "Team A",
+        state=state,
+        iteration=iteration,
+        project=project,
+        extra={name: value for name, value in extra.items() if value is not None},
+    )
+
+
+def synthetic_sprint_history(project: str = PROJECT_NAME) -> list[dict]:
+    """Under "Phase 1": Sprint 01 holds 501 (Resolved story, 3 points), 502
+    (Closed bug, no points, only a closed date) and 503 (Active, not
+    resolved); Sprint 02 holds 504 (Done story, 2.5 points, only a changed
+    date, offset) and 505 (a Done Feature). 506 is a Resolved story in
+    Backlog (outside Phase 1)."""
+    h = partial(history_item, project=project)
+    return [
+        h(501, "User Story", "Resolved", "Phase 1\\Sprint 01", points=3, resolved="2026-10-28T10:47:08.1234567Z"),
+        h(502, "Bug", "Closed", "Phase 1\\Sprint 01", closed="2026-10-29T09:00:00Z"),
+        h(503, "User Story", "Active", "Phase 1\\Sprint 01", points=5),
+        h(504, "User Story", "Done", "Phase 1\\Sprint 02", points=2.5, changed="2026-11-12T01:30:00+02:00"),
+        h(505, "Feature", "Done", "Phase 1\\Sprint 02", points=8, resolved="2026-11-12T10:00:00Z"),
+        h(506, "User Story", "Resolved", "Backlog", points=1, resolved="2026-10-01T10:00:00Z"),
+    ]
+
+
 _UNDER = re.compile(r"\[(System\.AreaPath|System\.IterationPath)\] UNDER '((?:[^']|'')*)'")
+_TYPES = re.compile(r"\[System\.WorkItemType\] IN \(([^)]*)\)")
+_STATES = re.compile(r"\[System\.State\] IN \(([^)]*)\)")
+_FIELD_REF = re.compile(r"/_apis/wit/fields/([^/]+)$")
 
 
 class FakeAdo:
@@ -176,9 +232,12 @@ class FakeAdo:
             endpoint answers 404 and the batch fails with a 400 when it is
             requested. `size_field=False` (argument or attribute) is the
             legacy spelling of "no size field exists".
+        missing_fields: other field reference names that don't exist (same
+            behavior as a missing size field).
         wiql_ids: ids the WIQL returns regardless of the query; by default the
-            query's `UNDER` clause is evaluated over `work_items` (Epics and
-            Features, not Removed, ascending id).
+            query is evaluated over `work_items`: its `UNDER` clause, its
+            `[System.WorkItemType] IN (…)` list and its `[System.State] IN
+            (…)` list (without one, "not Removed"), ascending id.
     """
 
     def __init__(
@@ -190,6 +249,7 @@ class FakeAdo:
         size_fields: set[str] | None = None,
         size_field: bool = True,
         wiql_ids: list[int] | None = None,
+        missing_fields: set[str] | None = None,
     ):
         self.project_name = project_name
         self.nodes = classification_nodes(project_name) if nodes is None else nodes
@@ -198,6 +258,7 @@ class FakeAdo:
         self.size_fields = {ESTIMATED_SIZE} if size_fields is None else set(size_fields)
         if not size_field:
             self.size_fields = set()
+        self.missing_fields = set(missing_fields or ())
         self.wiql_ids = wiql_ids
         self.requests: list[httpx.Request] = []
 
@@ -215,10 +276,10 @@ class FakeAdo:
         if endpoint == "nodes":
             return httpx.Response(200, json=self.nodes)
         if endpoint == "fields":
-            name = unquote(request.url.path.rsplit("/", 1)[-1])
-            if name not in self.size_fields:
-                return httpx.Response(404, json={"message": f"TF51535: Cannot find field {name}."})
-            return httpx.Response(200, json={"referenceName": name, "type": "string"})
+            reference = unquote(_FIELD_REF.search(request.url.path).group(1))
+            if self._is_missing(reference):
+                return httpx.Response(404, json={"message": f"TF51535: Cannot find field {reference}."})
+            return httpx.Response(200, json={"referenceName": reference, "type": "string"})
         if endpoint == "wiql":
             return httpx.Response(200, json=self._wiql(json.loads(request.content)["query"]))
         if endpoint == "batch":
@@ -254,11 +315,17 @@ class FakeAdo:
         else:
             match = _UNDER.search(query)
             field, path = match.group(1), match.group(2).replace("''", "'").lower()
+            types = _quoted_list(_TYPES.search(query).group(1))
+            states = _STATES.search(query)
             ids = sorted(
                 item["id"]
                 for item in self.work_items
-                if item["fields"]["System.WorkItemType"] in ("Epic", "Feature")
-                and item["fields"]["System.State"] != "Removed"
+                if item["fields"]["System.WorkItemType"] in types
+                and (
+                    item["fields"]["System.State"] in _quoted_list(states.group(1))
+                    if states
+                    else item["fields"]["System.State"] != "Removed"
+                )
                 and _under(item["fields"][field].lower(), path)
             )
         return {"queryType": "flat", "workItems": [{"id": i, "url": f"https://fake/{i}"} for i in ids]}
@@ -267,9 +334,9 @@ class FakeAdo:
         ids, fields = body["ids"], body["fields"]
         if len(ids) > 200:
             return httpx.Response(400, json={"message": "VS403474: at most 200 ids."})
-        unknown = [name for name in fields if name.startswith("Custom.") and name not in self.size_fields]
-        if unknown:
-            return httpx.Response(400, json={"message": f"TF51535: Cannot find field {unknown[0]}."})
+        refused = [name for name in fields if self._is_missing(name)]
+        if refused:
+            return httpx.Response(400, json={"message": f"TF51535: Cannot find field {refused[0]}."})
         stored = {item["id"]: item for item in self.work_items}
         value = []
         for item_id in ids:
@@ -280,6 +347,11 @@ class FakeAdo:
             selected = {name: item["fields"][name] for name in fields if name in item["fields"]}
             value.append({"id": item_id, "rev": 1, "fields": selected})
         return httpx.Response(200, json={"count": len(value), "value": value})
+
+    def _is_missing(self, name: str) -> bool:
+        """Read on every request, since tests may change `size_fields` /
+        `missing_fields` after construction."""
+        return name in self.missing_fields or (name.startswith("Custom.") and name not in self.size_fields)
 
     @staticmethod
     def _endpoint(path: str) -> str:
@@ -294,6 +366,11 @@ class FakeAdo:
         if path.endswith("/_apis/wit/workitemsbatch"):
             return "batch"
         return "other"
+
+
+def _quoted_list(text: str) -> list[str]:
+    """`'A','B'` → ["A", "B"]."""
+    return [part.strip().strip("'") for part in text.split(",")]
 
 
 def _under(path: str, scope: str) -> bool:

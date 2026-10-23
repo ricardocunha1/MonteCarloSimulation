@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { areaTree } from "../../test/adoFixtures";
-import { expandedForFilter, filterTree, findNodeChain, visibleRows } from "./adoTree";
+import { expandedForFilter, filterTree, findNodeChain, visibleRows } from "./tree";
 
 const paths = (rows: { node: { path: string } }[]) => rows.map((r) => r.node.path);
 

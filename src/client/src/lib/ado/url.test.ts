@@ -8,7 +8,7 @@ import {
   SOURCE_REQUIRED,
   URL_REQUIRED,
   validateProjectUrl,
-} from "./adoUrl";
+} from "./url";
 
 // Cases mirror src/server/tests/test_ado_url.py (minus the server-only allowlist).
 const ONPREM_HOST = "tfs-projects.cmf.criticalmanufacturing.com";

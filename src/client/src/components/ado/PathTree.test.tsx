@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { AdoTreeNode } from "../../lib/releasePlan/adoTypes";
+import type { AdoTreeNode } from "../../lib/ado/types";
 import { areaTree, iterationTree } from "../../test/adoFixtures";
 import { PathTree } from "./PathTree";
 

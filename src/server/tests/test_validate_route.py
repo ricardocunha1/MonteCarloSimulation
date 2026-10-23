@@ -1,3 +1,8 @@
+import json
+
+import pandas as pd
+import pytest
+
 from conftest import FIXTURE_PATH
 
 
@@ -123,3 +128,103 @@ def test_skip_validation_is_echoed_in_params(client):
     response = _post(client, _valid_form(skip_validation="on"), _fixture_file())
     assert response.status_code == 200
     assert response.json()["params"]["skip_validation"] is True
+
+
+# --- Azure DevOps sprint history (`sprint_history_items`) -----------------------------
+
+
+def _fixture_as_ado_items() -> list[dict]:
+    """The fixture rows as /api/ado/sprint-history work items (dates as UTC)."""
+    df = pd.read_excel(FIXTURE_PATH)
+    return [
+        {
+            "id": int(row["ID"]),
+            "type": row["Work Item Type"],
+            "title": row["Title"],
+            "state": row["State"],
+            "iterationPath": row["Iteration Path"],
+            "resolvedDate": row["Resolved Date"].strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "storyPoints": None if pd.isna(row["Story Points"]) else row["Story Points"],
+        }
+        for row in df.to_dict(orient="records")
+    ]
+
+
+def _items_form(items, **overrides):
+    raw = items if isinstance(items, str) else json.dumps(items)
+    return _valid_form(sprint_history_items=raw, **overrides)
+
+
+def test_items_summary_matches_the_excel_path(client):
+    excel = _post(client, _valid_form(), _fixture_file())
+    ado = _post(client, _items_form(_fixture_as_ado_items()), files={"_": (None, "")})
+    assert ado.status_code == 200, ado.text
+    assert ado.json() == excel.json()
+    assert len(ado.json()["summary"]) == 24
+    assert "sprint_history_items" not in ado.json()["params"]
+
+
+def test_items_replace_an_uploaded_file(client):
+    response = _post(client, _items_form(_fixture_as_ado_items()), files={"sprint_history_file": ("bad.xlsx", b"junk")})
+    assert response.status_code == 200
+    assert len(response.json()["summary"]) == 24
+
+
+def test_blank_items_fall_back_to_the_file_requirement(client):
+    response = _post(client, _items_form("   "), files={"_": (None, "")})
+    assert response.status_code == 422
+    assert response.json()["errors"] == ["A Sprint History Excel file is required."]
+
+
+@pytest.mark.parametrize(
+    "items, message",
+    [
+        ("not json", "The Azure DevOps sprint history is invalid."),
+        ('{"workItems": []}', "The Azure DevOps sprint history is invalid."),
+        ([{"state": "Done", "iterationPath": "P\\S"}], "The Azure DevOps sprint history is invalid."),
+        (
+            [{"state": "Done", "iterationPath": "P\\S", "resolvedDate": "yesterday", "storyPoints": 1}],
+            "The Azure DevOps sprint history is invalid.",
+        ),
+        ([], "The Azure DevOps sprint history has no work items."),
+    ],
+)
+def test_invalid_items_return_error(client, items, message):
+    response = _post(client, _items_form(items), files={"_": (None, "")})
+    assert response.status_code == 422
+    assert response.json()["errors"] == [message]
+
+
+def test_items_errors_are_reported_with_parameter_errors(client):
+    response = _post(client, _items_form([], target_value="-1", num_simulations="0"), files={"_": (None, "")})
+    assert response.status_code == 422
+    assert response.json()["errors"] == [
+        "The Azure DevOps sprint history has no work items.",
+        "Target Value must be a positive number.",
+        "Number of Simulations must be a positive whole number.",
+    ]
+
+
+def test_valid_items_with_parameter_errors_report_only_those(client):
+    response = _post(client, _items_form(_fixture_as_ado_items(), sprint_length="0"), files={"_": (None, "")})
+    assert response.status_code == 422
+    assert response.json()["errors"] == ["Sprint Length must be a positive number."]
+
+
+def test_items_larger_than_one_megabyte_are_accepted(client):
+    items = [
+        {
+            "id": i,
+            "title": "x" * 200,
+            "state": "Done",
+            "iterationPath": f"P\\Sprint {i % 10:02d}",
+            "resolvedDate": f"2026-01-{i % 10 + 1:02d}T00:00:00Z",
+            "storyPoints": 1,
+        }
+        for i in range(1, 6001)
+    ]
+    form = _items_form(items)
+    assert len(form["sprint_history_items"]) > 1024 * 1024
+    response = _post(client, form, files={"_": (None, "")})
+    assert response.status_code == 200, response.text
+    assert sum(record["Items Resolved"] for record in response.json()["summary"]) == 6000

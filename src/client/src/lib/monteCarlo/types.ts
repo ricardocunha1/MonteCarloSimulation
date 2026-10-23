@@ -1,6 +1,8 @@
 // Mirrors src/server/app/schemas.py. Summary record keys keep the server's
 // DataFrame column names (Pydantic aliases), so they're quoted here.
 
+import type { AdoConnectionRequest, AdoProjectInfo, AdoSource } from "../ado/types";
+
 export type TargetType = "Items Resolved" | "Story Points";
 
 export interface SprintSummaryRecord {
@@ -58,13 +60,58 @@ export interface ErrorResponse {
   errors: string[];
 }
 
+/** `POST /api/ado/sprint-history` request. The PAT is never persisted. */
+export interface AdoSprintHistoryRequest extends AdoConnectionRequest {
+  /** Normalized Iteration path (`Proj\Phase 1`); matched case-insensitively, children included. */
+  iterationPath: string;
+}
+
+/** A resolved User Story or Bug as returned by the sprint-history route (ascending id). */
+export interface AdoSprintWorkItem {
+  id: number;
+  type: "User Story" | "Bug";
+  title: string;
+  /** `Resolved`, `Done` or `Closed`. */
+  state: string;
+  /** The item's own iteration, e.g. `Proj\Phase 1\Sprint 01`. */
+  iterationPath: string;
+  /** ResolvedDate, else ClosedDate, else ChangedDate; UTC ISO `YYYY-MM-DDTHH:MM:SSZ`. */
+  resolvedDate: string;
+  /** 0 when missing. */
+  storyPoints: number;
+}
+
+/** `POST /api/ado/sprint-history` 200 response. */
+export interface AdoSprintHistory {
+  project: AdoProjectInfo;
+  /** Canonical project URL. */
+  projectUrl: string;
+  iterationPath: string;
+  /** Server UTC time, ISO with `Z`. */
+  fetchedAt: string;
+  workItems: AdoSprintWorkItem[];
+  /** E.g. the story points field missing or the 20000 cap; shown as info toasts. */
+  warnings: string[];
+}
+
 /**
  * Where the sprint history for a simulation comes from, chosen on the data
  * source page and held in memory by the store. Client-only (not part of the
  * server schemas): an Excel `file` is posted to `/api/validate` as
- * `sprint_history_file`; the Azure DevOps variant is not reachable from the UI
- * yet (its card is "Coming soon") and only exists so the info card can show it.
+ * `sprint_history_file`; the Azure DevOps `workItems` (loaded once from
+ * `/api/ado/sprint-history`, never re-synced) are posted as the JSON field
+ * `sprint_history_items`.
  */
 export type DataSource =
   | { kind: "excel"; file: File }
-  | { kind: "azureDevOps"; project: string; areaPath: string; iterationPath: string };
+  | {
+      kind: "azureDevOps";
+      source: AdoSource;
+      /** Canonical project URL. */
+      projectUrl: string;
+      /** Canonical project name. */
+      project: string;
+      iterationPath: string;
+      fetchedAt: string;
+      workItems: AdoSprintWorkItem[];
+    };

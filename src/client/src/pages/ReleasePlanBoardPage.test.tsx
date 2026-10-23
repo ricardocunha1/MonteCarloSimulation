@@ -470,13 +470,13 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
       expect(within(dialog).getByRole("button", { name: "Preview changes" })).toBeEnabled();
     });
 
-    it("shows an empty form for an old plan without connection info", async () => {
+    it("shows an empty form (default Collaboration Hub source) for an old plan without connection info", async () => {
       const user = userEvent.setup();
       renderBoard(samplePlan());
       await user.click(screen.getByRole("button", { name: "Sync from ADO" }));
       const dialog = connectDialog();
       expect(within(dialog).getByRole("radio", { name: "On-Prem" })).not.toBeChecked();
-      expect(within(dialog).getByRole("radio", { name: "Collaboration Hub" })).not.toBeChecked();
+      expect(within(dialog).getByRole("radio", { name: "Collaboration Hub" })).toBeChecked();
       expect(within(dialog).getByLabelText("Project URL")).toHaveValue("");
       await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -560,7 +560,8 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
       const board = within(screen.getByRole("region", { name: "Board" }));
       expect(board.getByText("Login")).toBeInTheDocument();
       expect(board.queryByText("Search")).not.toBeInTheDocument();
-      expect(toasts()).not.toContain("Board synchronized with Azure DevOps");
+      // queryAll: there may be no toast at all once "Restored your last session" (2.2s) has auto-dismissed.
+      expect(screen.queryAllByRole("status").map((s) => s.textContent)).not.toContain("Board synchronized with Azure DevOps");
     });
   });
 

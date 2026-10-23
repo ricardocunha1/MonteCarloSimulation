@@ -10,8 +10,8 @@ const detailClass = "break-all text-sm font-medium text-slate-100";
 
 /**
  * Compact summary of the chosen sprint history source shown above the Monte
- * Carlo input form: the Excel file name, or the Azure DevOps project and
- * area/iteration paths. Its "Change" link goes back to the data source page.
+ * Carlo input form: the Excel file name, or the Azure DevOps project,
+ * Iteration path and number of work items loaded. Its "Change" link goes back to the data source page.
  */
 export function DataSourceCard({ dataSource }: { dataSource: DataSource }) {
   const headingId = useId();
@@ -43,12 +43,12 @@ export function DataSourceCard({ dataSource }: { dataSource: DataSource }) {
                 <dd className={detailClass}>{dataSource.project}</dd>
               </div>
               <div>
-                <dt className={termClass}>Area Path</dt>
-                <dd className={detailClass}>{dataSource.areaPath}</dd>
-              </div>
-              <div>
                 <dt className={termClass}>Iteration Path</dt>
                 <dd className={detailClass}>{dataSource.iterationPath}</dd>
+              </div>
+              <div>
+                <dt className={termClass}>Work items</dt>
+                <dd className={detailClass}>{dataSource.workItems.length}</dd>
               </div>
             </>
           )}

@@ -1,51 +1,23 @@
 /**
- * Azure DevOps API types (`/api/ado/*`), mirroring the server schemas and the
- * API contract in `plans/release-plan-ado.md`.
+ * Release Plan's Azure DevOps API types (`/api/ado/backlog`), mirroring the
+ * server schemas and the API contract in `plans/release-plan-ado.md`. The
+ * shared connection types are re-exported from `lib/ado/types.ts`.
  */
 
-/** Azure DevOps source: `"onprem"` (On-Prem server) or `"cloud"` (Collaboration Hub). */
-export type AdoSource = "onprem" | "cloud";
+import type { AdoProjectInfo, AdoScopedRequest } from "../ado/types";
 
-/** Which classification tree a board is scoped to. */
-export type AdoScopeType = "area" | "iteration";
+export type {
+  AdoConnectResponse,
+  AdoConnection,
+  AdoConnectionRequest,
+  AdoProjectInfo,
+  AdoScopeType,
+  AdoSource,
+  AdoTreeNode,
+} from "../ado/types";
 
-/** The part of every `/api/ado/*` request that identifies the project. The PAT is never persisted. */
-export interface AdoConnectionRequest {
-  source: AdoSource;
-  projectUrl: string;
-  pat: string;
-}
-
-/** `POST /api/ado/backlog` request. */
-export interface AdoBacklogRequest extends AdoConnectionRequest {
-  scopeType: AdoScopeType;
-  /** Normalized path (`Proj\Team A`); matched case-insensitively by the server. */
-  scopePath: string;
-}
-
-/** A classification node with its path normalized to the `System.AreaPath`/`System.IterationPath` format. */
-export interface AdoTreeNode {
-  name: string;
-  path: string;
-  /** Iteration nodes only: `YYYY-MM-DD` or `""`. Area nodes have no such key. */
-  finishDate?: string;
-  children: AdoTreeNode[];
-}
-
-export interface AdoProjectInfo {
-  id: string;
-  /** Canonical project name. */
-  name: string;
-}
-
-/** `POST /api/ado/connect` 200 response. */
-export interface AdoConnectResponse {
-  project: AdoProjectInfo;
-  /** Canonical project URL (encoded, no trailing slash). */
-  projectUrl: string;
-  areas: AdoTreeNode;
-  iterations: AdoTreeNode;
-}
+/** `POST /api/ado/backlog` request: the connection plus the Area/Iteration scope. */
+export type AdoBacklogRequest = AdoScopedRequest;
 
 /** An Epic or Feature as returned by the backlog route (flat, ascending id). */
 export interface AdoWorkItem {
@@ -78,16 +50,4 @@ export interface AdoBacklog {
   workItems: AdoWorkItem[];
   iterations: AdoIteration[];
   warnings: string[];
-}
-
-/**
- * The connection a backlog was fetched with (everything but the PAT); stored in
- * `plan.source` so Sync can pre-fill its form.
- */
-export interface AdoConnection {
-  source: AdoSource;
-  /** Canonical project URL returned by Connect. */
-  projectUrl: string;
-  scopeType: AdoScopeType;
-  scopePath: string;
 }

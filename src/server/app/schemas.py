@@ -154,3 +154,37 @@ class AdoBacklogResponse(BaseModel):
     work_items: list[AdoWorkItem] = Field(alias="workItems")
     iterations: list[AdoIteration]
     warnings: list[str]
+
+
+class AdoSprintHistoryRequest(AdoConnectRequest):
+    """The common part plus the chosen Iteration path, in the normalized node
+    path form (e.g. `Proj\\Phase 1`)."""
+
+    iteration_path: str = Field(alias="iterationPath")
+
+
+class AdoSprintHistoryItem(BaseModel):
+    """A resolved User Story or Bug, normalized as described in the API
+    contract. `resolvedDate` is UTC `YYYY-MM-DDTHH:MM:SSZ`; `storyPoints` is
+    kept as ADO returns it (int or float), 0 when missing."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: int
+    type: str
+    title: str
+    state: str
+    iteration_path: str = Field(alias="iterationPath")
+    resolved_date: str = Field(alias="resolvedDate")
+    story_points: int | float = Field(alias="storyPoints")
+
+
+class AdoSprintHistoryResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    project: AdoProjectInfo
+    project_url: str = Field(alias="projectUrl")
+    iteration_path: str = Field(alias="iterationPath")
+    fetched_at: str = Field(alias="fetchedAt")
+    work_items: list[AdoSprintHistoryItem] = Field(alias="workItems")
+    warnings: list[str]

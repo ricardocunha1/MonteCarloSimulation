@@ -2,34 +2,56 @@ import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DatabaseIcon } from "../../components/icons/DatabaseIcon";
 import { FileSpreadsheetIcon } from "../../components/icons/FileSpreadsheetIcon";
+import { AdoSprintHistoryModal } from "../../components/monteCarlo/AdoSprintHistoryModal";
 import { ImportExcelModal } from "../../components/monteCarlo/ImportExcelModal";
 import { MonteCarloLayout } from "../../components/monteCarlo/MonteCarloLayout";
+import { useToast } from "../../components/Toast";
+import type { AdoConnection } from "../../lib/ado/types";
 import { MONTE_CARLO_ROUTES } from "../../lib/monteCarlo/routes";
+import type { AdoSprintHistory, DataSource } from "../../lib/monteCarlo/types";
 import { useForecast } from "../../monteCarloStore";
 
-const cardBase = "flex h-full w-full flex-col gap-3 rounded-lg border border-slate-800 bg-slate-900 p-5 text-left";
+const cardBase =
+  "flex h-full w-full flex-col gap-3 rounded-lg border border-slate-800 bg-slate-900 p-5 text-left transition-colors hover:border-[color:var(--cm-light-blue)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-light-blue)]";
 const iconBox = "flex h-10 w-10 items-center justify-center rounded-md";
 const iconBoxStyle = { backgroundColor: "var(--cm-dark-blue)", color: "var(--cm-teal)" };
 
 /**
  * Monte Carlo entry page (`/monte-carlo`, breadcrumb step 1): choose where the
- * sprint history comes from. The "Load from Azure DevOps" card is disabled
- * ("Coming soon", `aria-disabled`); the "Import an Excel file" card opens
- * `ImportExcelModal`, and a chosen file becomes the store's data source
- * (clearing any previous validation/execution) before going to the input form.
+ * sprint history comes from. The "Load from Azure DevOps" card opens
+ * `AdoSprintHistoryModal` (its warnings become info toasts); the "Import an
+ * Excel file" card opens `ImportExcelModal`. Either way the loaded source
+ * becomes the store's data source (clearing any previous
+ * validation/execution) before going to the input form.
  */
 export function DataSourcePage() {
   const navigate = useNavigate();
   const { setDataSource, setValidation, setExecution } = useForecast();
-  const [excelOpen, setExcelOpen] = useState(false);
-  const closeExcel = useCallback(() => setExcelOpen(false), []);
+  const { showInfo } = useToast();
+  const [openModal, setOpenModal] = useState<"ado" | "excel" | null>(null);
+  const closeModal = useCallback(() => setOpenModal(null), []);
 
-  const onFileSelected = (file: File) => {
-    setDataSource({ kind: "excel", file });
+  const chooseSource = (dataSource: DataSource) => {
+    setDataSource(dataSource);
     setValidation(null);
     setExecution(null);
-    setExcelOpen(false);
+    setOpenModal(null);
     navigate(MONTE_CARLO_ROUTES.input);
+  };
+
+  const onFileSelected = (file: File) => chooseSource({ kind: "excel", file });
+
+  const onSprintHistory = (history: AdoSprintHistory, connection: AdoConnection) => {
+    chooseSource({
+      kind: "azureDevOps",
+      source: connection.source,
+      projectUrl: history.projectUrl,
+      project: history.project.name,
+      iterationPath: history.iterationPath,
+      fetchedAt: history.fetchedAt,
+      workItems: history.workItems,
+    });
+    history.warnings.forEach((warning) => showInfo(warning));
   };
 
   return (
@@ -38,23 +60,24 @@ export function DataSourcePage() {
       <p className="mt-2 text-slate-400">Choose where the historical sprint data for the simulation comes from.</p>
       <ul className="mt-8 grid gap-4 sm:grid-cols-2">
         <li>
-          <div role="button" aria-disabled="true" tabIndex={-1} className={`${cardBase} cursor-not-allowed opacity-60`}>
+          <button type="button" onClick={() => setOpenModal("ado")} aria-haspopup="dialog" className={cardBase}>
             <span className="flex items-center gap-3">
               <span className={iconBox} style={iconBoxStyle}>
                 <DatabaseIcon className="h-6 w-6" />
               </span>
               <span className="text-lg font-semibold">Load from Azure DevOps</span>
-              <span className="ml-auto rounded-full border border-slate-600 px-2 py-0.5 text-xs font-medium text-slate-300">Coming soon</span>
             </span>
-            <span className="text-sm text-slate-300">Connect to an Azure DevOps project and load its sprint history directly.</span>
-          </div>
+            <span className="text-sm text-slate-300">
+              Connect to an Azure DevOps project and load the resolved User Stories and Bugs under an Iteration path.
+            </span>
+          </button>
         </li>
         <li>
           <button
             type="button"
-            onClick={() => setExcelOpen(true)}
+            onClick={() => setOpenModal("excel")}
             aria-haspopup="dialog"
-            className={`${cardBase} transition-colors hover:border-[color:var(--cm-light-blue)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-light-blue)]`}
+            className={cardBase}
           >
             <span className="flex items-center gap-3">
               <span className={iconBox} style={iconBoxStyle}>
@@ -66,7 +89,8 @@ export function DataSourcePage() {
           </button>
         </li>
       </ul>
-      <ImportExcelModal open={excelOpen} onClose={closeExcel} onFileSelected={onFileSelected} />
+      <AdoSprintHistoryModal open={openModal === "ado"} onClose={closeModal} onLoaded={onSprintHistory} />
+      <ImportExcelModal open={openModal === "excel"} onClose={closeModal} onFileSelected={onFileSelected} />
     </MonteCarloLayout>
   );
 }

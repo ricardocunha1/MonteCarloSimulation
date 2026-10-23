@@ -1,4 +1,6 @@
 import type {
+  AdoSprintHistory,
+  AdoSprintHistoryRequest,
   ErrorResponse,
   SimulateResponse,
   SimulationParams,
@@ -63,7 +65,7 @@ function extractErrorMessages(body: unknown, text: string): string[] {
  * `fetch` + JSON parse; a non-2xx response becomes an {@link ApiError} with the
  * server's messages, a network failure an `ApiError` with status 0. An aborted
  * request (`init.signal`) rethrows the fetch's `AbortError` unchanged. Shared
- * with `lib/releasePlan/adoApi.ts`.
+ * with the Azure DevOps clients (`lib/ado/api.ts`).
  */
 export async function request<T>(url: string, init: RequestInit): Promise<T> {
   let response: Response;
@@ -94,8 +96,9 @@ export async function request<T>(url: string, init: RequestInit): Promise<T> {
   return body as T;
 }
 
-/** POST /api/validate: multipart form with the Data Input fields and the
- * `sprint_history_file` upload. */
+/** POST /api/validate: multipart form with the Data Input fields and either
+ * the `sprint_history_file` upload or the Azure DevOps work items as the JSON
+ * field `sprint_history_items`. */
 export function validate(formData: FormData): Promise<ValidateResponse> {
   return request<ValidateResponse>("/api/validate", {
     method: "POST",
@@ -112,5 +115,19 @@ export function simulate(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ summary, params }),
+  });
+}
+
+/**
+ * POST /api/ado/sprint-history: the resolved User Stories and Bugs under the
+ * chosen Iteration path (children included). The PAT travels in the JSON body only.
+ * @throws ApiError with the server's messages (422 `{errors}`); an `AbortError` when `signal` aborts.
+ */
+export function adoSprintHistory(req: AdoSprintHistoryRequest, signal?: AbortSignal): Promise<AdoSprintHistory> {
+  return request<AdoSprintHistory>("/api/ado/sprint-history", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+    signal,
   });
 }

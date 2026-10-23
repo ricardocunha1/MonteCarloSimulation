@@ -83,6 +83,7 @@ describe("InputPage", () => {
     expect(formData.has("skip_validation")).toBe(false);
     // The very File chosen in the Import Excel modal, under the same field name.
     expect(formData.get("sprint_history_file")).toBe(source.kind === "excel" ? source.file : null);
+    expect(formData.has("sprint_history_items")).toBe(false);
     expect([...formData.keys()].sort()).toEqual(
       [
         "exclude_latest_sprints",
@@ -105,11 +106,35 @@ describe("InputPage", () => {
     expect(card).toHaveTextContent("history.xlsx");
   });
 
-  it("shows an Azure DevOps source with its project and paths", () => {
+  it("shows an Azure DevOps source with its project, iteration path and work item count", () => {
     renderInput({ dataSource: adoSource });
     const card = screen.getByRole("region", { name: "Data source: Azure DevOps" });
-    expect(card).toHaveTextContent("MES Core\\Team A");
+    expect(card).toHaveTextContent("MES Core");
     expect(card).toHaveTextContent("MES Core\\Release 11");
+    expect(card).toHaveTextContent("Work items3");
+  });
+
+  it("sends the Azure DevOps work items as sprint_history_items JSON and no file", async () => {
+    validateMock.mockResolvedValue(validation);
+    renderInput({ dataSource: adoSource });
+
+    submit();
+
+    await waitFor(() => expect(validateMock).toHaveBeenCalledOnce());
+    const formData = validateMock.mock.calls[0][0];
+    expect(formData.has("sprint_history_file")).toBe(false);
+    expect(JSON.parse(String(formData.get("sprint_history_items")))).toEqual(adoSource.workItems);
+    expect([...formData.keys()].sort()).toEqual([
+      "exclude_latest_sprints",
+      "num_simulations",
+      "sprint_history_items",
+      "sprint_length",
+      "sprint_start_date",
+      "target_type",
+      "target_value",
+      "team_capacity_factor",
+    ]);
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(/^\/monte-carlo\/confirm$/));
   });
 
   it("redirects to the data source page when no source was chosen", () => {

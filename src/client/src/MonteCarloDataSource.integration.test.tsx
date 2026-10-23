@@ -93,17 +93,16 @@ describe("Monte Carlo – data source selection (full app)", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   }, FLOW_TIMEOUT_MS);
 
-  it("keeps the Azure DevOps card inert: not focusable by Tab, no-op on click/Enter/Space, no API calls", async () => {
+  it("makes the Azure DevOps card reachable by Tab; Enter opens its modal, Cancel closes it, no API calls", async () => {
     const user = userEvent.setup();
     renderApp("/monte-carlo");
 
     const ado = adoCard();
-    expect(ado).toHaveAttribute("aria-disabled", "true");
-    expect(ado).toHaveAttribute("tabindex", "-1");
-    expect(ado).toHaveTextContent("Coming soon");
-    expect(ado).not.toHaveAttribute("href");
+    expect(ado).not.toHaveAttribute("aria-disabled");
+    expect(ado).toHaveAttribute("aria-haspopup", "dialog");
+    expect(ado).not.toHaveTextContent("Coming soon");
 
-    // Walk the whole tab order once: the Excel card is reachable, the ADO card never is.
+    // Walk the whole tab order once: both cards are reachable.
     const visited: Element[] = [];
     for (let i = 0; i < 40; i++) {
       await user.tab();
@@ -112,17 +111,15 @@ describe("Monte Carlo – data source selection (full app)", () => {
       visited.push(el);
     }
     expect(visited).toContain(excelCard());
-    expect(visited).toContain(screen.getByRole("button", { name: "How to Use" }));
-    expect(visited).not.toContain(ado);
+    expect(visited).toContain(ado);
 
-    await user.click(ado);
-    ado.focus(); // programmatic focus still works on tabindex=-1; the keys must do nothing
+    ado.focus();
     await user.keyboard("{Enter}");
-    await user.keyboard(" ");
+    const dialog = screen.getByRole("dialog", { name: "Load from Azure DevOps" });
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
     expect(location()).toBe("/monte-carlo");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   }, FLOW_TIMEOUT_MS);
 
@@ -232,7 +229,8 @@ describe("Monte Carlo – data source selection (full app)", () => {
     await user.click(helpButton);
     const dialog = screen.getByRole("dialog", { name: "How to Use This Application" });
     expect(within(dialog).getByText(/first screen lets you choose the data source/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/Azure DevOps is coming soon/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Work Items \(Read\)/)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/coming soon/i)).not.toBeInTheDocument();
 
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

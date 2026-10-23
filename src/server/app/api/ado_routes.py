@@ -5,10 +5,19 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
 from app.config import Settings, get_settings
-from app.schemas import AdoBacklogRequest, AdoBacklogResponse, AdoConnectRequest, AdoConnectResponse, ErrorResponse
+from app.schemas import (
+    AdoBacklogRequest,
+    AdoBacklogResponse,
+    AdoConnectRequest,
+    AdoConnectResponse,
+    AdoSprintHistoryRequest,
+    AdoSprintHistoryResponse,
+    ErrorResponse,
+)
 from app.services.ado_backlog import connect as ado_connect
 from app.services.ado_backlog import fetch_backlog, scope_field_errors
 from app.services.ado_client import UNEXPECTED_RESPONSE, AdoClient, AdoError
+from app.services.ado_sprint_history import fetch_sprint_history, iteration_path_errors
 from app.services.ado_url import AdoProject, AdoUrlError, connection_field_errors, parse_project_url
 
 router = APIRouter()
@@ -118,6 +127,40 @@ async def backlog(
     try:
         project, client = _ado_client(payload, settings, http)
         return await fetch_backlog(client, project, payload.scope_type, payload.scope_path)
+    except (AdoUrlError, AdoError) as exc:
+        return _errors([str(exc)])
+    except (UnicodeError, RecursionError):
+        return _errors([UNEXPECTED_RESPONSE])
+
+
+@router.post(
+    "/sprint-history",
+    response_model=AdoSprintHistoryResponse,
+    responses=ERROR_RESPONSES,
+    openapi_extra=_request_body(AdoSprintHistoryRequest),
+)
+async def sprint_history(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+    http: httpx.AsyncClient = Depends(get_ado_http_client),
+):
+    """JSON `{source, projectUrl, pat, iterationPath}`: the resolved User
+    Stories and Bugs under the chosen Iteration path, the Monte Carlo sprint
+    history (its `workItems` are posted to /api/validate as
+    `sprint_history_items`).
+
+    Validated like `connect` (same messages, all failing fields together),
+    plus "Choose an Iteration path." for a missing or blank `iterationPath`.
+    """
+    data = await _read_json_object(request)
+    errors = connection_field_errors(data) + iteration_path_errors(data)
+    if errors:
+        return _errors(errors)
+    payload = AdoSprintHistoryRequest.model_validate(data)
+
+    try:
+        project, client = _ado_client(payload, settings, http)
+        return await fetch_sprint_history(client, project, payload.iteration_path)
     except (AdoUrlError, AdoError) as exc:
         return _errors([str(exc)])
     except (UnicodeError, RecursionError):
