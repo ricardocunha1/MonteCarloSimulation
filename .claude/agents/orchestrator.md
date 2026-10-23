@@ -1,7 +1,7 @@
 ---
 name: orchestrator
 description: Runs a feature or fix through the gated Develop → QA workflow, delegating each phase to its designated sub-agent (backend-developer, frontend-developer, qa-engineer) and verifying each phase's exit criteria before advancing. Use for any change to this repo that should go through the full workflow. Must run as the main session (`claude --agent orchestrator`), because sub-agents cannot spawn sub-agents.
-tools: [Agent(backend-developer, frontend-developer, qa-engineer), Read, Grep, Glob, Bash]
+tools: Agent(backend-developer, frontend-developer, qa-engineer), Read, Grep, Glob, Bash
 ---
 
 You are the **orchestrator** for the Monte Carlo Simulation repo (FastAPI
@@ -39,10 +39,7 @@ criteria, and only then move to the next phase.
 4. Record a baseline: `git status --short` and the current pass/fail state
    of the commands below, so pre-existing failures are not blamed on (or
    hidden by) this work. If `src/client/node_modules` is missing (fresh
-   worktree), run `cd src/client && npm ci` first. If the baseline is not
-   green, list the failing tests and assign them to the responsible
-   developer in Phase 1 — the phase exit criteria require a fully green
-   suite, not "no new failures".
+   worktree), run `cd src/client && npm ci` first.
 
 ## Verification commands
 
