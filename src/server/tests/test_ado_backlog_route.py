@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 from datetime import datetime, timezone
+from functools import partial
 
 import httpx
 import pytest
@@ -13,6 +14,7 @@ from ado_fakes import (
     PROJECT_NAME,
     FakeAdo,
     classification_nodes,
+    error_response,
     mock_http_client,
     synthetic_backlog,
     work_item,
@@ -25,6 +27,7 @@ from app.services.ado_backlog import (
     CAP_REACHED,
     SCOPE_REQUIRED,
     SIZE_FIELD_MISSING,
+    SIZE_FIELDS,
     fetch_backlog,
     flatten_iterations,
     normalize_work_item,
@@ -42,6 +45,7 @@ SETTINGS = Settings(
 )
 TEAM_A = f"{PROJECT_NAME}\\Team A"
 SIZE_FIELD = "Custom.EstimatedSize"
+FEATURE_SIZE_FIELD = "Custom.FeatureSize"
 
 
 @pytest.fixture()
@@ -223,9 +227,11 @@ def test_backlog_wiql_text_and_request(ado_client, fake):
 def test_backlog_request_sequence_and_auth(ado_client, fake):
     _ok(_post(ado_client))
     endpoints = [fake._endpoint(r.url.path) for r in fake.requests]
-    assert endpoints == ["projects", "nodes", "fields", "wiql", "batch", "batch"]
-    (fields_request,) = fake.requests_to("fields")
-    assert fields_request.url.path == "/contoso/_apis/wit/fields/Custom.EstimatedSize"
+    assert endpoints == ["projects", "nodes", "fields", "fields", "wiql", "batch", "batch"]
+    assert [r.url.path for r in fake.requests_to("fields")] == [
+        "/contoso/_apis/wit/fields/Custom.EstimatedSize",
+        "/contoso/_apis/wit/fields/Custom.FeatureSize",
+    ]
     expected_auth = "Basic " + base64.b64encode(f":{FAKE_PAT}".encode()).decode()
     for request in fake.requests:
         assert request.headers["Authorization"] == expected_auth
@@ -361,14 +367,119 @@ def test_backlog_more_than_200_missing_parents_are_chunked(ado_client, fake):
 
 
 def test_backlog_missing_size_field_warns_and_omits_the_field(ado_client):
-    fake = FakeAdo(size_field=False)
+    fake = FakeAdo(size_fields=set())
     app.dependency_overrides[get_ado_http_client] = _override(fake)
     data = _ok(_post(ado_client))
     assert data["warnings"] == [SIZE_FIELD_MISSING]
-    assert data["warnings"] == ["The field Custom.EstimatedSize does not exist in this project; sizes are empty."]
+    assert data["warnings"] == [
+        "Neither Custom.EstimatedSize nor Custom.FeatureSize exists in this project; sizes are empty."
+    ]
     assert {item["size"] for item in data["workItems"]} == {""}
     assert all(SIZE_FIELD not in body["fields"] for body in fake.batch_bodies())
+    assert all(FEATURE_SIZE_FIELD not in body["fields"] for body in fake.batch_bodies())
     assert len(data["workItems"]) == 6
+
+
+def test_backlog_legacy_size_field_false_means_no_size_field(ado_client):
+    fake = FakeAdo(size_field=False)
+    app.dependency_overrides[get_ado_http_client] = _override(fake)
+    assert _ok(_post(ado_client))["warnings"] == [SIZE_FIELD_MISSING]
+
+
+# --- size fields: Custom.EstimatedSize, then Custom.FeatureSize ------------------------
+
+
+def _size_backlog():
+    """Features 1-8 in Team A covering every EstimatedSize / FeatureSize combination."""
+    w = partial(work_item, area="Team A")
+    return [
+        w(1, "Feature", "Both", size=" m ", feature_size="xl"),
+        w(2, "Feature", "Feature size only", feature_size=" s "),
+        w(3, "Feature", "Blank estimated", size="", feature_size="l"),
+        w(4, "Feature", "Whitespace estimated", size="   ", feature_size="xs"),
+        w(5, "Feature", "Non-string estimated", size=2.5, feature_size="m"),
+        w(6, "Feature", "Integer feature size", feature_size=8),
+        w(7, "Feature", "Estimated only", size="L"),
+        w(8, "Feature", "Neither"),
+    ]
+
+
+def _size_run(ado_client, size_fields):
+    fake = FakeAdo(size_fields=size_fields, work_items=_size_backlog())
+    app.dependency_overrides[get_ado_http_client] = _override(fake)
+    data = _ok(_post(ado_client))
+    return fake, data, {item["id"]: item["size"] for item in data["workItems"]}
+
+
+def test_backlog_only_estimated_size_exists(ado_client):
+    fake, data, sizes = _size_run(ado_client, {SIZE_FIELD})
+    assert data["warnings"] == []
+    assert sizes == {1: "M", 2: "", 3: "", 4: "", 5: "", 6: "", 7: "L", 8: ""}
+    (body,) = fake.batch_bodies()
+    assert SIZE_FIELD in body["fields"] and FEATURE_SIZE_FIELD not in body["fields"]
+
+
+def test_backlog_only_feature_size_exists(ado_client):
+    fake, data, sizes = _size_run(ado_client, {FEATURE_SIZE_FIELD})
+    assert data["warnings"] == []
+    assert sizes == {1: "XL", 2: "S", 3: "L", 4: "XS", 5: "M", 6: "8", 7: "", 8: ""}
+    (body,) = fake.batch_bodies()
+    assert body["fields"][-1] == FEATURE_SIZE_FIELD and SIZE_FIELD not in body["fields"]
+
+
+def test_backlog_both_size_fields_exist_estimated_size_wins(ado_client):
+    fake, data, sizes = _size_run(ado_client, {SIZE_FIELD, FEATURE_SIZE_FIELD})
+    assert data["warnings"] == []
+    # 1 and 7: EstimatedSize; 2-6: blank / missing / whitespace / non-string → FeatureSize.
+    assert sizes == {1: "M", 2: "S", 3: "L", 4: "XS", 5: "M", 6: "8", 7: "L", 8: ""}
+    (body,) = fake.batch_bodies()
+    assert body["fields"][-2:] == [SIZE_FIELD, FEATURE_SIZE_FIELD]
+
+
+def test_backlog_neither_size_field_exists(ado_client):
+    fake, data, sizes = _size_run(ado_client, set())
+    assert data["warnings"] == [SIZE_FIELD_MISSING]
+    assert set(sizes.values()) == {""}
+    (body,) = fake.batch_bodies()
+    assert not {SIZE_FIELD, FEATURE_SIZE_FIELD} & set(body["fields"])
+
+
+@pytest.mark.parametrize("size_fields", [set(), {SIZE_FIELD}, {FEATURE_SIZE_FIELD}, {SIZE_FIELD, FEATURE_SIZE_FIELD}])
+def test_backlog_checks_both_size_fields_in_priority_order(ado_client, size_fields):
+    fake, _, _ = _size_run(ado_client, size_fields)
+    assert [r.url.path.rsplit("/", 1)[-1] for r in fake.requests_to("fields")] == [SIZE_FIELD, FEATURE_SIZE_FIELD]
+    endpoints = [fake._endpoint(r.url.path) for r in fake.requests]
+    assert endpoints == ["projects", "nodes", "fields", "fields", "wiql", "batch"]
+
+
+def test_backlog_fake_batch_rejects_a_non_existent_size_field():
+    # Guards the fake itself: requesting an absent field must fail like ADO does.
+    fake = FakeAdo(size_fields={FEATURE_SIZE_FIELD})
+    request = httpx.Request(
+        "POST",
+        "https://dev.azure.com/contoso/P/_apis/wit/workitemsbatch",
+        json={"ids": [101], "fields": ["System.Id", SIZE_FIELD], "errorPolicy": "omit"},
+    )
+    assert fake(request).status_code == 400
+
+
+@pytest.mark.parametrize("kind", ["500", "403", "timeout"])
+@pytest.mark.parametrize("failing", [SIZE_FIELD, FEATURE_SIZE_FIELD])
+def test_backlog_size_field_check_errors_other_than_404_are_422(ado_client, fake, handler, failing, kind):
+    def failing_handler(request):
+        if request.url.path.endswith(f"/_apis/wit/fields/{failing}"):
+            fake.requests.append(request)
+            return error_response(kind, request)
+        return fake(request)
+
+    handler["handler"] = failing_handler
+    expected = {
+        "500": "Azure DevOps returned an error (HTTP 500). Something broke on the server.",
+        "403": PAT_REJECTED,
+        "timeout": "Could not reach Azure DevOps at dev.azure.com.",
+    }[kind]
+    assert _errors(_post(ado_client)) == [expected]
+    assert fake.requests_to("wiql") == []
 
 
 def test_backlog_cap_warning_at_20000_ids(ado_client, fake):
@@ -739,6 +850,42 @@ def test_normalize_work_item_malformed_raises(raw):
     with pytest.raises(AdoError) as info:
         normalize_work_item(raw)
     assert str(info.value) == UNEXPECTED_RESPONSE
+
+
+def test_size_fields_priority_order():
+    assert SIZE_FIELDS == (SIZE_FIELD, FEATURE_SIZE_FIELD)
+
+
+def _raw_item(**fields):
+    return {"id": 7, "fields": {"System.WorkItemType": "Feature", **fields}}
+
+
+@pytest.mark.parametrize(
+    "fields, expected",
+    [
+        ({SIZE_FIELD: " m ", FEATURE_SIZE_FIELD: "xl"}, "M"),
+        ({FEATURE_SIZE_FIELD: " xl "}, "XL"),
+        ({SIZE_FIELD: "", FEATURE_SIZE_FIELD: "s"}, "S"),
+        ({SIZE_FIELD: " \t ", FEATURE_SIZE_FIELD: "s"}, "S"),
+        ({SIZE_FIELD: None, FEATURE_SIZE_FIELD: "s"}, "S"),
+        ({SIZE_FIELD: 2.5, FEATURE_SIZE_FIELD: "s"}, "S"),
+        ({SIZE_FIELD: True, FEATURE_SIZE_FIELD: "s"}, "S"),
+        ({SIZE_FIELD: {"v": "m"}, FEATURE_SIZE_FIELD: 5}, "5"),
+        ({SIZE_FIELD: 3, FEATURE_SIZE_FIELD: "s"}, "3"),
+        ({SIZE_FIELD: "", FEATURE_SIZE_FIELD: "  "}, ""),
+        ({SIZE_FIELD: False, FEATURE_SIZE_FIELD: 1.0}, ""),
+        ({}, ""),
+    ],
+)
+def test_normalize_work_item_size_priority(fields, expected):
+    assert normalize_work_item(_raw_item(**fields))["size"] == expected
+
+
+def test_normalize_work_item_only_reads_the_given_size_fields():
+    raw = _raw_item(**{SIZE_FIELD: "m", FEATURE_SIZE_FIELD: "xl"})
+    assert normalize_work_item(raw, (FEATURE_SIZE_FIELD,))["size"] == "XL"
+    assert normalize_work_item(raw, (SIZE_FIELD,))["size"] == "M"
+    assert normalize_work_item(raw, ())["size"] == ""
 
 
 def test_fetch_backlog_called_directly():

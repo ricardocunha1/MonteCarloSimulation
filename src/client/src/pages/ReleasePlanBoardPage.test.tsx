@@ -413,7 +413,7 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
       const base = makeBacklog();
       return makeBacklog({
         fetchedAt: "2026-10-24T09:00:00Z",
-        warnings: ["The field Custom.EstimatedSize does not exist in this project; sizes are empty."],
+        warnings: ["Neither Custom.EstimatedSize nor Custom.FeatureSize exists in this project; sizes are empty."],
         workItems: [
           ...base.workItems.filter((i) => i.id !== 105).map((i) => (i.id === 102 ? { ...i, title: "Sign in" } : i)),
           makeFeatureItem({ id: 108, title: "Search", parentId: 101 }),
@@ -421,7 +421,7 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
       });
     };
     const connectDialog = () => screen.getByRole("dialog", { name: "Sync from Azure DevOps" });
-    const toasts = () => screen.getAllByRole("status").map((s) => s.textContent);
+    const toasts = () => screen.queryAllByRole("status").map((s) => s.textContent);
 
     function mockFetch(backlog: AdoBacklog = changedBacklog()) {
       const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -509,7 +509,7 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
       expect(board.getByText("Sign in")).toBeInTheDocument();
       expect(board.getByText("Search")).toBeInTheDocument();
       expect(toasts()).toEqual(
-        expect.arrayContaining(["Board synchronized with Azure DevOps", "The field Custom.EstimatedSize does not exist in this project; sizes are empty."]),
+        expect.arrayContaining(["Board synchronized with Azure DevOps", "Neither Custom.EstimatedSize nor Custom.FeatureSize exists in this project; sizes are empty."]),
       );
       for (let i = 0; i < window.localStorage.length; i++) {
         expect(window.localStorage.getItem(window.localStorage.key(i) ?? "")).not.toContain(PAT);

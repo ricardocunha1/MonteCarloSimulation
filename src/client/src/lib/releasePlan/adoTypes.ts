@@ -27,7 +27,7 @@ export interface AdoWorkItem {
   state: string;
   /** Raw HTML (sanitized on display) or `""`. */
   description: string;
-  /** `Custom.EstimatedSize`, trimmed and upper-cased; `""` when missing. */
+  /** First non-blank of `Custom.EstimatedSize`, then `Custom.FeatureSize`, trimmed and upper-cased; `""` when neither is set. */
   size: string;
   iterationPath: string;
   parentId: number | null;

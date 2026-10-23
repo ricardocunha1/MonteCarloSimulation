@@ -148,7 +148,7 @@ describe("Release Plan – create from Azure DevOps (integration)", { timeout: T
 
   it("hub home → Release Plan → ADO modal → connect → pick path → create → board; persists plan + connection, never the PAT; survives a reload", async () => {
     const user = userEvent.setup();
-    const warning = "The field Custom.EstimatedSize does not exist in this project; sizes are empty.";
+    const warning = "Neither Custom.EstimatedSize nor Custom.FeatureSize exists in this project; sizes are empty.";
     const { fetchMock } = mockNetwork({
       backlog: () =>
         json(

@@ -7,6 +7,7 @@ import json
 import re
 from collections.abc import Callable
 from functools import partial
+from typing import Any
 from urllib.parse import unquote
 
 import httpx
@@ -14,6 +15,8 @@ import httpx
 PROJECT_ID = "00000000-0000-4000-8000-000000000001"
 PROJECT_NAME = "Fabrikam Plant"
 FAKE_PAT = "fake-pat-0123456789abcdef"
+ESTIMATED_SIZE = "Custom.EstimatedSize"
+FEATURE_SIZE = "Custom.FeatureSize"
 
 
 def classification_nodes(project: str = PROJECT_NAME) -> dict:
@@ -111,12 +114,15 @@ def work_item(
     state: str = "New",
     iteration: str = "",
     description: str | None = None,
-    size: str | None = None,
+    size: Any = None,
+    feature_size: Any = None,
     project: str = PROJECT_NAME,
     extra: dict | None = None,
 ) -> dict:
     """A synthetic work item as stored by FakeAdo: `area` / `iteration` are
-    relative to the project root ("" = the root); `extra` adds raw fields."""
+    relative to the project root ("" = the root); `size` / `feature_size`
+    fill `Custom.EstimatedSize` / `Custom.FeatureSize` when not None;
+    `extra` adds raw fields."""
     fields = {
         "System.Id": item_id,
         "System.WorkItemType": item_type,
@@ -130,7 +136,9 @@ def work_item(
     if description is not None:
         fields["System.Description"] = description
     if size is not None:
-        fields["Custom.EstimatedSize"] = size
+        fields[ESTIMATED_SIZE] = size
+    if feature_size is not None:
+        fields[FEATURE_SIZE] = feature_size
     fields.update(extra or {})
     return {"id": item_id, "fields": fields}
 
@@ -219,8 +227,11 @@ class FakeAdo:
         failures: endpoint ("projects" | "nodes" | "fields" | "wiql" | "batch"
             | "any") → `error_response` kind.
         work_items: the stored work items (default `synthetic_backlog()`).
-        size_field: whether `Custom.EstimatedSize` exists (fields endpoint
-            answers 404 and the batch refuses the field when it doesn't).
+        size_fields: the `Custom.*` fields that exist (default
+            `{"Custom.EstimatedSize"}`); for any other field the fields
+            endpoint answers 404 and the batch fails with a 400 when it is
+            requested. `size_field=False` (argument or attribute) is the
+            legacy spelling of "no size field exists".
         missing_fields: other field reference names that don't exist (same
             behavior as a missing size field).
         wiql_ids: ids the WIQL returns regardless of the query; by default the
@@ -235,6 +246,7 @@ class FakeAdo:
         nodes: dict | None = None,
         failures: dict[str, str] | None = None,
         work_items: list[dict] | None = None,
+        size_fields: set[str] | None = None,
         size_field: bool = True,
         wiql_ids: list[int] | None = None,
         missing_fields: set[str] | None = None,
@@ -243,7 +255,9 @@ class FakeAdo:
         self.nodes = classification_nodes(project_name) if nodes is None else nodes
         self.failures = failures or {}
         self.work_items = synthetic_backlog(project_name) if work_items is None else work_items
-        self.size_field = size_field
+        self.size_fields = {ESTIMATED_SIZE} if size_fields is None else set(size_fields)
+        if not size_field:
+            self.size_fields = set()
         self.missing_fields = set(missing_fields or ())
         self.wiql_ids = wiql_ids
         self.requests: list[httpx.Request] = []
@@ -263,7 +277,7 @@ class FakeAdo:
             return httpx.Response(200, json=self.nodes)
         if endpoint == "fields":
             reference = unquote(_FIELD_REF.search(request.url.path).group(1))
-            if reference in self._missing():
+            if self._is_missing(reference):
                 return httpx.Response(404, json={"message": f"TF51535: Cannot find field {reference}."})
             return httpx.Response(200, json={"referenceName": reference, "type": "string"})
         if endpoint == "wiql":
@@ -271,6 +285,16 @@ class FakeAdo:
         if endpoint == "batch":
             return self._batch(json.loads(request.content))
         return httpx.Response(404, json={"message": "Unknown fake endpoint."})
+
+    @property
+    def size_field(self) -> bool:
+        """Legacy flag: whether `Custom.EstimatedSize` exists. Setting it to
+        False removes every size field; True restores the default."""
+        return ESTIMATED_SIZE in self.size_fields
+
+    @size_field.setter
+    def size_field(self, exists: bool) -> None:
+        self.size_fields = {ESTIMATED_SIZE} if exists else set()
 
     # --- request inspection helpers ---------------------------------------------
 
@@ -310,7 +334,7 @@ class FakeAdo:
         ids, fields = body["ids"], body["fields"]
         if len(ids) > 200:
             return httpx.Response(400, json={"message": "VS403474: at most 200 ids."})
-        refused = sorted(self._missing().intersection(fields))
+        refused = [name for name in fields if self._is_missing(name)]
         if refused:
             return httpx.Response(400, json={"message": f"TF51535: Cannot find field {refused[0]}."})
         stored = {item["id"]: item for item in self.work_items}
@@ -324,9 +348,10 @@ class FakeAdo:
             value.append({"id": item_id, "rev": 1, "fields": selected})
         return httpx.Response(200, json={"count": len(value), "value": value})
 
-    def _missing(self) -> set[str]:
-        """Read on every request, since tests may flip `size_field` after construction."""
-        return self.missing_fields | (set() if self.size_field else {"Custom.EstimatedSize"})
+    def _is_missing(self, name: str) -> bool:
+        """Read on every request, since tests may change `size_fields` /
+        `missing_fields` after construction."""
+        return name in self.missing_fields or (name.startswith("Custom.") and name not in self.size_fields)
 
     @staticmethod
     def _endpoint(path: str) -> str:
