@@ -123,7 +123,7 @@ export function ReleasePlanHomePage() {
         </ul>
       </div>
       <ImportJsonModal open={importOpen} onClose={closeImport} onPlanLoaded={onPlanLoaded} />
-      <AdoConnectModal open={adoOpen} purpose="create" onClose={closeAdo} onBacklog={onBacklog} />
+      <AdoConnectModal open={adoOpen} onClose={closeAdo} onBacklog={onBacklog} />
       <ReplaceBoardDialog
         currentName={plan?.name ?? ""}
         nextName={plan && pending ? pending.plan.name : null}

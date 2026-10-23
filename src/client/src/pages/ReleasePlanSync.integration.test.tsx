@@ -79,7 +79,7 @@ function changedBacklog(): AdoBacklog {
 
 function mockNetwork(backlogs: (() => Response)[]) {
   let backlogCalls = 0;
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
     const url = String(input);
     if (url === "/api/ado/connect") {
       return json(makeConnectResponse({ project: PROJECT, projectUrl: CANONICAL }));
@@ -129,21 +129,19 @@ async function createFromAdo(user: User) {
   await waitFor(() => expect(location()).toBe("/release-plan/board"), FIND);
 }
 
-/** Toolbar "Sync from ADO" → PAT → Connect (path pre-selected when the plan has it) → Preview changes. */
-async function openSyncPreview(user: User, { expectPrefilled = true } = {}) {
+/** Read-only value shown next to a label in the sync dialog. */
+const shownValue = (dialog: HTMLElement, label: string) => within(dialog).getByText(label, { selector: "dt" }).nextElementSibling?.textContent;
+
+/** Toolbar "Sync from ADO" → (connection shown read-only from the plan) → PAT → Preview changes. */
+async function openSyncPreview(user: User) {
   await user.click(within(toolbar()).getByRole("button", { name: "Sync from ADO" }));
   const dialog = syncDialog();
-  if (expectPrefilled) {
-    expect(within(dialog).getByRole("radio", { name: "On-Prem" })).toBeChecked();
-    expect(within(dialog).getByLabelText("Project URL")).toHaveValue(CANONICAL);
-  }
+  expect(shownValue(dialog, "Azure DevOps source")).toBe("On-Prem");
+  expect(shownValue(dialog, "Project URL")).toBe(CANONICAL);
+  expect(shownValue(dialog, "Area path")).toBe("Proj\\Team A");
+  expect(within(dialog).queryAllByRole("radio")).toHaveLength(0);
   expect(within(dialog).getByLabelText("Personal Access Token")).toHaveValue("");
   await user.type(within(dialog).getByLabelText("Personal Access Token"), PAT);
-  await user.click(within(dialog).getByRole("button", { name: "Connect" }));
-  const tree = await within(dialog).findByRole("tree", { name: "Area path" }, FIND);
-  if (expectPrefilled) {
-    expect(within(tree).getByRole("treeitem", { name: /^Team A/ })).toHaveAttribute("aria-selected", "true");
-  }
   await user.click(within(dialog).getByRole("button", { name: "Preview changes" }));
   await screen.findByRole("button", { name: "Apply" }, FIND);
   return syncDialog();
@@ -232,7 +230,7 @@ describe("Release Plan – Sync from Azure DevOps (integration)", { timeout: TIM
       expect(toasts.some((t) => t.includes("Board synchronized with Azure DevOps"))).toBe(true);
       expect(toasts.some((t) => t.includes("Neither Custom.EstimatedSize nor Custom.FeatureSize exists"))).toBe(true);
       expect(allLocalStorage()).not.toContain(PAT);
-      expect(fetchMock).toHaveBeenCalledTimes(4);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
 
       // A second sync of the same backlog: up to date (when removed), or only the gone item left.
       fetchMock.mockClear();
@@ -249,7 +247,7 @@ describe("Release Plan – Sync from Azure DevOps (integration)", { timeout: TIM
     });
   }
 
-  it("Cancel in the preview (and Esc in the connection form) changes nothing and saves nothing", async () => {
+  it("Cancel in the preview (and Esc in the sync dialog) changes nothing and saves nothing", async () => {
     const user = userEvent.setup();
     mockNetwork([() => json(initialBacklog()), () => json(changedBacklog())]);
     renderApp("/release-plan");
@@ -270,53 +268,48 @@ describe("Release Plan – Sync from Azure DevOps (integration)", { timeout: TIM
     expect(toastTexts().some((t) => t.includes("Board synchronized"))).toBe(false);
   });
 
-  it("an old plan without connection info: empty form (Collaboration Hub by default); Apply adds the ADO items Unplanned, keeps the old ones and writes the connection", async () => {
+  it("an old plan without connection info can't be synced; importing a saved JSON with a connection from home restores it for Sync", async () => {
     const user = userEvent.setup();
     const old = samplePlan();
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(old));
-    mockNetwork([() => json(initialBacklog())]);
+    const fetchMock = mockNetwork([() => json(initialBacklog())]);
     renderApp("/release-plan/board");
 
     await user.click(within(toolbar()).getByRole("button", { name: "Sync from ADO" }));
     const dialog = syncDialog();
-    expect(within(dialog).getByRole("radio", { name: "On-Prem" })).not.toBeChecked();
-    expect(within(dialog).getByRole("radio", { name: "Collaboration Hub" })).toBeChecked();
-    expect(within(dialog).getByLabelText("Project URL")).toHaveValue("");
-    await user.click(within(dialog).getByRole("radio", { name: "On-Prem" }));
-    await user.type(within(dialog).getByLabelText("Project URL"), CANONICAL);
-    await user.type(within(dialog).getByLabelText("Personal Access Token"), PAT);
-    await user.click(within(dialog).getByRole("button", { name: "Connect" }));
-    const tree = await within(dialog).findByRole("tree", { name: "Area path" }, FIND);
-    expect(within(dialog).getByRole("button", { name: "Preview changes" })).toBeDisabled();
-    await user.click(within(tree).getByRole("treeitem", { name: /^Team A/ }));
-    await user.click(within(dialog).getByRole("button", { name: "Preview changes" }));
-    const preview = await waitFor(() => {
-      const d = syncDialog();
-      expect(within(d).getByRole("button", { name: "Apply" })).toBeInTheDocument();
-      return d;
-    }, FIND);
-    const oldFeatures = old.epics.flatMap((e) => e.features).length;
-    expect([...preview.querySelectorAll("summary")].map((s) => s.textContent)).toEqual([
-      "5 new Features",
-      "2 new Epics",
-      `${old.epics.length + oldFeatures} no longer in scope`,
-    ]);
-    await user.click(within(preview).getByRole("button", { name: "Apply" }));
+    expect(dialog).toHaveTextContent("This board isn't linked to an Azure DevOps project, so it can't be synced.");
+    expect(within(dialog).queryByLabelText("Personal Access Token")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Preview changes" })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(storedPlan()).toEqual(old);
 
-    const after = storedPlan();
-    expect(after.epics.slice(0, old.epics.length).map((e) => e.id)).toEqual(old.epics.map((e) => e.id));
-    expect(after.epics.slice(old.epics.length).map((e) => e.id)).toEqual([101, 103, NO_EPIC_ID]);
-    expect(after.epics.slice(old.epics.length).flatMap((e) => e.features).every((f) => f.milestoneId === null)).toBe(true);
-    expect(after.milestones).toEqual(old.milestones);
-    expect(after.source).toMatchObject({ kind: "onprem", projectUrl: CANONICAL, scopeType: "area", scopePath: "Proj\\Team A", system: "Azure DevOps" });
+    // A JSON saved from an ADO board, imported from the home page, brings its connection along.
+    const linked = planFromBacklog(initialBacklog(), makeConnection({ source: "onprem", projectUrl: CANONICAL }), sequentialIds());
+    const file = new File([JSON.stringify({ ...linked, name: "Linked Board" })], "linked.json", { type: "application/json" });
+    await user.click(within(screen.getByRole("navigation", { name: "Hub navigation" })).getByRole("link", { name: "Release Plan" }));
+    await user.click(await screen.findByRole("button", { name: /Import a JSON file/ }, FIND));
+    const importDialog = screen.getByRole("dialog", { name: "Import a JSON file" });
+    await user.upload(within(importDialog).getByLabelText("Release plan file"), file);
+    await user.click(within(importDialog).getByRole("button", { name: "Create board" }));
+    await user.click(await screen.findByRole("button", { name: "Replace" }, FIND));
+    await waitFor(() => expect(location()).toBe("/release-plan/board"), FIND);
+    expect(storedPlan().source).toMatchObject({ kind: "onprem", projectUrl: CANONICAL, scopeType: "area", scopePath: "Proj\\Team A" });
 
-    // The next Sync is pre-filled from the connection Apply wrote.
-    await user.click(within(toolbar()).getByRole("button", { name: "Sync from ADO" }));
-    expect(within(syncDialog()).getByLabelText("Project URL")).toHaveValue(CANONICAL);
-    expect(within(syncDialog()).getByRole("radio", { name: "On-Prem" })).toBeChecked();
+    const preview = await openSyncPreview(user);
+    expect(preview).toHaveTextContent("The board is up to date with Azure DevOps.");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      source: "onprem",
+      projectUrl: CANONICAL,
+      scopeType: "area",
+      scopePath: "Proj\\Team A",
+      pat: PAT,
+    });
   });
 
-  it("a backlog 422 during sync shows inline in the form, keeps PAT and path, opens no preview and changes nothing", async () => {
+  it("a backlog 422 during sync shows inline in the dialog, keeps the PAT, opens no preview and changes nothing", async () => {
     const user = userEvent.setup();
     mockNetwork([() => json(initialBacklog()), () => json({ errors: ["Unknown Area path: Proj\\Team A."] }, 422)]);
     renderApp("/release-plan");
@@ -326,12 +319,10 @@ describe("Release Plan – Sync from Azure DevOps (integration)", { timeout: TIM
     await user.click(within(toolbar()).getByRole("button", { name: "Sync from ADO" }));
     const dialog = syncDialog();
     await user.type(within(dialog).getByLabelText("Personal Access Token"), PAT);
-    await user.click(within(dialog).getByRole("button", { name: "Connect" }));
-    await within(dialog).findByRole("tree", { name: "Area path" }, FIND);
     await user.click(within(dialog).getByRole("button", { name: "Preview changes" }));
     expect(await within(dialog).findByRole("alert", {}, FIND)).toHaveTextContent("Unknown Area path: Proj\\Team A.");
     expect(within(dialog).getByLabelText("Personal Access Token")).toHaveValue(PAT);
-    expect(within(dialog).getByTestId("ado-selected-path")).toHaveTextContent("Proj\\Team A");
+    expect(shownValue(dialog, "Area path")).toBe("Proj\\Team A");
     expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe(before);
     expect(allLocalStorage()).not.toContain(PAT);

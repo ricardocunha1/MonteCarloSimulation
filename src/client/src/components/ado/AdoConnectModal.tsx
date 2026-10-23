@@ -1,15 +1,11 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { adoConnect } from "../../lib/ado/api";
 import { loadAdoConnection, saveAdoConnection } from "../../lib/ado/connectionStorage";
-import { findNodeChain } from "../../lib/ado/tree";
 import type { AdoConnectResponse, AdoConnection, AdoScopeType, AdoScopedRequest, AdoSource } from "../../lib/ado/types";
 import { PAT_REQUIRED, PLACEHOLDER, SOURCE_LABELS, SOURCE_REQUIRED, URL_REQUIRED, validateProjectUrl } from "../../lib/ado/url";
 import { errorMessages } from "../Toast";
 import { useDialog } from "../useDialog";
 import { PathTree } from "./PathTree";
-
-/** Pre-filled connection and path (Release Plan Sync: from `plan.source`). The PAT is always typed in. */
-export type AdoConnectInitial = AdoConnection;
 
 /** The path trees a modal offers: one (no toggle) or both (an "Area path" / "Iteration path" toggle). */
 export type AdoScopeTypes = readonly [AdoScopeType, ...AdoScopeType[]];
@@ -21,15 +17,10 @@ export interface AdoConnectModalProps<T> {
   title: string;
   /** Label of the submit button (it reads "Loading work items…" while `load` runs). */
   submitLabel: string;
-  /** Selectable trees, in toggle order; the first is selected initially (unless `initial` picks another one). */
+  /** Selectable trees, in toggle order; the first is selected initially. */
   scopeTypes: AdoScopeTypes;
   /** localStorage key under which the connection (never the PAT) is remembered after a successful Connect. */
   connectionKey: string;
-  /**
-   * Pre-fills the form and pre-selects the path after Connect; otherwise the remembered connection pre-fills it
-   * (with neither, the source defaults to Collaboration Hub).
-   */
-  initial?: AdoConnectInitial;
   /** Cancel, Esc or a backdrop click; an in-flight request is aborted. */
   onClose: () => void;
   /** Fetches the tool's data for the picked path; a rejection is shown inline and the modal stays open. */
@@ -39,7 +30,7 @@ export interface AdoConnectModalProps<T> {
 }
 
 const SOURCES: readonly AdoSource[] = ["onprem", "cloud"];
-/** Source selected when there is neither an `initial` value nor a remembered connection. */
+/** Source selected when there is no remembered connection. */
 const DEFAULT_SOURCE: AdoSource = "cloud";
 const SCOPE_LABELS: Readonly<Record<AdoScopeType, string>> = {
   area: "Area path",
@@ -90,10 +81,9 @@ function connectionErrors(source: AdoSource | null, projectUrl: string, pat: str
 
 /**
  * Connects to an Azure DevOps project and loads data for one of its paths;
- * shared by the ADO-backed tools (Release Plan board creation and sync, Monte
- * Carlo sprint history). Step 1: source (On-Prem / Collaboration Hub; defaults
- * to Collaboration Hub unless `initial` or a remembered connection says
- * otherwise), project URL and PAT, then **Connect** (URL shape checked client-side first; on
+ * shared by the ADO-backed tools (Release Plan board creation, Monte Carlo
+ * sprint history). Step 1: source (On-Prem / Collaboration Hub; defaults to
+ * Collaboration Hub unless a remembered connection says otherwise), project URL and PAT, then **Connect** (URL shape checked client-side first; on
  * success the connection — never the PAT — is remembered under
  * `connectionKey`). Step 2: a {@link PathTree} of the `scopeTypes` tree (with an
  * "Area path" / "Iteration path" toggle when there are two); the submit button
@@ -113,7 +103,6 @@ function AdoConnectDialog<T>({
   submitLabel,
   scopeTypes,
   connectionKey,
-  initial,
   onClose,
   load,
   onLoaded,
@@ -126,15 +115,13 @@ function AdoConnectDialog<T>({
   const dialogRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const [prefill] = useState(() => initial ?? loadAdoConnection(connectionKey));
+  const [prefill] = useState(() => loadAdoConnection(connectionKey));
   // `null` (SOURCE_REQUIRED) is kept as a defensive state; the UI always starts with a source.
   const [source, setSource] = useState<AdoSource | null>(prefill?.source ?? DEFAULT_SOURCE);
   const [projectUrl, setProjectUrl] = useState(prefill?.projectUrl ?? "");
   const [pat, setPat] = useState("");
   const [connected, setConnected] = useState<{ source: AdoSource; response: AdoConnectResponse } | null>(null);
-  const [scopeType, setScopeType] = useState<AdoScopeType>(() =>
-    initial && scopeTypes.includes(initial.scopeType) ? initial.scopeType : scopeTypes[0],
-  );
+  const [scopeType, setScopeType] = useState<AdoScopeType>(scopeTypes[0]);
   const [scopePath, setScopePath] = useState<string | null>(null);
   const [busy, setBusy] = useState<"connect" | "load" | null>(null);
   const [errors, setErrors] = useState<FormErrors>(NO_ERRORS);
@@ -181,9 +168,7 @@ function AdoConnectDialog<T>({
       }
       saveAdoConnection(connectionKey, { source, projectUrl: response.projectUrl });
       setConnected({ source, response });
-      const tree = scopeType === "area" ? response.areas : response.iterations;
-      const chain = initial ? findNodeChain(tree, initial.scopePath) : null;
-      setScopePath(initial && initial.scopeType === scopeType && chain ? chain[chain.length - 1].path : null);
+      setScopePath(null);
       setBusy(null);
     } catch (exc) {
       if (!controller.signal.aborted) {

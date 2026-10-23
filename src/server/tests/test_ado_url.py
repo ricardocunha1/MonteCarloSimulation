@@ -151,6 +151,23 @@ def test_unencoded_space_is_encoded_in_canonical_url():
     assert project.project_url == f"https://{ONPREM_HOST}/My%20Collection/My%20Project"
 
 
+@pytest.mark.parametrize(
+    "source, url",
+    [
+        ("cloud", "https://dev.azure.com/contoso/Fabrikam%20Plant%2BLine"),
+        ("cloud", "https://contoso.visualstudio.com/F%C3%A1brica%20%23%25"),
+        ("onprem", f"https://{ONPREM_HOST}:8443/My%20Collection/My%20Project"),
+        ("onprem", f"https://{ONPREM_HOST}/Coll/o%25ZZ%26%3F"),
+    ],
+)
+def test_canonical_url_reparses_to_itself(source, url):
+    # A board stores the canonical projectUrl and resends it on sync.
+    project = parse_project_url(source, url, ALLOWED)
+    assert project.project_url == url
+    again = parse_project_url(source, project.project_url, ALLOWED)
+    assert (again.base_url, again.project, again.project_url) == (project.base_url, project.project, url)
+
+
 def test_scheme_and_host_case_and_whitespace_tolerated():
     project = parse_project_url("cloud", "  HTTPS://Dev.Azure.com/contoso/Fabrikam  ", ALLOWED)
     assert project.project_url == "https://dev.azure.com/contoso/Fabrikam"

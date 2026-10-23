@@ -1,3 +1,4 @@
+import type { AdoConnection } from "./adoTypes";
 import { DONE_STATES, SIZES } from "./constants";
 import { NO_EPIC_ID, type Band, type Epic, type Feature, type Flag, type Milestone, type PlanSource, type ReleasePlan } from "./types";
 
@@ -233,4 +234,14 @@ export function findEpic(plan: ReleasePlan, id: Epic["id"]): Epic | null {
 /** Feature card tooltip (Phase 1 text; Phase 2 appends the Ctrl+click hint). */
 export function featureTooltip(f: Feature): string {
   return `${f.title}\nState: ${f.state || "-"}\nEstimated size: ${f.size || "not estimated"}\nIteration: ${f.iterationPath || "-"}\nClick to see the description`;
+}
+
+/**
+ * The Azure DevOps connection a plan is linked to (written when the board is
+ * created from, or synced with, ADO and kept by Save/Load Plan JSON), or `null`
+ * when `source` lacks any of `kind`, `projectUrl`, `scopeType`, `scopePath`.
+ */
+export function planConnection(source: PlanSource): AdoConnection | null {
+  const { kind, projectUrl, scopeType, scopePath } = source;
+  return kind && projectUrl && scopeType && scopePath ? { source: kind, projectUrl, scopeType, scopePath } : null;
 }
