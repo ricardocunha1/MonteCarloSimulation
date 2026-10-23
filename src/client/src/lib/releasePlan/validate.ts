@@ -72,16 +72,23 @@ function normalizeEpic(raw: unknown, milestoneIds: ReadonlySet<string>): Epic {
   };
 }
 
+/** Keeps the known `source` fields that are strings (and `kind`/`scopeType` only when in their enums); drops the rest. */
 function normalizeSource(raw: unknown): PlanSource {
   if (!isObject(raw)) {
     return {};
   }
   const source: PlanSource = {};
-  for (const key of ["system", "project", "scope", "fetchedAt"] as const) {
+  for (const key of ["system", "project", "scope", "fetchedAt", "projectUrl", "scopePath"] as const) {
     const value = raw[key];
     if (typeof value === "string") {
       source[key] = value;
     }
+  }
+  if (raw.kind === "onprem" || raw.kind === "cloud") {
+    source.kind = raw.kind;
+  }
+  if (raw.scopeType === "area" || raw.scopeType === "iteration") {
+    source.scopeType = raw.scopeType;
   }
   return source;
 }

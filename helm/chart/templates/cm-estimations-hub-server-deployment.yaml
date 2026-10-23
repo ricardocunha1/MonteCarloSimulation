@@ -18,6 +18,9 @@ spec:
           image: {{ .Values.registry }}/{{ .Values.server_image }}:{{ .Values.tag }}
           ports:
             - containerPort: 8000
+          env:
+            - name: ADO_ALLOWED_HOSTS
+              value: {{ .Values.adoAllowedHosts | quote }}
           readinessProbe:
             httpGet:
               path: /api/health

@@ -183,6 +183,35 @@ describe("normalizePlan rules", () => {
     expect(plan.savedAt).toBe("2026-10-20T10:00:00Z");
   });
 
+  it("keeps valid Azure DevOps connection fields in source", () => {
+    const source = {
+      system: "Azure DevOps",
+      project: "Proj",
+      scope: "Iteration Path: Proj\\Phase 1",
+      fetchedAt: "2026-10-23T10:00:00Z",
+      kind: "cloud",
+      projectUrl: "https://dev.azure.com/org/Proj",
+      scopeType: "iteration",
+      scopePath: "Proj\\Phase 1",
+    };
+    expect(normalizePlan(rawPlan({ source })).source).toEqual(source);
+    const onprem = { kind: "onprem", scopeType: "area" };
+    expect(normalizePlan(rawPlan({ source: onprem })).source).toEqual(onprem);
+  });
+
+  it("drops invalid or unknown source fields", () => {
+    const plan = normalizePlan(
+      rawPlan({
+        source: { kind: "azure", projectUrl: 5, scopeType: "team", scopePath: ["Proj"], pat: "secret", project: null },
+      }),
+    );
+    expect(plan.source).toEqual({});
+  });
+
+  it("drops a non-object source", () => {
+    expect(normalizePlan(rawPlan({ source: "Azure DevOps" })).source).toEqual({});
+  });
+
   it("never mutates its input", () => {
     const input = deepFreeze(
       rawPlan({

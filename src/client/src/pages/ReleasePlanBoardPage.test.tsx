@@ -2,11 +2,14 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { replaceBoardMessage } from "../components/releasePlan/ReplaceBoardDialog";
+import type { AdoBacklog } from "../lib/releasePlan/adoTypes";
 import { planToJson } from "../lib/releasePlan/exportFile";
+import { planFromBacklog } from "../lib/releasePlan/fromBacklog";
 import type { PlanStorage } from "../lib/releasePlan/storage";
 import type { ReleasePlan } from "../lib/releasePlan/types";
 import { FakeImage, RecordingContext, stubCanvas } from "../test/canvas";
-import { makeEpic, makeFeature, makeMilestone, samplePlan, sprintsPlan } from "../test/releasePlanFixtures";
+import { makeBacklog, makeConnection, makeConnectResponse, makeFeatureItem } from "../test/adoFixtures";
+import { makeEpic, makeFeature, makeMilestone, samplePlan, sequentialIds, sprintsPlan } from "../test/releasePlanFixtures";
 import { BOARD_TEST_TIMEOUT_MS, renderBoard } from "../test/renderBoard";
 
 const location = () => screen.getByTestId("location").textContent;
@@ -196,13 +199,13 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
     });
   });
 
-  it("shows Load Plan, Save Plan and Export PNG in both the Board and Table views", () => {
+  it("shows Sync from ADO, Load Plan, Save Plan and Export PNG in both the Board and Table views", () => {
     renderBoard(samplePlan());
     const toolbarButtons = () => screen.getAllByRole("button").filter((b) => b.closest(".toolbar")).map((b) => b.textContent);
-    expect(toolbarButtons().slice(-3)).toEqual(["Load Plan", "Save Plan", "Export PNG"]);
+    expect(toolbarButtons().slice(-4)).toEqual(["Sync from ADO", "Load Plan", "Save Plan", "Export PNG"]);
     fireEvent.click(screen.getByRole("tab", { name: "Table" }));
     expect(screen.queryByRole("group", { name: "Zoom" })).not.toBeInTheDocument();
-    expect(toolbarButtons().slice(-3)).toEqual(["Load Plan", "Save Plan", "Export PNG"]);
+    expect(toolbarButtons().slice(-4)).toEqual(["Sync from ADO", "Load Plan", "Save Plan", "Export PNG"]);
     expect(screen.getByRole("button", { name: "Load Plan" })).toHaveClass("btn");
     expect(screen.getByRole("button", { name: "Save Plan" })).toHaveClass("btn");
     expect(screen.getByRole("button", { name: "Export PNG" })).toHaveClass("btn", "primary");
@@ -210,7 +213,7 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
     expect(document.querySelector(".rp .toolbar .spacer")).not.toBeNull();
   });
 
-  it("shows a decorative icon before the Load Plan / Save Plan labels in both views", () => {
+  it("shows a decorative icon before the Sync from ADO / Load Plan / Save Plan labels in both views", () => {
     const { container } = renderBoard(samplePlan());
     const toolbar = () => {
       const el = container.querySelector<HTMLElement>(".rp .toolbar");
@@ -218,7 +221,7 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
       return el;
     };
     const expectIcons = () => {
-      for (const name of ["Load Plan", "Save Plan"]) {
+      for (const name of ["Sync from ADO", "Load Plan", "Save Plan"]) {
         const button = within(toolbar()).getByRole("button", { name });
         const svg = button.querySelector("svg");
         expect(svg).not.toBeNull();
@@ -397,6 +400,167 @@ describe("ReleasePlanBoardPage", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
       const user = await chooseFile(planFile(otherPlan()));
       await user.click(await screen.findByRole("button", { name: "Replace" }));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Sync from ADO", () => {
+    const PAT = "sync-pat-value";
+    const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+    /** The board created from the default backlog (Epic 101: 102, 104; Epic 103: 105; synthetic: 106, 107). */
+    const adoPlan = () => planFromBacklog(makeBacklog(), makeConnection(), sequentialIds());
+    /** Default backlog with Feature 102 renamed, a new Feature 108 under Epic 101, Feature 105 gone, and one warning. */
+    const changedBacklog = () => {
+      const base = makeBacklog();
+      return makeBacklog({
+        fetchedAt: "2026-10-24T09:00:00Z",
+        warnings: ["The field Custom.EstimatedSize does not exist in this project; sizes are empty."],
+        workItems: [
+          ...base.workItems.filter((i) => i.id !== 105).map((i) => (i.id === 102 ? { ...i, title: "Sign in" } : i)),
+          makeFeatureItem({ id: 108, title: "Search", parentId: 101 }),
+        ],
+      });
+    };
+    const connectDialog = () => screen.getByRole("dialog", { name: "Sync from Azure DevOps" });
+    const toasts = () => screen.getAllByRole("status").map((s) => s.textContent);
+
+    function mockFetch(backlog: AdoBacklog = changedBacklog()) {
+      const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/ado/connect") {
+          return json(makeConnectResponse());
+        }
+        if (url === "/api/ado/backlog") {
+          return json(backlog);
+        }
+        throw new Error(`unexpected ${url}`);
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    }
+
+    /** Toolbar → connection form (pre-filled) → PAT → Connect → Preview changes → the preview dialog. */
+    async function openPreview(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(screen.getByRole("button", { name: "Sync from ADO" }));
+      await user.type(within(connectDialog()).getByLabelText("Personal Access Token"), PAT);
+      await user.click(within(connectDialog()).getByRole("button", { name: "Connect" }));
+      await within(connectDialog()).findByRole("tree", { name: "Area path" });
+      await user.click(within(connectDialog()).getByRole("button", { name: "Preview changes" }));
+      return screen.findByRole("button", { name: "Apply" });
+    }
+
+    beforeEach(() => window.localStorage.clear());
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      window.localStorage.clear();
+    });
+
+    it("pre-fills the connection and the path from plan.source (never a PAT)", async () => {
+      const user = userEvent.setup();
+      mockFetch();
+      renderBoard(adoPlan());
+      await user.click(screen.getByRole("button", { name: "Sync from ADO" }));
+      const dialog = connectDialog();
+      expect(within(dialog).getByRole("radio", { name: "Collaboration Hub" })).toBeChecked();
+      expect(within(dialog).getByLabelText("Project URL")).toHaveValue("https://dev.azure.com/org/Proj");
+      expect(within(dialog).getByLabelText("Personal Access Token")).toHaveValue("");
+      await user.type(within(dialog).getByLabelText("Personal Access Token"), PAT);
+      await user.click(within(dialog).getByRole("button", { name: "Connect" }));
+      const tree = await within(dialog).findByRole("tree", { name: "Area path" });
+      expect(within(tree).getByRole("treeitem", { name: /^Team A/ })).toHaveAttribute("aria-selected", "true");
+      expect(within(dialog).getByRole("button", { name: "Preview changes" })).toBeEnabled();
+    });
+
+    it("shows an empty form for an old plan without connection info", async () => {
+      const user = userEvent.setup();
+      renderBoard(samplePlan());
+      await user.click(screen.getByRole("button", { name: "Sync from ADO" }));
+      const dialog = connectDialog();
+      expect(within(dialog).getByRole("radio", { name: "On-Prem" })).not.toBeChecked();
+      expect(within(dialog).getByRole("radio", { name: "Collaboration Hub" })).not.toBeChecked();
+      expect(within(dialog).getByLabelText("Project URL")).toHaveValue("");
+      await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("previews the diff; Apply updates the board in one autosave, closes the work-item modal and toasts with the warnings", async () => {
+      const user = userEvent.setup();
+      mockFetch();
+      const save = vi.fn<PlanStorage["save"]>();
+      renderBoard(null, { load: () => adoPlan(), save });
+      await openPreview(user);
+      const preview = screen.getByRole("dialog", { name: "Sync from Azure DevOps" });
+      expect(within(preview).queryByLabelText("Personal Access Token")).not.toBeInTheDocument();
+      expect([...preview.querySelectorAll("summary")].map((s) => s.textContent)).toEqual(["1 new Feature", "1 updated", "1 no longer in scope"]);
+      expect(within(preview).getByRole("checkbox", { name: "Remove items no longer in scope" })).not.toBeChecked();
+      const savesBefore = save.mock.calls.length;
+      await user.click(screen.getByRole("button", { name: "Apply" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(save.mock.calls.length - savesBefore).toBe(1);
+      const saved = save.mock.lastCall?.[0];
+      expect(saved?.epics[0].features.map((f) => [f.id, f.title, f.milestoneId])).toEqual([
+        [102, "Sign in", "ms_1"],
+        [104, "Dashboard", "ms_1"],
+        [108, "Search", null],
+      ]);
+      // Not removed: the box was unticked.
+      expect(saved?.epics[1].features.map((f) => f.id)).toEqual([105]);
+      expect(saved?.source.fetchedAt).toBe("2026-10-24T09:00:00Z");
+      const board = within(screen.getByRole("region", { name: "Board" }));
+      expect(board.getByText("Sign in")).toBeInTheDocument();
+      expect(board.getByText("Search")).toBeInTheDocument();
+      expect(toasts()).toEqual(
+        expect.arrayContaining(["Board synchronized with Azure DevOps", "The field Custom.EstimatedSize does not exist in this project; sizes are empty."]),
+      );
+      for (let i = 0; i < window.localStorage.length; i++) {
+        expect(window.localStorage.getItem(window.localStorage.key(i) ?? "")).not.toContain(PAT);
+      }
+    });
+
+    it("removes the items no longer in scope when the box is ticked", async () => {
+      const user = userEvent.setup();
+      mockFetch();
+      renderBoard(adoPlan());
+      await openPreview(user);
+      await user.click(screen.getByRole("checkbox", { name: "Remove items no longer in scope" }));
+      await user.click(screen.getByRole("button", { name: "Apply" }));
+      expect(within(screen.getByRole("region", { name: "Board" })).queryByText("Reports")).not.toBeInTheDocument();
+    });
+
+    it("closes a work-item modal that was open when the sync is applied", async () => {
+      const user = userEvent.setup();
+      mockFetch();
+      renderBoard(adoPlan());
+      fireEvent.click(within(screen.getByRole("region", { name: "Board" })).getByRole("button", { name: /Reports/ }));
+      expect(screen.getAllByRole("dialog")).toHaveLength(1);
+      await openPreview(user);
+      await user.click(screen.getByRole("button", { name: "Apply" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("says the board is up to date when nothing changed", async () => {
+      const user = userEvent.setup();
+      mockFetch(makeBacklog());
+      renderBoard(adoPlan());
+      await openPreview(user);
+      expect(screen.getByText("The board is up to date with Azure DevOps.")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Apply" }));
+      expect(toasts()).toContain("Board synchronized with Azure DevOps");
+    });
+
+    it("Cancel in the preview changes nothing and saves nothing", async () => {
+      const user = userEvent.setup();
+      mockFetch();
+      const save = vi.fn<PlanStorage["save"]>();
+      renderBoard(null, { load: () => adoPlan(), save });
+      await openPreview(user);
+      const savesBefore = save.mock.calls.length;
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(save.mock.calls.length).toBe(savesBefore);
+      const board = within(screen.getByRole("region", { name: "Board" }));
+      expect(board.getByText("Login")).toBeInTheDocument();
+      expect(board.queryByText("Search")).not.toBeInTheDocument();
+      expect(toasts()).not.toContain("Board synchronized with Azure DevOps");
     });
   });
 

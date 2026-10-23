@@ -1,7 +1,8 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { useReleasePlan } from "../releasePlanStore";
+import { makeBacklog, makeConnectResponse } from "../test/adoFixtures";
 import { samplePlan } from "../test/releasePlanFixtures";
 import { renderAt } from "../test/render";
 import { ReleasePlanHomePage } from "./ReleasePlanHomePage";
@@ -9,15 +10,43 @@ import { ReleasePlanHomePage } from "./ReleasePlanHomePage";
 const adoCard = () => screen.getByRole("button", { name: /Create from Azure DevOps/ });
 const location = () => screen.getByTestId("location").textContent;
 
-/** Board stub that shows the store's plan name. */
+/** Board stub that shows the store's plan name (and its Epic titles). */
 function BoardStub() {
   const { plan } = useReleasePlan();
-  return <p>board: {plan?.name ?? "none"}</p>;
+  return (
+    <>
+      <p>board: {plan?.name ?? "none"}</p>
+      <p data-testid="board-epics">{plan?.epics.map((e) => e.title).join(" | ")}</p>
+    </>
+  );
 }
 
 const routes = { "/release-plan/board": <BoardStub /> };
 const planFile = (name: string) =>
   new File([JSON.stringify(samplePlan({ name }))], "plan.json", { type: "application/json" });
+
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+/** Stubs `fetch` for the two ADO routes with synthetic fixtures. */
+function mockAdo(backlog = makeBacklog()) {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
+    String(input) === "/api/ado/connect" ? json(makeConnectResponse()) : json(backlog),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+/** Runs the ADO modal: Collaboration Hub, URL, PAT, Connect, "Team A", Create board. */
+async function createFromAdo(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(adoCard());
+  const dialog = screen.getByRole("dialog", { name: "Create from Azure DevOps" });
+  await user.click(within(dialog).getByRole("radio", { name: "Collaboration Hub" }));
+  await user.type(within(dialog).getByLabelText("Project URL"), "https://dev.azure.com/org/Proj");
+  await user.type(within(dialog).getByLabelText("Personal Access Token"), "pat-value");
+  await user.click(within(dialog).getByRole("button", { name: "Connect" }));
+  await user.click(within(await screen.findByRole("tree", { name: "Area path" })).getByRole("treeitem", { name: /^Team A/ }));
+  await user.click(within(dialog).getByRole("button", { name: "Create board" }));
+}
 
 async function importFile(user: ReturnType<typeof userEvent.setup>, file: File) {
   await user.click(screen.getByRole("button", { name: /Import a JSON file/ }));
@@ -26,24 +55,62 @@ async function importFile(user: ReturnType<typeof userEvent.setup>, file: File) 
 }
 
 describe("ReleasePlanHomePage", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    window.localStorage.clear();
+  });
+
   it("renders inside the Release Plan layout with its title", () => {
     renderAt("/release-plan", <ReleasePlanHomePage />);
     expect(screen.queryByRole("heading", { name: "Release Plan" })).not.toBeInTheDocument();
     expect(document.title).toBe("Planning Hub – Release Plan");
   });
 
-  it("shows the Azure DevOps card as disabled with a Coming soon badge", () => {
+  it("shows the Azure DevOps card enabled (no Coming soon badge)", () => {
     renderAt("/release-plan", <ReleasePlanHomePage />);
-    expect(adoCard()).toHaveAttribute("aria-disabled", "true");
-    expect(adoCard()).toHaveTextContent("Coming soon");
+    expect(adoCard()).toBeEnabled();
+    expect(adoCard()).not.toHaveAttribute("aria-disabled");
+    expect(adoCard()).not.toHaveTextContent("Coming soon");
   });
 
-  it("does nothing when the Azure DevOps card is clicked", async () => {
+  it("opens and closes the Azure DevOps modal from its card", async () => {
     const user = userEvent.setup();
     renderAt("/release-plan", <ReleasePlanHomePage />);
     await user.click(adoCard());
+    expect(screen.getByRole("dialog", { name: "Create from Azure DevOps" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(location()).toBe("/release-plan");
+  });
+
+  it("creates a board from Azure DevOps: stores it, opens the board and toasts 'Plan loaded' and the warnings", async () => {
+    const user = userEvent.setup();
+    const warning = "The field Custom.EstimatedSize does not exist in this project; sizes are empty.";
+    mockAdo(makeBacklog({ warnings: [warning] }));
+    renderAt("/release-plan", <ReleasePlanHomePage />, { routes });
+    await createFromAdo(user);
+    expect(await screen.findByText("board: Proj – Feature Release Plan")).toBeInTheDocument();
+    expect(screen.getByTestId("board-epics")).toHaveTextContent("Wave 1 | Wave 2 | Features without an Epic");
+    expect(location()).toBe("/release-plan/board");
+    const toasts = screen.getAllByRole("status").map((el) => el.textContent);
+    expect(toasts.some((t) => t?.includes("Plan loaded: Proj – Feature Release Plan"))).toBe(true);
+    expect(toasts.some((t) => t?.includes(warning))).toBe(true);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("asks before replacing a plan with an Azure DevOps board; Cancel keeps the modal and the plan", async () => {
+    const user = userEvent.setup();
+    mockAdo();
+    renderAt("/release-plan", <ReleasePlanHomePage />, { routes, initialPlan: samplePlan() });
+    await createFromAdo(user);
+    const confirm = await screen.findByRole("dialog", { name: "Replace the current board?" });
+    expect(confirm).toHaveTextContent('"Sample Release Plan" will be replaced by "Proj – Feature Release Plan"');
+    await user.click(within(confirm).getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("dialog", { name: "Create from Azure DevOps" })).toBeInTheDocument();
+    expect(location()).toBe("/release-plan");
+    await user.click(screen.getByRole("button", { name: "Create board" }));
+    await user.click(await screen.findByRole("button", { name: "Replace" }));
+    expect(await screen.findByText("board: Proj – Feature Release Plan")).toBeInTheDocument();
   });
 
   it("opens and closes the import modal from the JSON card", async () => {

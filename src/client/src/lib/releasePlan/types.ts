@@ -56,13 +56,32 @@ export interface Iteration {
   finishDate: string;
 }
 
-/** Where the plan came from, shown in the toolbar source line (see `sourceInfo`). */
+/**
+ * Where the plan came from, shown in the toolbar source line (see `sourceInfo`).
+ * Boards created from Azure DevOps also carry the connection (never the PAT):
+ * `kind`, `projectUrl`, `scopeType`, `scopePath`, so Sync can pre-fill its form.
+ */
 export interface PlanSource {
   system?: string;
+  /** Canonical project name. */
   project?: string;
+  /** Display text, e.g. `Area Path: Proj\Team A`. */
   scope?: string;
+  /** UTC ISO time of the fetch. */
   fetchedAt?: string;
+  /** Azure DevOps source: On-Prem or Collaboration Hub. */
+  kind?: "onprem" | "cloud";
+  /** Canonical project URL returned by Connect. */
+  projectUrl?: string;
+  scopeType?: "area" | "iteration";
+  /** Normalized Area/Iteration path (`Proj\Team A`). */
+  scopePath?: string;
 }
+
+/** Id of the synthetic Epic holding the Features without a parent Epic (a string, so it never collides with an ADO id). */
+export const NO_EPIC_ID = "no-epic";
+/** Title of the synthetic {@link NO_EPIC_ID} Epic. */
+export const NO_EPIC_TITLE = "Features without an Epic";
 
 /** A normalized plan (output of `normalizePlan`): the only state stored and autosaved. */
 export interface ReleasePlan {

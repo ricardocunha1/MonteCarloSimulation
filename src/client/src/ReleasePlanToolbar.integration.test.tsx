@@ -41,7 +41,7 @@ const toolbar = () => {
 const savedName = () => (JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "null") as { name: string } | null)?.name;
 
 function expectDecoratedButtons() {
-  for (const name of ["Load Plan", "Save Plan"]) {
+  for (const name of ["Sync from ADO", "Load Plan", "Save Plan"]) {
     // Exact accessible name: the icon contributes nothing to it.
     const button = within(toolbar()).getByRole("button", { name });
     expect(button).toHaveAccessibleName(name);
@@ -53,10 +53,10 @@ function expectDecoratedButtons() {
     expect(svgs[0]).toHaveClass("btnIcon");
     expect(button).toHaveClass("btn", "withIcon");
   }
-  // The two icons differ (upload vs download), and no other toolbar button is decorated.
-  const [load, save] = ["Load Plan", "Save Plan"].map((name) => within(toolbar()).getByRole("button", { name }).querySelector("svg")?.innerHTML);
-  expect(load).not.toBe(save);
-  expect(toolbar().querySelectorAll(".btn.withIcon")).toHaveLength(2);
+  // The three icons differ (sync vs upload vs download), and no other toolbar button is decorated.
+  const icons = ["Sync from ADO", "Load Plan", "Save Plan"].map((name) => within(toolbar()).getByRole("button", { name }).querySelector("svg")?.innerHTML);
+  expect(new Set(icons).size).toBe(3);
+  expect(toolbar().querySelectorAll(".btn.withIcon")).toHaveLength(3);
   expect(toolbar().querySelectorAll(".zoom .withIcon, .zoom svg")).toHaveLength(0);
 }
 

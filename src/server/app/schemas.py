@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 
 class SprintSummaryRecord(BaseModel):
@@ -67,3 +69,88 @@ class ErrorResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
+
+
+AdoSource = Literal["onprem", "cloud"]
+
+
+class AdoConnectRequest(BaseModel):
+    """The common `/api/ado/*` request part. The PAT is a SecretStr so it is
+    masked in reprs and never echoed back."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    source: AdoSource
+    project_url: str = Field(alias="projectUrl")
+    pat: SecretStr
+
+
+class AdoTreeNode(BaseModel):
+    """An Area or Iteration classification node with its normalized path.
+    `finishDate` (`YYYY-MM-DD` or "") is only set on Iteration nodes."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    name: str
+    path: str
+    finish_date: str | None = Field(default=None, alias="finishDate")
+    children: list["AdoTreeNode"] = []
+
+
+class AdoProjectInfo(BaseModel):
+    id: str
+    name: str
+
+
+class AdoConnectResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    project: AdoProjectInfo
+    project_url: str = Field(alias="projectUrl")
+    areas: AdoTreeNode
+    iterations: AdoTreeNode
+
+
+AdoScopeType = Literal["area", "iteration"]
+
+
+class AdoBacklogRequest(AdoConnectRequest):
+    """The common part plus the chosen Area or Iteration path, in the
+    normalized node path form (e.g. `Proj\\Team A`)."""
+
+    scope_type: AdoScopeType = Field(alias="scopeType")
+    scope_path: str = Field(alias="scopePath")
+
+
+class AdoWorkItem(BaseModel):
+    """An Epic or Feature, normalized as described in the API contract."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: int
+    type: str
+    title: str
+    state: str
+    description: str
+    size: str
+    iteration_path: str = Field(alias="iterationPath")
+    parent_id: int | None = Field(alias="parentId")
+
+
+class AdoIteration(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    path: str
+    finish_date: str = Field(alias="finishDate")
+
+
+class AdoBacklogResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    project: AdoProjectInfo
+    project_url: str = Field(alias="projectUrl")
+    scope: str
+    fetched_at: str = Field(alias="fetchedAt")
+    work_items: list[AdoWorkItem] = Field(alias="workItems")
+    iterations: list[AdoIteration]
+    warnings: list[str]

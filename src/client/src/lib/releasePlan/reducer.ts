@@ -1,5 +1,7 @@
+import type { AdoBacklog, AdoConnection } from "./adoTypes";
 import { DEFAULT_MILESTONE_NAME, DEFAULT_PLAN_NAME, MS_COLORS, uid, type IdFactory } from "./constants";
 import { iterationLeaf, msById, sprintLeaves } from "./selectors";
+import { applySync } from "./syncDiff";
 import type { Epic, Feature, Milestone, Mode, ReleasePlan, WorkItemId } from "./types";
 
 /** Every plan mutation. Confirmations and toasts stay in the UI; the reducer is pure. */
@@ -24,7 +26,9 @@ export type PlanAction =
   /** Drag-and-drop: moves Epic `dragId` before (`after: false`) or after the Epic `targetId`. */
   | { type: "reorderEpic"; dragId: WorkItemId; targetId: WorkItemId; after: boolean }
   /** Drag-and-drop of Features onto a cell (see {@link FeatureDrop}). */
-  | ({ type: "dropFeatures" } & FeatureDrop);
+  | ({ type: "dropFeatures" } & FeatureDrop)
+  /** Sync from Azure DevOps (see `applySync`): one action, so one autosave; no-op only when nothing at all changes. */
+  | { type: "applySync"; backlog: AdoBacklog; connection: AdoConnection; removeGone: boolean };
 
 /** Side of the drop target the pointer is on (`L` = before, `R` = after). */
 export type DropSide = "L" | "R";
@@ -236,6 +240,8 @@ function reduce(plan: ReleasePlan, action: Exclude<PlanAction, { type: "replace"
     }
     case "dropFeatures":
       return dropFeatures(plan, action);
+    case "applySync":
+      return applySync(plan, action.backlog, action.connection, { removeGone: action.removeGone });
   }
 }
 

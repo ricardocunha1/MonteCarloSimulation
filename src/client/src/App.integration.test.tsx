@@ -244,11 +244,12 @@ describe("Planning Hub – full app flow", () => {
     // Monte Carlo's Help lives only in its own view header.
     expect(screen.queryByRole("button", { name: "How to Use" })).not.toBeInTheDocument();
 
-    // The Azure DevOps card is disabled ("Coming soon") and inert.
+    // The Azure DevOps card opens the connection modal; Cancel closes it.
     const adoCard = screen.getByRole("button", { name: /Create from Azure DevOps/ });
-    expect(adoCard).toHaveAttribute("aria-disabled", "true");
-    expect(adoCard).toHaveTextContent("Coming soon");
+    expect(adoCard).not.toHaveAttribute("aria-disabled");
     await user.click(adoCard);
+    const adoDialog = screen.getByRole("dialog", { name: "Create from Azure DevOps" });
+    await user.click(within(adoDialog).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(location()).toBe("/release-plan");
 
