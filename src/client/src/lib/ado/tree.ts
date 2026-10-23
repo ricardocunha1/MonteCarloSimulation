@@ -1,4 +1,4 @@
-import type { AdoTreeNode } from "./adoTypes";
+import type { AdoTreeNode } from "./types";
 
 /** Nodes from `root` down to the node whose path equals `path` (case-insensitive), or `null`. */
 export function findNodeChain(root: AdoTreeNode, path: string): AdoTreeNode[] | null {

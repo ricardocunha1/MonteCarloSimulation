@@ -53,8 +53,9 @@ export function InputPage() {
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     // Same fields a native form submit would send: every text field (even
-    // blank), the checkbox only when checked, and the Excel file chosen on the
-    // data source page (an empty file for other sources, as with no upload).
+    // blank) and the checkbox only when checked; plus the sprint history: the
+    // Excel file chosen on the data source page, or the Azure DevOps work items
+    // as the JSON field `sprint_history_items` (no file then).
     const formData = new FormData();
     for (const field of Object.keys(values) as (keyof FormValues)[]) {
       if (field !== "skip_validation") {
@@ -64,7 +65,11 @@ export function InputPage() {
     if (values.skip_validation) {
       formData.append("skip_validation", "on");
     }
-    formData.append("sprint_history_file", dataSource.kind === "excel" ? dataSource.file : new File([], ""));
+    if (dataSource.kind === "excel") {
+      formData.append("sprint_history_file", dataSource.file);
+    } else {
+      formData.append("sprint_history_items", JSON.stringify(dataSource.workItems));
+    }
 
     setSubmitting(true);
     try {

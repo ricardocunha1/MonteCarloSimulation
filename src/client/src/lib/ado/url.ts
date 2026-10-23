@@ -1,4 +1,4 @@
-import type { AdoSource } from "./adoTypes";
+import type { AdoSource } from "./types";
 
 /**
  * Client-side check of an Azure DevOps project URL, mirroring the server's

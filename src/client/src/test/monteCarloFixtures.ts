@@ -1,4 +1,4 @@
-import type { DataSource, SimulateResponse, ValidateResponse } from "../lib/monteCarlo/types";
+import type { AdoSprintHistory, AdoSprintWorkItem, DataSource, SimulateResponse, ValidateResponse } from "../lib/monteCarlo/types";
 
 export const validation: ValidateResponse = {
   summary: [
@@ -42,10 +42,43 @@ export function excelSource(name = "Sprint_History.xlsx"): DataSource {
   };
 }
 
-/** An Azure DevOps data source (not reachable from the UI yet). */
-export const adoSource: DataSource = {
+/** A synthetic resolved work item from `/api/ado/sprint-history` (never real ADO data). */
+export function makeSprintWorkItem(overrides: Partial<AdoSprintWorkItem> & Pick<AdoSprintWorkItem, "id">): AdoSprintWorkItem {
+  return {
+    type: "User Story",
+    title: `Story ${overrides.id}`,
+    state: "Resolved",
+    iterationPath: "MES Core\\Release 11\\Sprint 01",
+    resolvedDate: "2026-04-09T10:47:08Z",
+    storyPoints: 3,
+    ...overrides,
+  };
+}
+
+/** A synthetic `/api/ado/sprint-history` response: three items over two sprints. */
+export function makeSprintHistory(overrides: Partial<AdoSprintHistory> = {}): AdoSprintHistory {
+  return {
+    project: { id: "00000000-0000-0000-0000-000000000002", name: "MES Core" },
+    projectUrl: "https://dev.azure.com/org/MES%20Core",
+    iterationPath: "MES Core\\Release 11",
+    fetchedAt: "2026-10-23T10:00:00Z",
+    workItems: [
+      makeSprintWorkItem({ id: 101 }),
+      makeSprintWorkItem({ id: 102, type: "Bug", state: "Closed", storyPoints: 0 }),
+      makeSprintWorkItem({ id: 103, state: "Done", iterationPath: "MES Core\\Release 11\\Sprint 02", resolvedDate: "2026-04-23T09:00:00Z", storyPoints: 5 }),
+    ],
+    warnings: [],
+    ...overrides,
+  };
+}
+
+/** An Azure DevOps data source as stored after loading `makeSprintHistory()`. */
+export const adoSource: Extract<DataSource, { kind: "azureDevOps" }> = {
   kind: "azureDevOps",
+  source: "cloud",
+  projectUrl: "https://dev.azure.com/org/MES%20Core",
   project: "MES Core",
-  areaPath: "MES Core\\Team A",
   iterationPath: "MES Core\\Release 11",
+  fetchedAt: "2026-10-23T10:00:00Z",
+  workItems: makeSprintHistory().workItems,
 };

@@ -7,6 +7,9 @@ export const VERSION = 1;
 /** localStorage key of the autosaved plan. */
 export const STORAGE_KEY = "cmPlanningHub.releasePlan.v1";
 
+/** localStorage key of the last successful Azure DevOps connection (`lib/ado/connectionStorage.ts`; never a PAT). */
+export const ADO_CONNECTION_KEY = "cmPlanningHub.releasePlan.adoConnection.v1";
+
 /** Fallback when a plan name is empty. */
 export const DEFAULT_PLAN_NAME = "Feature Release Plan";
 /** Fallback when a milestone or flag name is empty; also the name of a new flag. */

@@ -14,11 +14,12 @@ from app.services.data_processing import (
     DataValidationError,
     build_sprint_summary,
     parse_sprint_history,
+    parse_sprint_history_items,
     summary_from_records,
     summary_to_records,
 )
 from app.services.forecast import SimulationError, run_forecast
-from app.services.validation import validate_parameters
+from app.services.validation import SPRINT_HISTORY_ITEMS_FIELD, has_sprint_history_items, validate_parameters
 
 router = APIRouter()
 
@@ -33,6 +34,11 @@ FORM_FIELDS = (
 )
 
 ERROR_RESPONSES = {422: {"model": ErrorResponse}}
+
+# Largest non-file form field (Starlette's default is 1 MB): the Azure DevOps
+# `sprint_history_items` JSON can hold up to 20000 work items. Matches the
+# client's nginx upload limit.
+MAX_FORM_PART_SIZE = 20 * 1024 * 1024
 
 
 def _errors(messages: list[str]) -> JSONResponse:
@@ -49,14 +55,20 @@ async def validate(request: Request):
     """Multipart form: the Data Input fields (`target_type`, `target_value`,
     `num_simulations`, `skip_validation`, `exclude_latest_sprints`,
     `sprint_start_date`, `sprint_length`, `team_capacity_factor`) plus the
-    `sprint_history_file` upload. Returns the sprint summary and the params
+    data source: the `sprint_history_file` upload, or `sprint_history_items`
+    (the `/api/ado/sprint-history` `workItems` as a JSON string), which, when
+    non-blank, replaces the file. Returns the sprint summary and the params
     to send back to /api/simulate.
+
+    Errors in the Azure DevOps items are reported together with the
+    parameter errors; an unreadable Excel file is only reported once the
+    parameters are valid.
 
     The form is read manually rather than through FastAPI `Form()` params so
     missing/blank fields and an empty file input produce the same error
     messages as the original form handling instead of FastAPI's own 422.
     """
-    form = await request.form()
+    form = await request.form(max_part_size=MAX_FORM_PART_SIZE)
     file = form.get("sprint_history_file")
     if not isinstance(file, UploadFile):
         file = None
@@ -65,7 +77,12 @@ async def validate(request: Request):
     errors = validate_parameters(fields, file)
 
     df = None
-    if not errors:
+    if has_sprint_history_items(fields):
+        try:
+            df = await run_in_threadpool(parse_sprint_history_items, fields[SPRINT_HISTORY_ITEMS_FIELD])
+        except DataValidationError as exc:
+            errors = [str(exc)] + errors
+    elif not errors:
         try:
             df = await run_in_threadpool(parse_sprint_history, file.file)
         except DataValidationError as exc:

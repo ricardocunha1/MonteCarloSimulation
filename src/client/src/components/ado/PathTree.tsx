@@ -1,6 +1,6 @@
 import { useId, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
-import { expandedForFilter, filterTree, findNodeChain, visibleRows, type TreeRow } from "../../lib/releasePlan/adoTree";
-import type { AdoTreeNode } from "../../lib/releasePlan/adoTypes";
+import { expandedForFilter, filterTree, findNodeChain, visibleRows, type TreeRow } from "../../lib/ado/tree";
+import type { AdoTreeNode } from "../../lib/ado/types";
 
 function initialExpanded(root: AdoTreeNode, selectedPath: string | null): Set<string> {
   const expanded = new Set([root.path]);

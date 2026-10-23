@@ -1,10 +1,13 @@
 """Azure DevOps reads for the Release Plan tool: the project, its Area /
 Iteration classification trees and the Epics + Features of a scope
 (plans/release-plan-ado.md "ADO REST calls used"). The server only fetches
-and normalizes; the client builds the plan."""
+and normalizes; the client builds the plan.
+
+`connect`, `find_path`, `field_exists`, `query_ids` and `fetch_items` are
+shared with the Monte Carlo sprint history fetch (`ado_sprint_history`)."""
 
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import date, datetime, timezone
 from typing import Any
 from urllib.parse import quote
@@ -184,23 +187,23 @@ async def fetch_backlog(client: AdoClient, ado_project: AdoProject, scope_type: 
     connection = await connect(client, ado_project)
     project_segment = quote(connection["project"]["name"], safe="")
     tree = connection["areas"] if scope_type == "area" else connection["iterations"]
-    path = _find_path(tree, scope_path.strip())
+    path = find_path(tree, scope_path.strip())
     if path is None:
         raise AdoError(f"Unknown {SCOPE_LABELS[scope_type]} path: {scope_path.strip()}.")
 
     warnings: list[str] = []
     fields = list(WORK_ITEM_FIELDS)
-    if await _size_field_exists(client):
+    if await field_exists(client, SIZE_FIELD):
         fields.append(SIZE_FIELD)
     else:
         warnings.append(SIZE_FIELD_MISSING)
 
-    ids = await _query_ids(client, project_segment, SCOPE_FIELDS[scope_type], path)
+    ids = await query_ids(client, project_segment, wiql_query(SCOPE_FIELDS[scope_type], path))
     if len(ids) >= WIQL_TOP:
         warnings.append(CAP_REACHED)
 
     items: dict[int, dict] = {}
-    for item in await _fetch_items(client, project_segment, list(dict.fromkeys(ids)), fields):
+    for item in await fetch_items(client, project_segment, list(dict.fromkeys(ids)), fields):
         if item["type"] in BACKLOG_TYPES:
             items.setdefault(item["id"], item)
     await _complete_parents(client, project_segment, items, fields)
@@ -261,7 +264,7 @@ def normalize_work_item(raw: Any) -> dict | None:
         return None
     fields = raw.get("fields") if isinstance(raw, dict) else None
     item_id = raw.get("id") if isinstance(raw, dict) else None
-    if not isinstance(fields, dict) or not _is_id(item_id):
+    if not isinstance(fields, dict) or not is_id(item_id):
         raise AdoError(UNEXPECTED_RESPONSE)
     size = fields.get(SIZE_FIELD)
     if isinstance(size, int) and not isinstance(size, bool):
@@ -269,17 +272,17 @@ def normalize_work_item(raw: Any) -> dict | None:
     parent = fields.get("System.Parent")
     return {
         "id": item_id,
-        "type": _text(fields.get("System.WorkItemType")),
-        "title": _text(fields.get("System.Title")),
-        "state": _text(fields.get("System.State")),
-        "description": _text(fields.get("System.Description")),
-        "size": _text(size).strip().upper(),
-        "iterationPath": _text(fields.get("System.IterationPath")),
-        "parentId": parent if _is_id(parent) else None,
+        "type": utf8_text(fields.get("System.WorkItemType")),
+        "title": utf8_text(fields.get("System.Title")),
+        "state": utf8_text(fields.get("System.State")),
+        "description": utf8_text(fields.get("System.Description")),
+        "size": utf8_text(size).strip().upper(),
+        "iterationPath": utf8_text(fields.get("System.IterationPath")),
+        "parentId": parent if is_id(parent) else None,
     }
 
 
-def _find_path(tree: dict, wanted: str) -> str | None:
+def find_path(tree: dict, wanted: str) -> str | None:
     """The tree's spelling of the node path `wanted` (case-insensitive), or None."""
     key = wanted.casefold()
     pending = [tree]
@@ -291,10 +294,10 @@ def _find_path(tree: dict, wanted: str) -> str | None:
     return None
 
 
-async def _size_field_exists(client: AdoClient) -> bool:
-    """False when Azure DevOps answers 404 for SIZE_FIELD."""
+async def field_exists(client: AdoClient, reference_name: str) -> bool:
+    """False when Azure DevOps answers 404 for the field `reference_name`."""
     try:
-        await client.get_json(f"_apis/wit/fields/{SIZE_FIELD}")
+        await client.get_json(f"_apis/wit/fields/{reference_name}")
     except AdoError as exc:
         if exc.status_code == 404:
             return False
@@ -302,9 +305,9 @@ async def _size_field_exists(client: AdoClient) -> bool:
     return True
 
 
-async def _query_ids(client: AdoClient, project_segment: str, path_field: str, path: str) -> list[int]:
-    """Run the scope WIQL and return the ids as listed (duplicates kept, so
-    the cap check sees the raw count).
+async def query_ids(client: AdoClient, project_segment: str, query: str) -> list[int]:
+    """Run a WIQL `query` (at most WIQL_TOP results) and return the ids as
+    listed (duplicates kept, so the cap check sees the raw count).
 
     Raises:
         AdoError: UNEXPECTED_RESPONSE when `workItems` is missing or an entry
@@ -313,7 +316,7 @@ async def _query_ids(client: AdoClient, project_segment: str, path_field: str, p
     result = await client.post_json(
         f"{project_segment}/_apis/wit/wiql",
         {"$top": WIQL_TOP},
-        {"query": wiql_query(path_field, path)},
+        {"query": query},
     )
     refs = result.get("workItems") if isinstance(result, dict) else None
     if not isinstance(refs, list):
@@ -321,19 +324,26 @@ async def _query_ids(client: AdoClient, project_segment: str, path_field: str, p
     ids: list[int] = []
     for ref in refs:
         item_id = ref.get("id") if isinstance(ref, dict) else None
-        if not _is_id(item_id):
+        if not is_id(item_id):
             raise AdoError(UNEXPECTED_RESPONSE)
         ids.append(item_id)
     return ids
 
 
-async def _fetch_items(client: AdoClient, project_segment: str, ids: list[int], fields: list[str]) -> list[dict]:
-    """`workitemsbatch` in chunks of at most BATCH_SIZE ids; omitted (null)
-    entries are skipped.
+async def fetch_items(
+    client: AdoClient,
+    project_segment: str,
+    ids: list[int],
+    fields: list[str],
+    normalize: Callable[[Any], dict | None] = normalize_work_item,
+) -> list[dict]:
+    """`workitemsbatch` in chunks of at most BATCH_SIZE ids, each entry passed
+    through `normalize`; entries it maps to None (e.g. omitted nulls) are skipped.
 
     Raises:
-        AdoError: UNEXPECTED_RESPONSE when a reply has no `value` list or a
-            malformed entry (see `normalize_work_item`).
+        AdoError: UNEXPECTED_RESPONSE when a reply has no `value` list, or
+            whatever `normalize` raises for a malformed entry (see
+            `normalize_work_item`).
     """
     items: list[dict] = []
     for start in range(0, len(ids), BATCH_SIZE):
@@ -345,7 +355,7 @@ async def _fetch_items(client: AdoClient, project_segment: str, ids: list[int], 
         values = result.get("value") if isinstance(result, dict) else None
         if not isinstance(values, list):
             raise AdoError(UNEXPECTED_RESPONSE)
-        items.extend(item for item in map(normalize_work_item, values) if item is not None)
+        items.extend(item for item in map(normalize, values) if item is not None)
     return items
 
 
@@ -361,17 +371,18 @@ async def _complete_parents(client: AdoClient, project_segment: str, items: dict
             return
         requested.update(missing)
         added = []
-        for item in await _fetch_items(client, project_segment, missing, fields):
+        for item in await fetch_items(client, project_segment, missing, fields):
             if item["type"] == "Epic" and item["id"] not in items:
                 items[item["id"]] = item
                 added.append(item)
 
 
-def _is_id(value: Any) -> bool:
+def is_id(value: Any) -> bool:
+    """A positive integer work item id (bool excluded)."""
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
 
-def _text(value: Any) -> str:
+def utf8_text(value: Any) -> str:
     """A string as UTF-8 safe text (unencodable characters replaced); "" for
     anything that isn't a string."""
     if not isinstance(value, str):

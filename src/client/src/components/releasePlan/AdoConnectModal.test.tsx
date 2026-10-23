@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { ADO_CONNECTION_KEY } from "../../lib/releasePlan/adoConnectionStorage";
+import { ADO_CONNECTION_KEY } from "../../lib/releasePlan/constants";
 import type { AdoConnectInitial, AdoConnectPurpose } from "./AdoConnectModal";
 import { makeBacklog, makeConnectResponse } from "../../test/adoFixtures";
 import { AdoConnectModal } from "./AdoConnectModal";
@@ -78,7 +78,7 @@ describe("AdoConnectModal", () => {
     renderModal();
     expect(screen.getByRole("dialog", { name: "Create from Azure DevOps" })).toHaveAttribute("aria-modal", "true");
     expect(screen.getByRole("radio", { name: "On-Prem" })).not.toBeChecked();
-    expect(screen.getByRole("radio", { name: "Collaboration Hub" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "Collaboration Hub" })).toBeChecked();
     expect(patInput()).toHaveAttribute("type", "password");
     expect(patInput()).toHaveAttribute("autocomplete", "off");
     expect(submitButton()).toBeDisabled();
@@ -91,13 +91,21 @@ describe("AdoConnectModal", () => {
     expect(submitButton("Preview changes")).toBeDisabled();
   });
 
+  it("defaults to Collaboration Hub with its URL placeholder when nothing is remembered", () => {
+    renderModal();
+    expect(screen.getByRole("radio", { name: "Collaboration Hub" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "On-Prem" })).not.toBeChecked();
+    expect(urlInput()).toHaveValue("");
+    expect(urlInput()).toHaveAttribute("placeholder", "https://dev.azure.com/<ORGANIZATION>/<PROJECT_NAME>");
+  });
+
   it("switches the URL placeholder with the source", async () => {
     const user = userEvent.setup();
     renderModal();
-    await user.click(screen.getByRole("radio", { name: "Collaboration Hub" }));
-    expect(urlInput()).toHaveAttribute("placeholder", "https://dev.azure.com/<ORGANIZATION>/<PROJECT_NAME>");
     await user.click(screen.getByRole("radio", { name: "On-Prem" }));
     expect(urlInput()).toHaveAttribute("placeholder", "https://tfs-projects.cmf.criticalmanufacturing.com/ImplementationProjects/<PROJECT_NAME>");
+    await user.click(screen.getByRole("radio", { name: "Collaboration Hub" }));
+    expect(urlInput()).toHaveAttribute("placeholder", "https://dev.azure.com/<ORGANIZATION>/<PROJECT_NAME>");
   });
 
   it("reports blank fields together, in order, without a request", async () => {
@@ -106,9 +114,8 @@ describe("AdoConnectModal", () => {
     renderModal();
     await user.click(connectButton());
     const alert = screen.getByRole("alert");
-    expect(alert).toHaveTextContent(
-      "Choose the Azure DevOps source (On-Prem or Collaboration Hub).Enter the Azure DevOps project URL.Enter a Personal Access Token.",
-    );
+    expect(alert).toHaveTextContent("Enter the Azure DevOps project URL.Enter a Personal Access Token.");
+    expect(alert).not.toHaveTextContent("Choose the Azure DevOps source");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -285,8 +292,9 @@ describe("AdoConnectModal", () => {
     expect(patInput()).toHaveAttribute("aria-invalid", "true");
     expect(patInput().getAttribute("aria-describedby")?.split(" ")).toContain(alert.id);
     expect(patInput()).toHaveAccessibleDescription(/Needs the Work Items \(Read\) scope.*Enter a Personal Access Token\./);
-    expect(screen.getByRole("group", { name: "Azure DevOps source" })).toHaveAttribute("aria-describedby", alert.id);
-    // Only the URL is wrong now: the PAT and the source are no longer flagged.
+    // A source is always selected (Collaboration Hub by default), so it is never flagged.
+    expect(screen.getByRole("group", { name: "Azure DevOps source" })).not.toHaveAttribute("aria-describedby");
+    // Only the URL is wrong now: the PAT is no longer flagged.
     await fillAndConnect(user, { url: "https://dev.azure.com/org" });
     expect(urlInput()).toHaveAttribute("aria-invalid", "true");
     expect(urlInput()).toHaveAccessibleDescription("Collaboration Hub URLs look like https://dev.azure.com/<organization>/<project>.");
@@ -347,6 +355,18 @@ describe("AdoConnectModal", () => {
     expect(screen.getByRole("radio", { name: "On-Prem" })).toBeChecked();
     expect(urlInput()).toHaveValue("https://tfs.example.com/C/P");
     expect(patInput()).toHaveValue("");
+  });
+
+  it("an On-Prem `initial` wins over a remembered Collaboration Hub connection", () => {
+    window.localStorage.setItem(ADO_CONNECTION_KEY, JSON.stringify({ source: "cloud", projectUrl: "https://dev.azure.com/org/Proj" }));
+    renderModal({
+      purpose: "sync",
+      initial: { source: "onprem", projectUrl: "https://tfs.example.com/C/P", scopeType: "area", scopePath: "P\\Team A" },
+    });
+    expect(screen.getByRole("radio", { name: "On-Prem" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Collaboration Hub" })).not.toBeChecked();
+    expect(urlInput()).toHaveValue("https://tfs.example.com/C/P");
+    expect(urlInput()).toHaveAttribute("placeholder", "https://tfs-projects.cmf.criticalmanufacturing.com/ImplementationProjects/<PROJECT_NAME>");
   });
 
   it("pre-fills from `initial` and pre-selects its path after Connect", async () => {

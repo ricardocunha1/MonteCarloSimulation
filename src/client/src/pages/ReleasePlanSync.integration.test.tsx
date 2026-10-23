@@ -270,7 +270,7 @@ describe("Release Plan – Sync from Azure DevOps (integration)", { timeout: TIM
     expect(toastTexts().some((t) => t.includes("Board synchronized"))).toBe(false);
   });
 
-  it("an old plan without connection info: empty form; Apply adds the ADO items Unplanned, keeps the old ones and writes the connection", async () => {
+  it("an old plan without connection info: empty form (Collaboration Hub by default); Apply adds the ADO items Unplanned, keeps the old ones and writes the connection", async () => {
     const user = userEvent.setup();
     const old = samplePlan();
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(old));
@@ -280,7 +280,7 @@ describe("Release Plan – Sync from Azure DevOps (integration)", { timeout: TIM
     await user.click(within(toolbar()).getByRole("button", { name: "Sync from ADO" }));
     const dialog = syncDialog();
     expect(within(dialog).getByRole("radio", { name: "On-Prem" })).not.toBeChecked();
-    expect(within(dialog).getByRole("radio", { name: "Collaboration Hub" })).not.toBeChecked();
+    expect(within(dialog).getByRole("radio", { name: "Collaboration Hub" })).toBeChecked();
     expect(within(dialog).getByLabelText("Project URL")).toHaveValue("");
     await user.click(within(dialog).getByRole("radio", { name: "On-Prem" }));
     await user.type(within(dialog).getByLabelText("Project URL"), CANONICAL);

@@ -40,16 +40,24 @@ export function HelpModal({ open, onClose }: { open: boolean; onClose: () => voi
               your team's historical sprint data. The flow has three steps:
             </p>
             <ol className="list-decimal list-inside mt-2 space-y-1">
-              <li><strong>Data Input</strong> &ndash; choose your sprint history Excel file and set simulation parameters.</li>
-              <li><strong>Data Validation</strong> &ndash; review the sprint summary parsed from your file (can be skipped).</li>
+              <li><strong>Data Input</strong> &ndash; load your sprint history (Azure DevOps or an Excel file) and set simulation parameters.</li>
+              <li><strong>Data Validation</strong> &ndash; review the sprint summary built from your sprint history (can be skipped).</li>
               <li><strong>Simulation Execution</strong> &ndash; view the forecast results and confidence levels.</li>
             </ol>
             <p className="mt-2">
               The first screen lets you choose the data source: <strong>Import an Excel
               file</strong> opens a dialog where you select the <code className={code}>.xlsx</code> file,
-              then the input form shows the selected file and its &ldquo;Change&rdquo; link
-              takes you back to pick another one. Loading sprint history directly from
-              Azure DevOps is coming soon, as an alternative to the Excel upload.
+              then the input form shows the selected source and its &ldquo;Change&rdquo; link
+              takes you back to pick another one.
+            </p>
+            <p className="mt-2">
+              <strong>Load from Azure DevOps</strong> connects to your project (On-Prem or
+              Collaboration Hub, its project URL and a Personal Access Token with the{" "}
+              <strong>Work Items (Read)</strong> scope; the token is only used for the request
+              and is never stored). Pick an Iteration Path: the User Stories and Bugs under it
+              (child paths included) in state <code className={code}>Resolved</code>,{" "}
+              <code className={code}>Done</code> or <code className={code}>Closed</code> are loaded
+              once as the sprint history, grouped by their own iteration.
             </p>
           </section>
 
