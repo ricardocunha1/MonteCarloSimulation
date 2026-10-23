@@ -2,10 +2,13 @@ import { useCallback, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DatabaseIcon } from "../components/icons/DatabaseIcon";
 import { FileJsonIcon } from "../components/icons/FileJsonIcon";
+import { AdoConnectModal } from "../components/releasePlan/AdoConnectModal";
 import { ImportJsonModal } from "../components/releasePlan/ImportJsonModal";
 import { ReleasePlanLayout } from "../components/releasePlan/ReleasePlanLayout";
 import { ReplaceBoardDialog } from "../components/releasePlan/ReplaceBoardDialog";
 import { useToast } from "../components/Toast";
+import type { AdoBacklog, AdoConnection } from "../lib/releasePlan/adoTypes";
+import { planFromBacklog } from "../lib/releasePlan/fromBacklog";
 import { sourceInfo } from "../lib/releasePlan/selectors";
 import type { ReleasePlan } from "../lib/releasePlan/types";
 import { useReleasePlan } from "../releasePlanStore";
@@ -16,40 +19,50 @@ const BOARD_PATH = "/release-plan/board";
 
 /**
  * Release Plan entry page (`/release-plan`): choose how to create a board.
- * The "Create from Azure DevOps" card is disabled ("Coming soon",
- * `aria-disabled`); the "Import a JSON file" card opens {@link ImportJsonModal}.
- * A valid file replaces the store's plan (after a "Replace the current board?"
- * confirmation when one exists) and opens the board. With a plan in the store,
- * a "Continue last board" action links to the board.
+ * The "Create from Azure DevOps" card opens {@link AdoConnectModal} (the fetched
+ * backlog becomes a plan via `planFromBacklog`); the "Import a JSON file" card
+ * opens {@link ImportJsonModal}. Either new plan replaces the store's plan (after
+ * a "Replace the current board?" confirmation when one exists) and opens the
+ * board; backlog warnings are shown as info toasts after it opens. With a plan
+ * in the store, a "Continue last board" action links to the board.
  */
 export function ReleasePlanHomePage() {
   const { plan, replacePlan } = useReleasePlan();
   const { showInfo } = useToast();
   const navigate = useNavigate();
   const [importOpen, setImportOpen] = useState(false);
-  const [pendingPlan, setPendingPlan] = useState<ReleasePlan | null>(null);
+  const [adoOpen, setAdoOpen] = useState(false);
+  const [pending, setPending] = useState<{ plan: ReleasePlan; warnings: string[] } | null>(null);
   const closeImport = useCallback(() => setImportOpen(false), []);
+  const closeAdo = useCallback(() => setAdoOpen(false), []);
 
   const openBoard = useCallback(
-    (next: ReleasePlan) => {
+    (next: ReleasePlan, warnings: readonly string[] = []) => {
       replacePlan(next);
-      setPendingPlan(null);
+      setPending(null);
       setImportOpen(false);
+      setAdoOpen(false);
       navigate(BOARD_PATH);
       showInfo(`Plan loaded: ${next.name}`);
+      warnings.forEach((warning) => showInfo(warning));
     },
     [replacePlan, navigate, showInfo],
   );
 
   const onPlanLoaded = useCallback(
-    (next: ReleasePlan) => {
+    (next: ReleasePlan, warnings: readonly string[] = []) => {
       if (plan) {
-        setPendingPlan(next);
+        setPending({ plan: next, warnings: [...warnings] });
       } else {
-        openBoard(next);
+        openBoard(next, warnings);
       }
     },
     [plan, openBoard],
+  );
+
+  const onBacklog = useCallback(
+    (backlog: AdoBacklog, connection: AdoConnection) => onPlanLoaded(planFromBacklog(backlog, connection), backlog.warnings),
+    [onPlanLoaded],
   );
 
   return (
@@ -78,16 +91,19 @@ export function ReleasePlanHomePage() {
         <p className="mt-2 text-slate-400">Choose where the board's Epics and Features come from.</p>
         <ul className="mt-8 grid gap-4 sm:grid-cols-2">
           <li>
-            <div role="button" aria-disabled="true" tabIndex={-1} className={`${cardBase} cursor-not-allowed opacity-60`}>
+            <button
+              type="button"
+              onClick={() => setAdoOpen(true)}
+              className={`${cardBase} transition-colors hover:border-[color:var(--cm-light-blue)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-light-blue)]`}
+            >
               <span className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-md" style={{ backgroundColor: "var(--cm-dark-blue)", color: "var(--cm-teal)" }}>
                   <DatabaseIcon className="h-6 w-6" />
                 </span>
                 <span className="text-lg font-semibold">Create from Azure DevOps</span>
-                <span className="ml-auto rounded-full border border-slate-600 px-2 py-0.5 text-xs font-medium text-slate-300">Coming soon</span>
               </span>
               <span className="text-sm text-slate-300">Connect to an Azure DevOps project and build a board from its Epics and Features.</span>
-            </div>
+            </button>
           </li>
           <li>
             <button
@@ -107,15 +123,16 @@ export function ReleasePlanHomePage() {
         </ul>
       </div>
       <ImportJsonModal open={importOpen} onClose={closeImport} onPlanLoaded={onPlanLoaded} />
+      <AdoConnectModal open={adoOpen} purpose="create" onClose={closeAdo} onBacklog={onBacklog} />
       <ReplaceBoardDialog
         currentName={plan?.name ?? ""}
-        nextName={plan && pendingPlan ? pendingPlan.name : null}
+        nextName={plan && pending ? pending.plan.name : null}
         onConfirm={() => {
-          if (pendingPlan) {
-            openBoard(pendingPlan);
+          if (pending) {
+            openBoard(pending.plan, pending.warnings);
           }
         }}
-        onCancel={() => setPendingPlan(null)}
+        onCancel={() => setPending(null)}
       />
     </ReleasePlanLayout>
   );

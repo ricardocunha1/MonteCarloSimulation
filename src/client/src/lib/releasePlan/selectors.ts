@@ -1,5 +1,5 @@
 import { DONE_STATES, SIZES } from "./constants";
-import type { Band, Epic, Feature, Flag, Milestone, PlanSource, ReleasePlan } from "./types";
+import { NO_EPIC_ID, type Band, type Epic, type Feature, type Flag, type Milestone, type PlanSource, type ReleasePlan } from "./types";
 
 /** Milestones in order, then the synthetic Unplanned band. */
 export function bands(plan: ReleasePlan): Band[] {
@@ -99,6 +99,14 @@ export function epicMsLabel(plan: ReleasePlan, epic: Epic): string {
     return `${r.ms.name} · ${r.unplanned} unplanned`;
   }
   return `Done in ${r.ms.name}`;
+}
+
+/**
+ * Full Epic header meta text (board and PNG): `Epic #<id> · <label>`, or just
+ * `<label>` for the synthetic {@link NO_EPIC_ID} Epic, which has no ADO id.
+ */
+export function epicMetaText(epic: Epic, label: string): string {
+  return String(epic.id) === NO_EPIC_ID ? label : `Epic #${epic.id} · ${label}`;
 }
 
 /** Whether `epic` is completed in milestone `msId` (no unplanned features, latest milestone is `msId`). */

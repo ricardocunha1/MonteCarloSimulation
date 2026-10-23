@@ -5,7 +5,7 @@ import { L, OK_GREEN, PALETTE, SIZE_COLORS, STATE_COLORS } from "./constants";
 import { computeLayout } from "./layout";
 import { drawBoardPng, PNG_HEAD, PNG_MAX_AREA, PNG_MAX_SIDE, pngScale, type PngLogo, wrap } from "./png";
 import { fmtDate } from "./selectors";
-import type { ReleasePlan } from "./types";
+import { NO_EPIC_ID, NO_EPIC_TITLE, type ReleasePlan } from "./types";
 
 const NOW = new Date("2026-10-21T12:00:00Z");
 const NOW_LABEL = NOW.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
@@ -183,6 +183,14 @@ describe("drawBoardPng", () => {
     expect(ctx.text("Epic #1 · Done in MVP")).toMatchObject({ globalAlpha: 0.75, textAlign: "center", args: ["Epic #1 · Done in MVP", layout.epics[0].x + layout.epics[0].w / 2, L.TOP + 28] });
     expect(ctx.texts()).toEqual(expect.arrayContaining(["Epic #2 · Release 2 · 1 unplanned", "Epic #3 · No features"]));
     expect(ctx.textAlign).toBe("left");
+  });
+
+  it("omits the id in the synthetic Epic's meta line, like the board header", () => {
+    const plan = makePlan({ epics: [makeEpic({ id: NO_EPIC_ID, title: NO_EPIC_TITLE, features: [makeFeature({ id: 5 })] })] });
+    const { ctx, layout } = draw(plan);
+    const meta = ctx.ops("fillText").filter((c) => c.args[1] === layout.epics[0].x + layout.epics[0].w / 2 && c.args[2] === L.TOP + 28);
+    expect(meta.map((c) => c.args[0])).toEqual(["Unplanned"]);
+    expect(ctx.texts().some((t) => t.includes("#no-epic"))).toBe(false);
   });
 
   it("draws one card per feature at its column x and its band's y", () => {

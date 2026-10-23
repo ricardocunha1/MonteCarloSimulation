@@ -59,11 +59,20 @@ function extractErrorMessages(body: unknown, text: string): string[] {
   return [];
 }
 
-async function request<T>(url: string, init: RequestInit): Promise<T> {
+/**
+ * `fetch` + JSON parse; a non-2xx response becomes an {@link ApiError} with the
+ * server's messages, a network failure an `ApiError` with status 0. An aborted
+ * request (`init.signal`) rethrows the fetch's `AbortError` unchanged. Shared
+ * with `lib/releasePlan/adoApi.ts`.
+ */
+export async function request<T>(url: string, init: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(url, init);
   } catch (exc) {
+    if (typeof exc === "object" && exc !== null && (exc as { name?: unknown }).name === "AbortError") {
+      throw exc;
+    }
     throw new ApiError([`Could not reach the server: ${(exc as Error).message}`], 0);
   }
 

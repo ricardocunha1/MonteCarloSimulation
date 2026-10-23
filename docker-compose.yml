@@ -4,6 +4,8 @@ services:
   server:
     build: ./src/server
     image: planninghub/planninghub-server:local
+    environment:
+      ADO_ALLOWED_HOSTS: dev.azure.com,*.visualstudio.com,tfs-projects.cmf.criticalmanufacturing.com
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
       interval: 10s

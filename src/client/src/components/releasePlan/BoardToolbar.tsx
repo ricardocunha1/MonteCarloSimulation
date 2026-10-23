@@ -3,6 +3,7 @@ import type { ReleasePlan } from "../../lib/releasePlan/types";
 import { zoomLabel } from "../../lib/releasePlan/zoom";
 import { useReleasePlan } from "../../releasePlanStore";
 import { DownloadIcon } from "../icons/DownloadIcon";
+import { SyncIcon } from "../icons/SyncIcon";
 import { UploadIcon } from "../icons/UploadIcon";
 import { CommitInput } from "./CommitInput";
 import { ModeSwitch } from "./ModeSwitch";
@@ -13,8 +14,8 @@ export type BoardView = "board" | "table";
 /**
  * Board toolbar: editable plan name + source line, Board/Table tabs,
  * Releases/Sprints switch, zoom (− 100% + Fit, hidden in Table view), then a
- * spacer and the "Load Plan" / "Save Plan" buttons (each with a decorative
- * upload/download icon before its label) and the primary "Export PNG" button,
+ * spacer and the "Sync from ADO" / "Load Plan" / "Save Plan" buttons (each
+ * with a decorative sync/upload/download icon before its label) and the primary "Export PNG" button,
  * all shown in both views.
  */
 export function BoardToolbar({
@@ -25,6 +26,7 @@ export function BoardToolbar({
   onZoomIn,
   onZoomOut,
   onFit,
+  onSync,
   onLoad,
   onSave,
   onExportPng,
@@ -37,6 +39,8 @@ export function BoardToolbar({
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFit: () => void;
+  /** "Sync from ADO": opens the Azure DevOps connection form (the page owns the sync flow). */
+  onSync: () => void;
   /** "Load Plan": opens the import modal (the page owns it). */
   onLoad: () => void;
   /** "Save Plan": downloads the plan as JSON. */
@@ -81,6 +85,10 @@ export function BoardToolbar({
         </div>
       )}
       <div className="spacer" />
+      <button type="button" className="btn withIcon" onClick={onSync}>
+        <SyncIcon className="btnIcon" />
+        Sync from ADO
+      </button>
       <button type="button" className="btn withIcon" onClick={onLoad}>
         <UploadIcon className="btnIcon" />
         Load Plan

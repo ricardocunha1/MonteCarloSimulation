@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
+import { AdoConnectModal, type AdoConnectInitial } from "../components/releasePlan/AdoConnectModal";
 import { Board } from "../components/releasePlan/Board";
 import { BoardToolbar, type BoardView } from "../components/releasePlan/BoardToolbar";
 import { ImportJsonModal } from "../components/releasePlan/ImportJsonModal";
@@ -7,15 +8,31 @@ import "../components/releasePlan/releasePlan.css";
 import { ReleasePlanLayout } from "../components/releasePlan/ReleasePlanLayout";
 import { ReplaceBoardDialog } from "../components/releasePlan/ReplaceBoardDialog";
 import { SummaryCards } from "../components/releasePlan/SummaryCards";
+import { SyncPreviewDialog } from "../components/releasePlan/SyncPreviewDialog";
 import { TableView } from "../components/releasePlan/TableView";
 import { useExportPng } from "../components/releasePlan/useExportPng";
 import { WorkItemModal } from "../components/releasePlan/WorkItemModal";
 import { useToast } from "../components/Toast";
 import { downloadBlob, fileBase, planToJson } from "../lib/releasePlan/exportFile";
+import type { AdoBacklog, AdoConnection } from "../lib/releasePlan/adoTypes";
 import { computeLayout } from "../lib/releasePlan/layout";
-import type { ReleasePlan, WorkItemRef } from "../lib/releasePlan/types";
+import { diffBacklog, type SyncDiff } from "../lib/releasePlan/syncDiff";
+import type { PlanSource, ReleasePlan, WorkItemRef } from "../lib/releasePlan/types";
 import { fitZoom, zoomIn, zoomOut } from "../lib/releasePlan/zoom";
 import { useReleasePlan } from "../releasePlanStore";
+
+/** A fetched backlog waiting in the sync preview. */
+interface PendingSync {
+  backlog: AdoBacklog;
+  connection: AdoConnection;
+  diff: SyncDiff;
+}
+
+/** The Sync form's pre-fill: the plan's connection when it has all of it (boards created from ADO), else none. */
+function syncInitial(source: PlanSource): AdoConnectInitial | undefined {
+  const { kind, projectUrl, scopeType, scopePath } = source;
+  return kind && projectUrl && scopeType && scopePath ? { source: kind, projectUrl, scopeType, scopePath } : undefined;
+}
 
 /**
  * Board/Table workspace for a plan. UI-only state (view, zoom, open item, the
@@ -27,9 +44,15 @@ import { useReleasePlan } from "../releasePlanStore";
  * modal and remounts `Board` (new `key`) so its selection, gap menu and drag
  * state reset. View and zoom are kept. Export PNG ({@link useExportPng}) works
  * from both views.
+ *
+ * Sync from ADO opens {@link AdoConnectModal} (`purpose="sync"`, pre-filled from
+ * `plan.source`); the fetched backlog is diffed and shown in
+ * {@link SyncPreviewDialog}. Apply dispatches one `applySync` action, then
+ * resets the board like Load Plan and toasts (plus any backlog warnings);
+ * Cancel changes nothing. The PAT never leaves the modal's state.
  */
 function BoardWorkspace({ plan }: { plan: ReleasePlan }) {
-  const { replacePlan } = useReleasePlan();
+  const { dispatch, replacePlan } = useReleasePlan();
   const { showInfo } = useToast();
   const [view, setView] = useState<BoardView>("board");
   const [zoom, setZoom] = useState(1);
@@ -37,10 +60,14 @@ function BoardWorkspace({ plan }: { plan: ReleasePlan }) {
   const [loadOpen, setLoadOpen] = useState(false);
   const [pendingPlan, setPendingPlan] = useState<ReleasePlan | null>(null);
   const [boardKey, setBoardKey] = useState(0);
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [pendingSync, setPendingSync] = useState<PendingSync | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const layout = useMemo(() => computeLayout(plan), [plan]);
   const closeItem = useCallback(() => setOpenItem(null), []);
   const closeLoad = useCallback(() => setLoadOpen(false), []);
+  const closeSync = useCallback(() => setSyncOpen(false), []);
+  const cancelSync = useCallback(() => setPendingSync(null), []);
   const { exporting, exportPng } = useExportPng(plan);
 
   const onSave = () => {
@@ -61,6 +88,24 @@ function BoardWorkspace({ plan }: { plan: ReleasePlan }) {
     showInfo(`Plan loaded: ${pendingPlan.name}`);
   };
 
+  const onBacklog = (backlog: AdoBacklog, connection: AdoConnection) => {
+    setSyncOpen(false);
+    setPendingSync({ backlog, connection, diff: diffBacklog(plan, backlog) });
+  };
+
+  const onApplySync = (removeGone: boolean) => {
+    if (!pendingSync) {
+      return;
+    }
+    const { backlog, connection } = pendingSync;
+    dispatch({ type: "applySync", backlog, connection, removeGone });
+    setPendingSync(null);
+    setOpenItem(null);
+    setBoardKey((k) => k + 1);
+    showInfo("Board synchronized with Azure DevOps");
+    backlog.warnings.forEach((warning) => showInfo(warning));
+  };
+
   const onFit = () => {
     const box = scrollRef.current;
     if (box) {
@@ -78,6 +123,7 @@ function BoardWorkspace({ plan }: { plan: ReleasePlan }) {
         onZoomIn={() => setZoom(zoomIn)}
         onZoomOut={() => setZoom(zoomOut)}
         onFit={onFit}
+        onSync={() => setSyncOpen(true)}
         onLoad={() => setLoadOpen(true)}
         onSave={onSave}
         onExportPng={() => void exportPng()}
@@ -91,6 +137,8 @@ function BoardWorkspace({ plan }: { plan: ReleasePlan }) {
       )}
       <WorkItemModal plan={plan} item={openItem} onNavigate={setOpenItem} onClose={closeItem} />
       <ImportJsonModal open={loadOpen} onClose={closeLoad} onPlanLoaded={setPendingPlan} title="Load a plan" submitLabel="Load" />
+      <AdoConnectModal open={syncOpen} purpose="sync" initial={syncInitial(plan.source)} onClose={closeSync} onBacklog={onBacklog} />
+      <SyncPreviewDialog diff={pendingSync ? pendingSync.diff : null} onApply={onApplySync} onCancel={cancelSync} />
       <ReplaceBoardDialog
         currentName={plan.name}
         nextName={pendingPlan ? pendingPlan.name : null}

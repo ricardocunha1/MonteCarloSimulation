@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { makeEpic, makeFeature, makeFlag, makeMilestone, makePlan, samplePlan, sprintsPlan } from "../../test/releasePlanFixtures";
 import {
   bands,
+  epicMetaText,
   epicMilestone,
   epicMsLabel,
   featureTooltip,
@@ -16,6 +17,7 @@ import {
   sourceInfo,
   sprintLeaves,
 } from "./selectors";
+import { NO_EPIC_ID } from "./types";
 
 const sized = (...sizes: string[]) => sizes.map((size, i) => makeFeature({ id: i, size }));
 
@@ -52,6 +54,17 @@ describe("epicMilestone / epicMsLabel", () => {
     const epic = makeEpic({ id: 1, features: [makeFeature({ id: 2, milestoneId: "b" }), makeFeature({ id: 3, milestoneId: "a" })] });
     expect(epicMsLabel(plan, epic)).toBe("Done in R2");
     expect(epicMilestone(plan, epic)).toEqual({ ms: plan.milestones[1], unplanned: 0, total: 2 });
+  });
+});
+
+describe("epicMetaText", () => {
+  it("prefixes 'Epic #<id>' for ADO Epics (number or string ids)", () => {
+    expect(epicMetaText(makeEpic({ id: 7 }), "Done in MVP")).toBe("Epic #7 · Done in MVP");
+    expect(epicMetaText(makeEpic({ id: "7" }), "Unplanned")).toBe("Epic #7 · Unplanned");
+  });
+
+  it("shows only the label for the synthetic Epic", () => {
+    expect(epicMetaText(makeEpic({ id: NO_EPIC_ID }), "MVP · 1 unplanned")).toBe("MVP · 1 unplanned");
   });
 });
 

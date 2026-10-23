@@ -1,5 +1,6 @@
 import { L } from "../../lib/releasePlan/constants";
 import type { DropSide } from "../../lib/releasePlan/reducer";
+import { epicMetaText } from "../../lib/releasePlan/selectors";
 import type { Epic } from "../../lib/releasePlan/types";
 import type { BoardDragHandlers } from "./useBoardDrag";
 
@@ -53,7 +54,7 @@ export function EpicHeader({
       </button>
       <button type="button" className="name" title="Click to see the description" onClick={onOpen}>
         <span>{epic.title}</span>
-        <span className="meta">{`Epic #${epic.id} · ${label}`}</span>
+        <span className="meta">{epicMetaText(epic, label)}</span>
       </button>
       <button type="button" className="mv" title="Move right" aria-label="Move Epic right" draggable={false} onClick={onMoveRight}>
         ▶

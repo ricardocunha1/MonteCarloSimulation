@@ -5,7 +5,7 @@
  */
 import { ADO, DEFAULT_STATE_COLOR, L, OK_GREEN, PALETTE, sizeColor, STATE_COLORS } from "./constants";
 import type { BoardLayout } from "./layout";
-import { epicMsLabel, featuresInBand, fmtDate, isDone, sizeCounts } from "./selectors";
+import { epicMetaText, epicMsLabel, featuresInBand, fmtDate, isDone, sizeCounts } from "./selectors";
 import type { Feature, ReleasePlan } from "./types";
 
 /** Height of the navy header strip above the board, in unscaled px. */
@@ -235,7 +235,7 @@ function drawEpics(ctx: PngContext, plan: ReleasePlan, layout: BoardLayout): voi
     wrap(ctx, epic.title, x + w / 2, L.TOP + 8, w - 20, 18, 1);
     ctx.font = `11px ${F}`;
     ctx.globalAlpha = 0.75;
-    ctx.fillText(`Epic #${epic.id} · ${epicMsLabel(plan, epic)}`, x + w / 2, L.TOP + 28);
+    ctx.fillText(epicMetaText(epic, epicMsLabel(plan, epic)), x + w / 2, L.TOP + 28);
     ctx.globalAlpha = 1;
     ctx.textAlign = "left";
   }

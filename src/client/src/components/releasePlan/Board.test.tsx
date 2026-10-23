@@ -1,7 +1,8 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { samplePlan, sprintsPlan } from "../../test/releasePlanFixtures";
+import { NO_EPIC_ID, NO_EPIC_TITLE } from "../../lib/releasePlan/types";
+import { makeEpic, makeFeature, samplePlan, sprintsPlan } from "../../test/releasePlanFixtures";
 import { BOARD_TEST_TIMEOUT_MS, renderBoard } from "../../test/renderBoard";
 
 const board = () => screen.getByRole("region", { name: "Board" });
@@ -19,6 +20,15 @@ const epicTitles = () => [...board().querySelectorAll(".epic .name > span:first-
 
 describe("Board", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
   afterEach(() => vi.restoreAllMocks());
+
+  it("shows the synthetic 'Features without an Epic' header without an id", () => {
+    const plan = samplePlan();
+    renderBoard({ ...plan, epics: [...plan.epics, makeEpic({ id: NO_EPIC_ID, title: NO_EPIC_TITLE, features: [makeFeature({ id: 99, title: "Loose" })] })] });
+    expect(epicTitles()).toContain(NO_EPIC_TITLE);
+    const header = board().querySelector(`[data-epic="${NO_EPIC_ID}"] .meta`);
+    expect(header).toHaveTextContent(/^Unplanned$/);
+    expect(within(board()).queryByText(/#no-epic/)).not.toBeInTheDocument();
+  });
 
   it("renders bands, epic headers, cards in their bands and the Unplanned label", () => {
     renderBoard(samplePlan());

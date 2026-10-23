@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { makeEpic, makeFeature, makeFlag, makeMilestone, makePlan, samplePlan, sequentialIds, sprintsPlan } from "../../test/releasePlanFixtures";
+import { makeBacklog, makeConnection, makeFeatureItem } from "../../test/adoFixtures";
 import { MS_COLORS } from "./constants";
+import { planFromBacklog } from "./fromBacklog";
 import { createPlanReducer, type PlanAction, type PlanState } from "./reducer";
 import type { ReleasePlan } from "./types";
 
@@ -222,5 +224,41 @@ describe("drag-and-drop actions", () => {
     expect(reduce(plan, drop({ ids: [21], targetFeatureId: 21, milestoneId: "ms_r2" }))).toBe(plan);
     // Already right of 21 and already in Release 2: nothing changes.
     expect(reduce(plan, drop({ ids: [22], targetFeatureId: 21, side: "R", milestoneId: null }))).toBe(plan);
+  });
+});
+
+describe("applySync", () => {
+  const syncAction = (backlog = makeBacklog(), removeGone = false): PlanAction => ({ type: "applySync", backlog, connection: makeConnection(), removeGone });
+  const synced = () => planFromBacklog(makeBacklog(), makeConnection(), sequentialIds());
+
+  it("applies the backlog in one state change (new Feature Unplanned, update, source)", () => {
+    const plan = synced();
+    const backlog = makeBacklog({
+      fetchedAt: "2026-10-24T09:00:00Z",
+      workItems: [...makeBacklog().workItems.map((i) => (i.id === 102 ? { ...i, title: "Sign in" } : i)), makeFeatureItem({ id: 108, parentId: 103 })],
+    });
+    const next = apply(plan, syncAction(backlog));
+    expect(next.epics[0].features[0]).toMatchObject({ id: 102, title: "Sign in", milestoneId: "ms_1" });
+    expect(next.epics[1].features.map((f) => [f.id, f.milestoneId])).toEqual([
+      [105, "ms_1"],
+      [108, null],
+    ]);
+    expect(next.source.fetchedAt).toBe("2026-10-24T09:00:00Z");
+  });
+
+  it("removes gone items only with removeGone", () => {
+    const plan = synced();
+    const backlog = makeBacklog({ workItems: makeBacklog().workItems.filter((i) => i.id !== 105) });
+    expect(apply(plan, syncAction(backlog, false)).epics[1].features.map((f) => f.id)).toEqual([105]);
+    expect(apply(plan, syncAction(backlog, true)).epics[1].features).toEqual([]);
+  });
+
+  it("returns the same state when nothing at all changes, a new one when only source or iterations change", () => {
+    const plan = synced();
+    const reduce = createPlanReducer(sequentialIds());
+    expect(reduce(plan, syncAction())).toBe(plan);
+    expect(reduce(plan, syncAction(makeBacklog({ fetchedAt: "2026-10-24T00:00:00Z" })))).not.toBe(plan);
+    expect(reduce(plan, syncAction(makeBacklog({ iterations: [] })))).not.toBe(plan);
+    expect(reduce(null, syncAction())).toBeNull();
   });
 });

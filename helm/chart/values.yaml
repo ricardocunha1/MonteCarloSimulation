@@ -5,3 +5,5 @@ client_image: planninghub/planninghub-client
 server_image: planninghub/planninghub-server
 tag: 0.3.0 # Shared by both images. Update when planninghub-client/-server are released (the deploy workflow tags both identically)
 public_http_address: cm-estimations-hub.apps.rhos.cm-mes.dev
+# Hosts the server may call for Azure DevOps (comma-separated; "*.x" = any subdomain of x)
+adoAllowedHosts: "dev.azure.com,*.visualstudio.com,tfs-projects.cmf.criticalmanufacturing.com"
