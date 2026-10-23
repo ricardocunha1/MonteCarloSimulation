@@ -1,7 +1,8 @@
 {
   "permissions": {
-    "allow": [
-      "Bash(docker build *)"
-    ]
+    "allow": ["Bash(docker build *)"]
+  },
+  "worktree": {
+    "baseRef": "head"
   }
 }
