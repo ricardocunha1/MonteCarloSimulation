@@ -694,6 +694,7 @@ def test_backlog_request_sequence_and_encoded_paths(client, fake):
         ("GET", b"/contoso/_apis/projects/Fabrikam%20Plant"),
         ("GET", b"/contoso/Fabrikam%20Plant/_apis/wit/classificationnodes"),
         ("GET", b"/contoso/_apis/wit/fields/Custom.EstimatedSize"),
+        ("GET", b"/contoso/_apis/wit/fields/Custom.FeatureSize"),
         ("POST", b"/contoso/Fabrikam%20Plant/_apis/wit/wiql"),
         ("POST", b"/contoso/Fabrikam%20Plant/_apis/wit/workitemsbatch"),
         ("POST", b"/contoso/Fabrikam%20Plant/_apis/wit/workitemsbatch"),  # parent completion
@@ -798,9 +799,181 @@ def test_backlog_without_size_field_through_the_real_stack(client, fake):
     response = client.post("/api/ado/backlog", json=_body(scopeType="area", scopePath=PROJECT_NAME))
     assert response.status_code == 200
     data = response.json()
-    assert data["warnings"] == ["The field Custom.EstimatedSize does not exist in this project; sizes are empty."]
+    assert data["warnings"] == [
+        "Neither Custom.EstimatedSize nor Custom.FeatureSize exists in this project; sizes are empty."
+    ]
     assert {i["size"] for i in data["workItems"]} == {""}
     assert all("Custom.EstimatedSize" not in b["fields"] for b in fake.batch_bodies())
+
+
+# --- size fields: Custom.EstimatedSize (1st), then Custom.FeatureSize (2nd) -------------
+
+ESTIMATED = "Custom.EstimatedSize"
+FEATURE = "Custom.FeatureSize"
+NEITHER_WARNING = "Neither Custom.EstimatedSize nor Custom.FeatureSize exists in this project; sizes are empty."
+
+
+def _mixed_size_backlog() -> list[dict]:
+    """Epic 1 with Features 2-9 in Team A, covering the value combinations an
+    ADO project with both fields can return (Epic 1 and its in-scope parent link
+    exercise the size on an Epic too)."""
+    return [
+        work_item(1, "Epic", "Epic with feature size", "Team A", feature_size=" xl "),
+        work_item(2, "Feature", "Both set", "Team A", parent=1, size=" m ", feature_size="xl"),
+        work_item(3, "Feature", "Feature size only", "Team A", parent=1, feature_size=" s "),
+        work_item(4, "Feature", "Whitespace estimated", "Team A", parent=1, size=" \t ", feature_size="l"),
+        work_item(5, "Feature", "Float estimated", "Team A", parent=1, size=3.5, feature_size="xs"),
+        work_item(6, "Feature", "Bool estimated, int feature", "Team A", parent=1, size=True, feature_size=13),
+        work_item(7, "Feature", "Object estimated", "Team A", parent=1, size={"v": "M"}, feature_size=["L"]),
+        work_item(8, "Feature", "Estimated only", "Team A", parent=1, size="l"),
+        work_item(9, "Feature", "Neither set", "Team A", parent=1),
+        work_item(10, "Feature", "Odd feature size", "Team A", parent=1, feature_size=2.0),
+    ]
+
+
+def _sizes(data: dict) -> dict[int, str]:
+    return {item["id"]: item["size"] for item in data["workItems"]}
+
+
+def test_backlog_only_feature_size_exists_through_the_real_stack(client, fake):
+    fake.size_fields = {FEATURE}
+    response = client.post("/api/ado/backlog", json=_body(scopeType="area", scopePath=TEAM_A))
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["warnings"] == []
+    # The synthetic backlog stores its sizes in EstimatedSize, which this project lacks.
+    assert set(_sizes(data).values()) == {""}
+
+    fake.work_items = _mixed_size_backlog()
+    fake.requests.clear()
+    response = client.post("/api/ado/backlog", json=_body(scopeType="area", scopePath=TEAM_A))
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["warnings"] == []
+    assert _sizes(data) == {1: "XL", 2: "XL", 3: "S", 4: "L", 5: "XS", 6: "13", 7: "", 8: "", 9: "", 10: ""}
+    # Both fields are checked, only the existing one is requested.
+    assert [r.url.path.rsplit("/", 1)[-1] for r in fake.requests_to("fields")] == [ESTIMATED, FEATURE]
+    for body in fake.batch_bodies():
+        assert FEATURE in body["fields"] and ESTIMATED not in body["fields"]
+    assert AdoBacklogResponse.model_validate(data).model_dump(by_alias=True) == data
+
+
+def test_backlog_both_size_fields_with_mixed_values_through_the_real_stack(client, fake):
+    fake.size_fields = {ESTIMATED, FEATURE}
+    fake.work_items = _mixed_size_backlog()
+    response = client.post("/api/ado/backlog", json=_body(scopeType="area", scopePath=TEAM_A))
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["warnings"] == []
+    # EstimatedSize wins when non-blank (2, 8); blank / whitespace / non-string values
+    # fall through to FeatureSize (3-6, Epic 1); unusable in both → "" (7, 9, 10).
+    assert _sizes(data) == {1: "XL", 2: "M", 3: "S", 4: "L", 5: "XS", 6: "13", 7: "", 8: "L", 9: "", 10: ""}
+    for body in fake.batch_bodies():
+        assert body["fields"][-2:] == [ESTIMATED, FEATURE]
+
+
+def test_backlog_both_size_fields_reach_completed_parent_epics(client, fake):
+    # The out-of-scope parent Epic comes from the parent-completion batch, which
+    # must request (and read) the same size fields.
+    fake.size_fields = {ESTIMATED, FEATURE}
+    fake.work_items = [
+        work_item(50, "Epic", "Parent in Team B", "Team B", feature_size="m"),
+        work_item(51, "Feature", "Child in Team A", "Team A", parent=50, feature_size=" s "),
+    ]
+    response = client.post("/api/ado/backlog", json=_body(scopeType="area", scopePath=TEAM_A))
+    assert response.status_code == 200, response.text
+    assert _sizes(response.json()) == {50: "M", 51: "S"}
+    bodies = fake.batch_bodies()
+    assert [b["ids"] for b in bodies] == [[51], [50]]
+    assert all(b["fields"][-2:] == [ESTIMATED, FEATURE] for b in bodies)
+
+
+def test_backlog_neither_size_field_exists_through_the_real_stack(client, fake):
+    fake.size_fields = set()
+    fake.work_items = _mixed_size_backlog()
+    response = client.post("/api/ado/backlog", json=_body(scopeType="iteration", scopePath=PROJECT_NAME))
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["warnings"] == [NEITHER_WARNING]
+    assert len(data["workItems"]) == 10
+    assert set(_sizes(data).values()) == {""}
+    assert [r.url.path.rsplit("/", 1)[-1] for r in fake.requests_to("fields")] == [ESTIMATED, FEATURE]
+    assert all(not {ESTIMATED, FEATURE} & set(b["fields"]) for b in fake.batch_bodies())
+
+
+def test_backlog_neither_warning_comes_before_the_cap_warning(client, fake):
+    fake.size_fields = set()
+    fake.wiql_ids = list(range(1, 20001))
+    fake.work_items = []
+    response = client.post("/api/ado/backlog", json=_body(scopeType="area", scopePath=TEAM_A))
+    assert response.status_code == 200, response.text
+    assert response.json()["warnings"] == [
+        NEITHER_WARNING,
+        "Only the first 20000 work items were loaded; narrow the scope.",
+    ]
+
+
+@pytest.mark.parametrize(
+    "kind, expected",
+    [
+        ("401", PAT_REJECTED),
+        ("500", "Azure DevOps returned an error (HTTP 500). Something broke on the server."),
+        ("502", "Azure DevOps returned an error (HTTP 502)."),
+        ("timeout", "Could not reach Azure DevOps at dev.azure.com."),
+        ("non_json", PAT_REJECTED),
+    ],
+)
+def test_feature_size_check_failure_is_a_422_even_when_estimated_size_exists(
+    lenient_client, transport, fake, caplog, kind, expected
+):
+    # Only a 404 means "absent"; anything else fails the whole request (contract).
+    from ado_fakes import error_response
+
+    def handler(request):
+        if request.url.path.endswith(f"/_apis/wit/fields/{FEATURE}"):
+            fake.requests.append(request)
+            return error_response(kind, request)
+        return fake(request)
+
+    transport.handler = handler
+    with caplog.at_level(logging.DEBUG):
+        response = lenient_client.post("/api/ado/backlog", json=_body(scopeType="area", scopePath=TEAM_A))
+    assert response.status_code == 422, response.text
+    assert response.json() == {"errors": [expected]}
+    assert fake.requests_to("wiql") == [] and fake.requests_to("batch") == []
+    assert all(c.is_closed for c in transport.clients)
+    _assert_no_pat(caplog.text)
+    _assert_no_pat(response.text)
+
+
+@pytest.mark.parametrize(
+    "size_json, expected_size",
+    [
+        ('"Custom.FeatureSize": 1' + "0" * 5000, ""),  # integer beyond int max str digits
+        ('"Custom.FeatureSize": " s\\ud800 "', "S?"),  # lone surrogate is replaced, like other text
+        ('"Custom.FeatureSize": 1e400', ""),  # float overflow → inf
+        ('"Custom.FeatureSize": NaN', ""),
+        ('"Custom.FeatureSize": {"a": [1, 2, {"b": null}]}', ""),
+        ('"Custom.EstimatedSize": null, "Custom.FeatureSize": false', ""),
+    ],
+    ids=["huge-int", "lone-surrogate", "float-overflow", "nan", "object", "null-and-false"],
+)
+def test_odd_feature_size_payloads_are_never_a_500(lenient_client, transport, size_json, expected_size):
+    inner = FakeAdo(size_fields={ESTIMATED, FEATURE})
+
+    def handler(request):
+        if request.url.path.endswith("/workitemsbatch"):
+            content = '{"value": [{"id": 101, "fields": {"System.WorkItemType": "Feature", %s}}]}' % size_json
+            return httpx.Response(200, content=content.encode(), headers={"Content-Type": "application/json"})
+        return inner(request)
+
+    transport.handler = handler
+    response = lenient_client.post("/api/ado/backlog", json=_body(scopeType="area", scopePath=TEAM_A))
+    assert response.status_code in (200, 422), response.text
+    if response.status_code == 200:
+        assert [i["size"] for i in response.json()["workItems"]] == [expected_size]
+    else:
+        assert response.json() == UNEXPECTED
 
 
 @pytest.mark.parametrize(

@@ -85,7 +85,7 @@ describe("ReleasePlanHomePage", () => {
 
   it("creates a board from Azure DevOps: stores it, opens the board and toasts 'Plan loaded' and the warnings", async () => {
     const user = userEvent.setup();
-    const warning = "The field Custom.EstimatedSize does not exist in this project; sizes are empty.";
+    const warning = "Neither Custom.EstimatedSize nor Custom.FeatureSize exists in this project; sizes are empty.";
     mockAdo(makeBacklog({ warnings: [warning] }));
     renderAt("/release-plan", <ReleasePlanHomePage />, { routes });
     await createFromAdo(user);

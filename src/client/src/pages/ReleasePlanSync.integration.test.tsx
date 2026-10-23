@@ -64,7 +64,7 @@ function changedBacklog(): AdoBacklog {
   return {
     ...base,
     fetchedAt: "2026-10-30T08:00:00Z",
-    warnings: ["The field Custom.EstimatedSize does not exist in this project; sizes are empty."],
+    warnings: ["Neither Custom.EstimatedSize nor Custom.FeatureSize exists in this project; sizes are empty."],
     workItems: [
       ...base.workItems
         .filter((i) => i.id !== 105)
@@ -230,7 +230,7 @@ describe("Release Plan – Sync from Azure DevOps (integration)", { timeout: TIM
 
       const toasts = toastTexts();
       expect(toasts.some((t) => t.includes("Board synchronized with Azure DevOps"))).toBe(true);
-      expect(toasts.some((t) => t.includes("Custom.EstimatedSize does not exist"))).toBe(true);
+      expect(toasts.some((t) => t.includes("Neither Custom.EstimatedSize nor Custom.FeatureSize exists"))).toBe(true);
       expect(allLocalStorage()).not.toContain(PAT);
       expect(fetchMock).toHaveBeenCalledTimes(4);
 
