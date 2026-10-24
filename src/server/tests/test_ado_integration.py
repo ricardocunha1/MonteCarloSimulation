@@ -777,7 +777,7 @@ def test_backlog_timeout_comes_from_the_environment(env_settings, client, transp
     env_settings(ADO_TIMEOUT_SECONDS="12")
     response = client.post("/api/ado/backlog", json=_body(scopeType="area", scopePath=PROJECT_NAME))
     assert response.status_code == 200
-    assert transport.kwargs[0] == {"timeout": 12.0, "follow_redirects": False}
+    assert transport.kwargs[0] == {"timeout": 12.0, "follow_redirects": False, "verify": False}
 
 
 def test_large_backlog_is_chunked_through_the_real_stack(client, fake):

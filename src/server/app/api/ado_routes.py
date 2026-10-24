@@ -27,8 +27,14 @@ ERROR_RESPONSES = {422: {"model": ErrorResponse}}
 
 async def get_ado_http_client(settings: Settings = Depends(get_settings)) -> AsyncIterator[httpx.AsyncClient]:
     """One httpx client per request, closed when the response is done. Tests
-    override this dependency with a client on an `httpx.MockTransport`."""
-    async with httpx.AsyncClient(timeout=settings.ado_timeout_seconds, follow_redirects=False) as client:
+    override this dependency with a client on an `httpx.MockTransport`.
+
+    TLS certificate verification is disabled: on-prem Azure DevOps Server
+    instances (e.g. tfs-projects.cmf.criticalmanufacturing.com) use
+    certificates signed by an internal CA that isn't in the image's bundle."""
+    async with httpx.AsyncClient(
+        timeout=settings.ado_timeout_seconds, follow_redirects=False, verify=False
+    ) as client:
         yield client
 
 
