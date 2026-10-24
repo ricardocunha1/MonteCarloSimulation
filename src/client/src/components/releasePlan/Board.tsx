@@ -66,7 +66,7 @@ export function Board({
   const [gapMenu, setGapMenu] = useState<OpenGapMenu | null>(null);
   const [pendingFocus, setPendingFocus] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const boardDrag = useBoardDrag({ dispatch, scrollRef, orientation: layout.orientation });
+  const boardDrag = useBoardDrag({ dispatch, scrollRef, orientation: layout.orientation, frozenLeft: flipped ? 0 : L.LBL_W * zoom });
 
   useEffect(() => {
     if (!pendingFocus) {

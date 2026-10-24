@@ -26,6 +26,13 @@ function setupBox() {
   return box;
 }
 
+function setupWideBox() {
+  const box = setupBox();
+  Object.defineProperty(box, "clientWidth", { configurable: true, value: 800 });
+  Object.defineProperty(box, "scrollWidth", { configurable: true, value: 3000 });
+  return box;
+}
+
 const card = (title: string) => within(screen.getByRole("region", { name: "Board" })).getByRole("button", { name: new RegExp(title) });
 
 describe("useBoardDrag auto-scroll and cleanup", { timeout: BOARD_TEST_TIMEOUT_MS }, () => {
@@ -103,26 +110,11 @@ describe("useBoardDrag auto-scroll and cleanup", { timeout: BOARD_TEST_TIMEOUT_M
     expect(box.scrollTop).toBe(1600);
   });
 
-  it("scrolls the box horizontally near its left/right edges on the flipped board only", () => {
-    const setupWideBox = () => {
-      const box = setupBox();
-      Object.defineProperty(box, "clientWidth", { configurable: true, value: 800 });
-      Object.defineProperty(box, "scrollWidth", { configurable: true, value: 3000 });
-      return box;
-    };
+  it("scrolls the box horizontally near its left/right edges on the flipped board", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
-    const { unmount } = renderBoard(samplePlan());
-    let box = setupWideBox();
-    fireDnd("dragStart", card("Reports"), { dataTransfer: mockDataTransfer() });
-    fireDnd("dragOver", document, { clientX: 795, clientY: 200 });
-    runFrames();
-    expect(box.scrollLeft).toBe(0);
-    fireDnd("dragEnd", card("Reports"), { dataTransfer: mockDataTransfer() });
-    unmount();
-
     renderBoard(samplePlan());
     fireEvent.click(screen.getByRole("button", { name: "Flip board" }));
-    box = setupWideBox();
+    const box = setupWideBox();
     fireDnd("dragStart", card("Reports"), { dataTransfer: mockDataTransfer() });
     fireDnd("dragOver", document, { clientX: 795, clientY: 200 });
     runFrames();
@@ -133,6 +125,42 @@ describe("useBoardDrag auto-scroll and cleanup", { timeout: BOARD_TEST_TIMEOUT_M
     fireDnd("dragOver", document, { clientX: 5, clientY: 200 });
     runFrames();
     expect(box.scrollLeft).toBeLessThan(right);
+  });
+
+  it("scrolls the standard board right near its right edge and left near the frozen milestone column", () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
+    renderBoard(samplePlan());
+    const box = setupWideBox();
+    fireDnd("dragStart", card("Reports"), { dataTransfer: mockDataTransfer() });
+    fireDnd("dragOver", document, { clientX: 795, clientY: 200 });
+    runFrames();
+    const right = box.scrollLeft;
+    expect(right).toBeGreaterThan(0);
+    expect(box.scrollTop).toBe(0);
+
+    // Just right of the 180px frozen column (the box's own left edge is hidden under it).
+    fireDnd("dragOver", document, { clientX: 190, clientY: 200 });
+    runFrames();
+    const left = box.scrollLeft;
+    expect(left).toBeLessThan(right);
+    // Over the frozen column itself: still scrolls left (at full speed).
+    fireDnd("dragOver", document, { clientX: 50, clientY: 200 });
+    runFrames();
+    expect(box.scrollLeft).toBeLessThan(left);
+    // The middle of the box: no horizontal scroll.
+    fireDnd("dragOver", document, { clientX: 450, clientY: 200 });
+    const still = box.scrollLeft;
+    runFrames();
+    expect(box.scrollLeft).toBe(still);
+  });
+
+  it("does not scroll the box left past its start", () => {
+    renderBoard(samplePlan());
+    const box = setupWideBox();
+    fireDnd("dragStart", card("Reports"), { dataTransfer: mockDataTransfer() });
+    fireDnd("dragOver", document, { clientX: 50, clientY: 200 });
+    runFrames();
+    expect(box.scrollLeft).toBe(0);
   });
 
   it("removes every document listener and cancels the rAF loop on unmount", () => {

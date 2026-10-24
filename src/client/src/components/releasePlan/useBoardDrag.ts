@@ -125,22 +125,28 @@ function createDragGhost(count: number): HTMLElement {
  *
  * Rules: *Drag-and-drop rules* in `plans/release-plan-board.md`. On the
  * flipped board the same rules apply transposed: the before/after side is
- * decided by `clientY` (`L` = above, `R` = below) and the auto-scroll also
- * scrolls the box horizontally near its left/right edges.
+ * decided by `clientY` (`L` = above, `R` = below).
+ *
+ * In both orientations the auto-scroll also scrolls the box horizontally near
+ * its left/right edges; the left zone starts at the right edge of the frozen
+ * column (`frozenLeft`), which covers the box's own left edge.
  *
  * @param dispatch - The plan store's dispatch (`reorderEpic` / `dropFeatures`).
  * @param scrollRef - The board's scroll box, auto-scrolled first during a drag.
  * @param orientation - Board orientation (default `standard`); read through a ref, so `handlers` stay stable.
+ * @param frozenLeft - Width (scaled px, default 0) of the sticky column frozen at the box's left edge.
  * @returns The selection, the visible drag/drop-target state and the stable `handlers`.
  */
 export function useBoardDrag({
   dispatch,
   scrollRef,
   orientation = "standard",
+  frozenLeft = 0,
 }: {
   dispatch: Dispatch<PlanAction>;
   scrollRef: RefObject<HTMLElement>;
   orientation?: BoardOrientation;
+  frozenLeft?: number;
 }): BoardDrag {
   const [selection, setSelection] = useState<FeatureSelection | null>(null);
   const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
@@ -157,8 +163,8 @@ export function useBoardDrag({
     pointerY: 0,
     ghosts: new Set<{ el: HTMLElement; timer: number }>(),
   });
-  const deps = useRef({ dispatch, scrollRef, orientation });
-  deps.current = { dispatch, scrollRef, orientation };
+  const deps = useRef({ dispatch, scrollRef, orientation, frozenLeft });
+  deps.current = { dispatch, scrollRef, orientation, frozenLeft };
 
   const handlers = useMemo<BoardDragHandlers>(() => {
     const s = m.current;
@@ -334,9 +340,10 @@ export function useBoardDrag({
 
     const scrollStep = (x: number, y: number) => {
       const box = deps.current.scrollRef.current;
-      if (box && deps.current.orientation === "flipped") {
+      if (box) {
         const r = box.getBoundingClientRect();
-        const speedX = edgeSpeed(x, Math.max(r.left, 0), Math.min(r.right, window.innerWidth));
+        const left = Math.min(Math.max(r.left, 0) + deps.current.frozenLeft, r.right);
+        const speedX = edgeSpeed(x, left, Math.min(r.right, window.innerWidth));
         if ((speedX < 0 && box.scrollLeft > 0) || (speedX > 0 && box.scrollLeft + box.clientWidth < box.scrollWidth)) {
           box.scrollLeft += speedX;
         }
