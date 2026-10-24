@@ -135,6 +135,7 @@ file or directly from Azure DevOps.
     background clears the selection.
   - **Auto-scroll** while dragging near the board's top or bottom edge, and
     **Zoom** (−/+, **Fit**).
+  - **Flip Board** — toggle the board's orientation between horizontal and vertical.
 - **Table view** — the same plan as a table, with search, Epic and
   milestone filters, and a milestone select per Feature.
 - **Work-item details** — click a Feature card or Epic title to see its
