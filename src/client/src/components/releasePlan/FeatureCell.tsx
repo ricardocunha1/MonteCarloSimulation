@@ -1,8 +1,8 @@
 import { memo } from "react";
 import { L } from "../../lib/releasePlan/constants";
-import type { LayoutBand } from "../../lib/releasePlan/layout";
 import type { DropSide } from "../../lib/releasePlan/reducer";
 import type { Epic, Feature, WorkItemRef } from "../../lib/releasePlan/types";
+import { dropClass } from "./boardGeometry";
 import { FeatureCard } from "./FeatureCard";
 import type { BoardDragHandlers } from "./useBoardDrag";
 
@@ -14,13 +14,21 @@ export type CellDragState = "valid" | "invalid" | null;
  * the band. It is a drop target for Features of the same Epic: dropping moves
  * them to this band (and, for a single Feature dropped on another column,
  * reorders it before/after this column). Memoized: during a drag only the cells
- * whose highlight changes re-render.
+ * whose highlight changes re-render, so the geometry is passed as primitives.
+ *
+ * On the flipped board (`flipped`) the cell is a (feature row × milestone
+ * column) cell: horizontal padding, and the reorder indicator is above/below
+ * (`.dropT`/`.dropB`).
  */
 export const FeatureCell = memo(function FeatureCell({
   epic,
   feature,
-  x,
-  layoutBand,
+  bandId,
+  left,
+  top,
+  width,
+  height,
+  flipped = false,
   onOpenItem,
   drag,
   dragState = null,
@@ -31,8 +39,14 @@ export const FeatureCell = memo(function FeatureCell({
 }: {
   epic: Epic;
   feature: Feature;
-  x: number;
-  layoutBand: LayoutBand;
+  /** Milestone of the cell's band/column (`null` = Unplanned). */
+  bandId: string | null;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  /** Rendered on the flipped board. */
+  flipped?: boolean;
   /** Opens the details modal; passed instead of a per-cell closure so `memo` holds. */
   onOpenItem: (item: WorkItemRef) => void;
   /** Board drag handlers from `useBoardDrag` (stable identity). */
@@ -41,27 +55,27 @@ export const FeatureCell = memo(function FeatureCell({
   dragState?: CellDragState;
   /** A valid drag is over this cell (`.over`). */
   over?: boolean;
-  /** Reorder indicator (`.dropL`/`.dropR`). */
+  /** Reorder indicator (`.dropL`/`.dropR`, or `.dropT`/`.dropB` when flipped). */
   dropSide?: DropSide | null;
   /** The card is in the Ctrl/⌘+click selection. */
   selected?: boolean;
   /** The card is being dragged. */
   dragging?: boolean;
 }) {
-  const { band, y, h } = layoutBand;
   const open = () => onOpenItem({ type: "feature", id: feature.id });
-  const className = `abs cell fcell${dragState ? ` ${dragState}` : ""}${over ? " over" : ""}${dropSide ? ` drop${dropSide}` : ""}`;
+  const className = `abs cell fcell${dragState ? ` ${dragState}` : ""}${over ? " over" : ""}${dropSide ? ` ${dropClass(dropSide, flipped)}` : ""}`;
+  const padding = flipped ? `0 ${L.BAND_PAD}px` : `${L.BAND_PAD}px 0`;
   return (
     <div
       className={className}
       data-epic={String(epic.id)}
       data-feature={String(feature.id)}
-      style={{ left: x, top: y, width: L.COL_W, height: h, padding: `${L.BAND_PAD}px 0` }}
-      onDragOver={(event) => drag.cellDragOver(event, epic.id, feature.id, band.id)}
-      onDragLeave={(event) => drag.cellDragLeave(event, epic.id, feature.id, band.id)}
-      onDrop={(event) => drag.cellDrop(event, epic.id, feature.id, band.id)}
+      style={{ left, top, width, height, padding }}
+      onDragOver={(event) => drag.cellDragOver(event, epic.id, feature.id, bandId)}
+      onDragLeave={(event) => drag.cellDragLeave(event, epic.id, feature.id, bandId)}
+      onDrop={(event) => drag.cellDrop(event, epic.id, feature.id, bandId)}
     >
-      {(feature.milestoneId ?? null) === band.id && (
+      {(feature.milestoneId ?? null) === bandId && (
         <FeatureCard
           feature={feature}
           onOpen={open}

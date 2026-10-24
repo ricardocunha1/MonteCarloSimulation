@@ -15,7 +15,7 @@ import { WorkItemModal } from "../components/releasePlan/WorkItemModal";
 import { useToast } from "../components/Toast";
 import { downloadBlob, fileBase, planToJson } from "../lib/releasePlan/exportFile";
 import type { AdoBacklog, AdoConnection } from "../lib/releasePlan/adoTypes";
-import { computeLayout } from "../lib/releasePlan/layout";
+import { computeBoardLayout, type BoardOrientation } from "../lib/releasePlan/layout";
 import { diffBacklog, type SyncDiff } from "../lib/releasePlan/syncDiff";
 import type { ReleasePlan, WorkItemRef } from "../lib/releasePlan/types";
 import { fitZoom, zoomIn, zoomOut } from "../lib/releasePlan/zoom";
@@ -29,14 +29,16 @@ interface PendingSync {
 }
 
 /**
- * Board/Table workspace for a plan. UI-only state (view, zoom, open item, the
- * Load Plan modal and its pending plan) lives here, not in the store.
+ * Board/Table workspace for a plan. UI-only state (view, zoom, board
+ * orientation, open item, the Load Plan modal and its pending plan) lives here,
+ * not in the store; the orientation (default `standard`, toggled by "Flip
+ * board") is never persisted. Fit and Export PNG use the orientation shown.
  *
  * Save Plan downloads `planToJson(plan)` as `<fileBase>.json` without touching
  * the store. Load Plan opens {@link ImportJsonModal}; a valid file asks
  * {@link ReplaceBoardDialog}, then replaces the plan, closes the work-item
  * modal and remounts `Board` (new `key`) so its selection, gap menu and drag
- * state reset. View and zoom are kept. Export PNG ({@link useExportPng}) works
+ * state reset. View, zoom and orientation are kept. Export PNG ({@link useExportPng}) works
  * from both views.
  *
  * Sync from ADO opens {@link AdoSyncModal}: the connection is read-only from
@@ -51,6 +53,7 @@ function BoardWorkspace({ plan }: { plan: ReleasePlan }) {
   const { showInfo } = useToast();
   const [view, setView] = useState<BoardView>("board");
   const [zoom, setZoom] = useState(1);
+  const [orientation, setOrientation] = useState<BoardOrientation>("standard");
   const [openItem, setOpenItem] = useState<WorkItemRef | null>(null);
   const [loadOpen, setLoadOpen] = useState(false);
   const [pendingPlan, setPendingPlan] = useState<ReleasePlan | null>(null);
@@ -58,12 +61,12 @@ function BoardWorkspace({ plan }: { plan: ReleasePlan }) {
   const [syncOpen, setSyncOpen] = useState(false);
   const [pendingSync, setPendingSync] = useState<PendingSync | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const layout = useMemo(() => computeLayout(plan), [plan]);
+  const layout = useMemo(() => computeBoardLayout(plan, orientation), [plan, orientation]);
   const closeItem = useCallback(() => setOpenItem(null), []);
   const closeLoad = useCallback(() => setLoadOpen(false), []);
   const closeSync = useCallback(() => setSyncOpen(false), []);
   const cancelSync = useCallback(() => setPendingSync(null), []);
-  const { exporting, exportPng } = useExportPng(plan);
+  const { exporting, exportPng } = useExportPng(plan, orientation);
 
   const onSave = () => {
     const now = new Date();
@@ -118,6 +121,8 @@ function BoardWorkspace({ plan }: { plan: ReleasePlan }) {
         onZoomIn={() => setZoom(zoomIn)}
         onZoomOut={() => setZoom(zoomOut)}
         onFit={onFit}
+        orientation={orientation}
+        onFlip={() => setOrientation((o) => (o === "flipped" ? "standard" : "flipped"))}
         onSync={() => setSyncOpen(true)}
         onLoad={() => setLoadOpen(true)}
         onSave={onSave}

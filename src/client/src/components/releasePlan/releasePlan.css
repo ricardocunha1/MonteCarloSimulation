@@ -44,6 +44,10 @@
 .rp .zoom .btn { padding: 4px 9px; }
 .rp .btn.withIcon { display: inline-flex; align-items: center; gap: 6px; }
 .rp .btn.withIcon .btnIcon { width: 15px; height: 15px; flex: none; }
+/* "Flip board" toggle: decorated like .withIcon, filled light while pressed (like the selected tabs) */
+.rp .btn.flipBtn { display: inline-flex; align-items: center; gap: 6px; }
+.rp .btn.flipBtn .btnIcon { width: 15px; height: 15px; flex: none; }
+.rp .btn.flipBtn[aria-pressed=true] { background: var(--ink); color: var(--navy); border-color: var(--ink); font-weight: 600; }
 
 /* ---------- summary ---------- */
 .rp .summary { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
@@ -154,6 +158,25 @@
 .rp .gapMenu { position: fixed; z-index: 60; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.25); padding: 4px; min-width: 190px; }
 .rp .gapMenu button { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent; padding: 7px 10px; border-radius: 4px; cursor: pointer; text-align: left; }
 .rp .gapMenu button:hover, .rp .gapMenu button:focus-visible { background: var(--hover); }
+
+/* ---------- flipped board: milestones as columns, Epic/Feature rows ---------- */
+/* frozen milestone header row: sticky to the top edge while scrolling vertically */
+.rp .frzTop { position: sticky; top: 0; width: 0; height: 0; z-index: 15; overflow: visible; }
+.rp .frzrow { background: var(--panel); border-bottom: 1px solid var(--line); transition: box-shadow .15s; }
+.rp .boardScroll.scrolledY .frzrow { box-shadow: 0 4px 8px -2px rgba(0,0,0,.22); }
+.rp .band.col { border-top: 0; border-left: 1px solid var(--band-line); }
+.rp .mslabel.flip { border-top: 0; border-right: 0; border-left: 1px solid var(--band-line); border-bottom: 1px solid var(--line); }
+.rp .epic.flip { flex-direction: column; justify-content: center; gap: 2px; padding: 4px 6px; }
+.rp .epic.flip .mv { height: 18px; }
+.rp .epic.flip .name { width: 100%; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+.rp .epic.flip .name > span:first-child { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.rp .epic.dropT { box-shadow: 0 -5px 0 var(--sky); }
+.rp .epic.dropB { box-shadow: 0 5px 0 var(--sky); }
+.rp .cell.dropT { box-shadow: inset 0 4px 0 var(--gold); }
+.rp .cell.dropB { box-shadow: inset 0 -4px 0 var(--gold); }
+.rp .flagcol { background: repeating-linear-gradient(180deg, var(--gold) 0 14px, transparent 14px 20px) center/3px 100% no-repeat; pointer-events: none; }
+.rp .flagtag.vert { left: 50%; transform: translateX(-50%) rotate(180deg); writing-mode: vertical-rl; padding: 8px 2px; }
+.rp .flaglbl.flip { transform: rotate(-90deg); border-radius: 6px 0 0 6px; }
 
 /* ---------- table ---------- */
 .rp .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }

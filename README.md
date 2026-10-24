@@ -43,7 +43,7 @@ The Monte Carlo tool is a three-step wizard.
 
 ### 1. Data Input
 
-Initially the user selects the data source: an Excel file containing an extract of the sprints historical data or a direct connection to Azure DevOps, where they need to enter additional connection details, including a valid __Personal Access Token_.  
+Initially the user selects the data source: an Excel file containing an extract of the sprints historical data or a direct connection to Azure DevOps, where they need to enter additional connection details, including a valid __Personal Access Token__.  
 The user then must fill in the simulation parameters:
 
 | Parameter                            | Required | Description                                                                                                        |
@@ -135,6 +135,7 @@ file or directly from Azure DevOps.
     background clears the selection.
   - **Auto-scroll** while dragging near the board's top or bottom edge, and
     **Zoom** (−/+, **Fit**).
+  - **Flip Board** — toggle the board's orientation between horizontal and vertical.
 - **Table view** — the same plan as a table, with search, Epic and
   milestone filters, and a milestone select per Feature.
 - **Work-item details** — click a Feature card or Epic title to see its

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type MouseEvent, type RefObject } from "react";
 import { edgeSpeed } from "../../lib/releasePlan/autoScroll";
 import { ADO } from "../../lib/releasePlan/constants";
+import type { BoardOrientation } from "../../lib/releasePlan/layout";
 import type { DropSide, PlanAction } from "../../lib/releasePlan/reducer";
 import type { Epic, WorkItemId } from "../../lib/releasePlan/types";
 import { isDialogOpen } from "../useDialog";
@@ -56,9 +57,16 @@ export function cellKey(epicId: WorkItemId, featureId: WorkItemId, bandId: strin
   return JSON.stringify([epicId, featureId, bandId]);
 }
 
-/** `R` when the pointer is right of the element's horizontal midpoint, else `L`. */
-function sideOf(event: DragEvent<HTMLElement>): DropSide {
+/**
+ * `R` (after) when the pointer is right of the element's horizontal midpoint,
+ * else `L` (before). On the flipped board (`vertical`) the vertical midpoint
+ * decides instead: below = `R` (after), above = `L` (before).
+ */
+function sideOf(event: DragEvent<HTMLElement>, vertical: boolean): DropSide {
   const r = event.currentTarget.getBoundingClientRect();
+  if (vertical) {
+    return event.clientY > r.top + r.height / 2 ? "R" : "L";
+  }
   return event.clientX > r.left + r.width / 2 ? "R" : "L";
 }
 
@@ -115,13 +123,25 @@ function createDragGhost(count: number): HTMLElement {
  *   `dragend` also clears every drag highlight. All listeners, timers and the
  *   rAF loop are released on unmount.
  *
- * Rules: *Drag-and-drop rules* in `plans/release-plan-board.md`.
+ * Rules: *Drag-and-drop rules* in `plans/release-plan-board.md`. On the
+ * flipped board the same rules apply transposed: the before/after side is
+ * decided by `clientY` (`L` = above, `R` = below) and the auto-scroll also
+ * scrolls the box horizontally near its left/right edges.
  *
  * @param dispatch - The plan store's dispatch (`reorderEpic` / `dropFeatures`).
  * @param scrollRef - The board's scroll box, auto-scrolled first during a drag.
+ * @param orientation - Board orientation (default `standard`); read through a ref, so `handlers` stay stable.
  * @returns The selection, the visible drag/drop-target state and the stable `handlers`.
  */
-export function useBoardDrag({ dispatch, scrollRef }: { dispatch: Dispatch<PlanAction>; scrollRef: RefObject<HTMLElement> }): BoardDrag {
+export function useBoardDrag({
+  dispatch,
+  scrollRef,
+  orientation = "standard",
+}: {
+  dispatch: Dispatch<PlanAction>;
+  scrollRef: RefObject<HTMLElement>;
+  orientation?: BoardOrientation;
+}): BoardDrag {
   const [selection, setSelection] = useState<FeatureSelection | null>(null);
   const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
@@ -133,14 +153,16 @@ export function useBoardDrag({ dispatch, scrollRef }: { dispatch: Dispatch<PlanA
     dropTarget: null as DropTarget | null,
     tick: null as number | null,
     raf: null as number | null,
+    pointerX: 0,
     pointerY: 0,
     ghosts: new Set<{ el: HTMLElement; timer: number }>(),
   });
-  const deps = useRef({ dispatch, scrollRef });
-  deps.current = { dispatch, scrollRef };
+  const deps = useRef({ dispatch, scrollRef, orientation });
+  deps.current = { dispatch, scrollRef, orientation };
 
   const handlers = useMemo<BoardDragHandlers>(() => {
     const s = m.current;
+    const side = (event: DragEvent<HTMLElement>) => sideOf(event, deps.current.orientation === "flipped");
 
     const applySelection = (next: FeatureSelection | null) => {
       if (s.selection !== next) {
@@ -202,7 +224,7 @@ export function useBoardDrag({ dispatch, scrollRef }: { dispatch: Dispatch<PlanA
         if (event.dataTransfer) {
           event.dataTransfer.dropEffect = "move";
         }
-        applyDropTarget({ kind: "epic", epicId, side: sideOf(event) });
+        applyDropTarget({ kind: "epic", epicId, side: side(event) });
       },
       epicDragLeave: (event, epicId) => {
         const t = s.dropTarget;
@@ -216,7 +238,7 @@ export function useBoardDrag({ dispatch, scrollRef }: { dispatch: Dispatch<PlanA
           return;
         }
         event.preventDefault();
-        deps.current.dispatch({ type: "reorderEpic", dragId: d.id, targetId: epicId, after: sideOf(event) === "R" });
+        deps.current.dispatch({ type: "reorderEpic", dragId: d.id, targetId: epicId, after: side(event) === "R" });
         dragEnd();
       },
       cardClick: (event, epicId, featureId, open) => {
@@ -275,7 +297,7 @@ export function useBoardDrag({ dispatch, scrollRef }: { dispatch: Dispatch<PlanA
           event.dataTransfer.dropEffect = "move";
         }
         const reorder = d.ids.length === 1 && d.ids[0] !== featureId;
-        applyDropTarget({ kind: "cell", key: cellKey(epicId, featureId, bandId), side: reorder ? sideOf(event) : null });
+        applyDropTarget({ kind: "cell", key: cellKey(epicId, featureId, bandId), side: reorder ? side(event) : null });
       },
       cellDragLeave: (event, epicId, featureId, bandId) => {
         const t = s.dropTarget;
@@ -289,7 +311,7 @@ export function useBoardDrag({ dispatch, scrollRef }: { dispatch: Dispatch<PlanA
           return;
         }
         event.preventDefault();
-        deps.current.dispatch({ type: "dropFeatures", epicId, ids: d.ids, targetFeatureId: featureId, side: sideOf(event), milestoneId: bandId });
+        deps.current.dispatch({ type: "dropFeatures", epicId, ids: d.ids, targetFeatureId: featureId, side: side(event), milestoneId: bandId });
         applySelection(null);
         dragEnd();
       },
@@ -310,8 +332,15 @@ export function useBoardDrag({ dispatch, scrollRef }: { dispatch: Dispatch<PlanA
   useEffect(() => {
     const s = m.current;
 
-    const scrollStep = (y: number) => {
+    const scrollStep = (x: number, y: number) => {
       const box = deps.current.scrollRef.current;
+      if (box && deps.current.orientation === "flipped") {
+        const r = box.getBoundingClientRect();
+        const speedX = edgeSpeed(x, Math.max(r.left, 0), Math.min(r.right, window.innerWidth));
+        if ((speedX < 0 && box.scrollLeft > 0) || (speedX > 0 && box.scrollLeft + box.clientWidth < box.scrollWidth)) {
+          box.scrollLeft += speedX;
+        }
+      }
       if (box) {
         const r = box.getBoundingClientRect();
         const speed = edgeSpeed(y, Math.max(r.top, 0), Math.min(r.bottom, window.innerHeight));
@@ -332,13 +361,14 @@ export function useBoardDrag({ dispatch, scrollRef }: { dispatch: Dispatch<PlanA
       if (!s.drag) {
         return;
       }
-      scrollStep(s.pointerY);
+      scrollStep(s.pointerX, s.pointerY);
       s.raf = window.requestAnimationFrame(frame);
     };
     const onDragOver = (event: globalThis.DragEvent) => {
       if (!s.drag) {
         return;
       }
+      s.pointerX = event.clientX;
       s.pointerY = event.clientY;
       if (s.raf === null) {
         s.raf = window.requestAnimationFrame(frame);

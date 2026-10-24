@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { L } from "../../lib/releasePlan/constants";
-import type { LayoutFlag } from "../../lib/releasePlan/layout";
+import type { Flag } from "../../lib/releasePlan/types";
 import { fmtDate } from "../../lib/releasePlan/selectors";
 import { useReleasePlan } from "../../releasePlanStore";
+import type { BoxRect } from "./boardGeometry";
 import { CommitInput } from "./CommitInput";
 import { FlagIcon } from "./FlagIcon";
 
@@ -10,10 +10,13 @@ import { FlagIcon } from "./FlagIcon";
  * Frozen-column label of a milestone flag: icon, editable name (data-focus
  * `fl:<id>`), 📅 (opens the native date picker via `showPicker()`, or reveals the
  * date input inline when that is unavailable) and ✕ (removes the flag).
+ *
+ * `rect` is the unrotated box. On the flipped board (`flipped`) the same label
+ * is rotated -90° around its center (`.flaglbl.flip`) so it fits the narrow
+ * flag column of the header row.
  */
-export function FlagLabel({ layoutFlag }: { layoutFlag: LayoutFlag }) {
+export function FlagLabel({ flag, rect, flipped = false }: { flag: Flag; rect: BoxRect; flipped?: boolean }) {
   const { dispatch } = useReleasePlan();
-  const { flag, y, h } = layoutFlag;
   const dateRef = useRef<HTMLInputElement>(null);
   const [revealed, setRevealed] = useState(false);
 
@@ -40,8 +43,8 @@ export function FlagLabel({ layoutFlag }: { layoutFlag: LayoutFlag }) {
 
   return (
     <div
-      className="abs flaglbl"
-      style={{ left: 0, top: y + 4, width: L.LBL_W - 14, height: h - 8 }}
+      className={`abs flaglbl${flipped ? " flip" : ""}`}
+      style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }}
       role="group"
       aria-label={`Milestone flag ${flag.name}`}
     >

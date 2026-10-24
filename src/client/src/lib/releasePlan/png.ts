@@ -3,10 +3,10 @@
  * *Template reference → Export PNG* in `plans/release-plan-import-export.md`).
  * Pure apart from the calls on the 2D context it is given.
  */
-import { ADO, DEFAULT_STATE_COLOR, L, OK_GREEN, PALETTE, sizeColor, STATE_COLORS } from "./constants";
-import type { BoardLayout } from "./layout";
+import { ADO, DEFAULT_STATE_COLOR, L, LF, OK_GREEN, PALETTE, sizeColor, STATE_COLORS } from "./constants";
+import type { AnyBoardLayout, BoardLayout, FlippedLayout } from "./layout";
 import { epicMetaText, epicMsLabel, featuresInBand, fmtDate, isDone, sizeCounts } from "./selectors";
-import type { Feature, ReleasePlan } from "./types";
+import type { Band, Feature, ReleasePlan } from "./types";
 
 /** Height of the navy header strip above the board, in unscaled px. */
 export const PNG_HEAD = 64;
@@ -41,6 +41,7 @@ export interface PngContext {
   restore(): void;
   scale(x: number, y: number): void;
   translate(x: number, y: number): void;
+  rotate(angle: number): void;
   fillRect(x: number, y: number, w: number, h: number): void;
   fillText(text: string, x: number, y: number): void;
   measureText(text: string): { width: number };
@@ -179,47 +180,55 @@ function drawHeader(ctx: PngContext, plan: ReleasePlan, width: number, now: Date
   }
 }
 
+function bandFill(unplanned: boolean, i: number): string {
+  return unplanned ? PALETTE.unplanned : i % 2 ? PALETTE.bandB : PALETTE.bandA;
+}
+
+/** A band label (color bar, name, date, count, size chips) in the `labelW`-wide box at `(ox, oy)`. */
+function drawBandLabel(ctx: PngContext, plan: ReleasePlan, band: Band, ox: number, oy: number, labelW: number): void {
+  ctx.fillStyle = band.unplanned ? PALETTE.gold : band.milestone.color;
+  rr(ctx, ox + 10, oy + 12, 4, 40, 2);
+  ctx.fill();
+
+  ctx.fillStyle = PALETTE.ink;
+  ctx.font = `700 15px ${F}`;
+  wrap(ctx, band.name, ox + 22, oy + 12, labelW - 30, 18, 2);
+
+  const features = featuresInBand(plan, band.id);
+  ctx.fillStyle = PALETTE.muted;
+  ctx.font = `12px ${F}`;
+  ctx.fillText(band.unplanned ? "Not assigned" : fmtDate(band.milestone.date) || "No date", ox + 22, oy + 50);
+  ctx.fillText(`${features.length} Features`, ox + 22, oy + 66);
+
+  ctx.font = `700 11px ${F}`;
+  let cx = ox + 22;
+  let cy = oy + 84;
+  for (const [key, n] of sizeCounts(features)) {
+    const text = `${key} ${n}`;
+    const w = ctx.measureText(text).width + 14;
+    if (cx + w > ox + labelW - 8) {
+      cx = ox + 22;
+      cy += 20;
+    }
+    const color = sizeColor(key);
+    ctx.fillStyle = color.bg;
+    rr(ctx, cx, cy, w, 17, 8.5);
+    ctx.fill();
+    ctx.fillStyle = color.ink;
+    ctx.fillText(text, cx + 7, cy + 3);
+    cx += w + 4;
+  }
+}
+
 function drawBands(ctx: PngContext, plan: ReleasePlan, layout: BoardLayout): void {
   layout.bands.forEach(({ band, y, h }, i) => {
-    ctx.fillStyle = band.unplanned ? PALETTE.unplanned : i % 2 ? PALETTE.bandB : PALETTE.bandA;
+    ctx.fillStyle = bandFill(band.unplanned, i);
     ctx.fillRect(0, y, layout.width, h);
     ctx.fillStyle = PALETTE.bandLine;
     ctx.fillRect(0, y, layout.width, 1);
     ctx.fillStyle = PALETTE.line;
     ctx.fillRect(L.LBL_W, y, 1, h);
-
-    ctx.fillStyle = band.unplanned ? PALETTE.gold : band.milestone.color;
-    rr(ctx, 10, y + 12, 4, 40, 2);
-    ctx.fill();
-
-    ctx.fillStyle = PALETTE.ink;
-    ctx.font = `700 15px ${F}`;
-    wrap(ctx, band.name, 22, y + 12, L.LBL_W - 30, 18, 2);
-
-    const features = featuresInBand(plan, band.id);
-    ctx.fillStyle = PALETTE.muted;
-    ctx.font = `12px ${F}`;
-    ctx.fillText(band.unplanned ? "Not assigned" : fmtDate(band.milestone.date) || "No date", 22, y + 50);
-    ctx.fillText(`${features.length} Features`, 22, y + 66);
-
-    ctx.font = `700 11px ${F}`;
-    let cx = 22;
-    let cy = y + 84;
-    for (const [key, n] of sizeCounts(features)) {
-      const text = `${key} ${n}`;
-      const w = ctx.measureText(text).width + 14;
-      if (cx + w > L.LBL_W - 8) {
-        cx = 22;
-        cy += 20;
-      }
-      const color = sizeColor(key);
-      ctx.fillStyle = color.bg;
-      rr(ctx, cx, cy, w, 17, 8.5);
-      ctx.fill();
-      ctx.fillStyle = color.ink;
-      ctx.fillText(text, cx + 7, cy + 3);
-      cx += w + 4;
-    }
+    drawBandLabel(ctx, plan, band, 0, y, L.LBL_W);
   });
 }
 
@@ -312,14 +321,102 @@ function drawFlags(ctx: PngContext, layout: BoardLayout): void {
   }
 }
 
+/** Flipped board: full-height milestone columns, their labels in the header row and the header divider. */
+function drawColumns(ctx: PngContext, plan: ReleasePlan, layout: FlippedLayout): void {
+  layout.columns.forEach(({ band, x, w }, i) => {
+    ctx.fillStyle = bandFill(band.unplanned, i);
+    ctx.fillRect(x, 0, w, layout.height);
+    ctx.fillStyle = PALETTE.bandLine;
+    ctx.fillRect(x, 0, 1, layout.height);
+    drawBandLabel(ctx, plan, band, x, 0, w);
+  });
+  ctx.fillStyle = PALETTE.line;
+  ctx.fillRect(0, layout.headH, layout.width, 1);
+}
+
+/** Flipped board: Epic group backgrounds and the Epic header blocks on the left. */
+function drawFlippedEpics(ctx: PngContext, plan: ReleasePlan, layout: FlippedLayout): void {
+  for (const { epic, y, h } of layout.epics) {
+    ctx.fillStyle = PALETTE.epicbg;
+    rr(ctx, layout.colX0 - 4, y, layout.width - layout.colX0 - 8, h, 8);
+    ctx.fill();
+    shadowCard(ctx, LF.LEFT, y, LF.EPIC_W, h, 6, ADO.epic.color);
+    const cx = LF.LEFT + LF.EPIC_W / 2;
+    ctx.textAlign = "center";
+    ctx.fillStyle = ADO.epic.ink;
+    ctx.font = `700 15px ${F}`;
+    wrap(ctx, epic.title, cx, y + h / 2 - 24, LF.EPIC_W - 20, 18, 2);
+    ctx.font = `11px ${F}`;
+    ctx.globalAlpha = 0.75;
+    ctx.fillText(epicMetaText(epic, epicMsLabel(plan, epic)), cx, y + h / 2 + 14);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = "left";
+  }
+}
+
+/** Flipped board: one card per Feature, in its row and its milestone's column. */
+function drawFlippedCards(ctx: PngContext, layout: FlippedLayout): void {
+  const colX = new Map(layout.columns.map((c) => [c.band.id, c.x]));
+  for (const { rows } of layout.epics) {
+    for (const { feature, y } of rows) {
+      const left = colX.get(feature.milestoneId ?? null) ?? colX.get(null);
+      if (left !== undefined) {
+        drawFeatureCard(ctx, feature, left + L.BAND_PAD, y);
+      }
+    }
+  }
+}
+
+/**
+ * Flipped board flags: a vertical dashed gold line below the header, the flag
+ * label in the header and the tag at the top of the rows, both rotated -90°.
+ */
+function drawFlippedFlags(ctx: PngContext, layout: FlippedLayout): void {
+  const lw = layout.headH - 14;
+  const lh = L.FLAG_H - 8;
+  for (const { flag, x, w } of layout.flags) {
+    const cx = x + w / 2;
+    const label = flag.name + (flag.date ? ` · ${fmtDate(flag.date)}` : "");
+    ctx.fillStyle = PALETTE.gold;
+    for (let y: number = layout.headH; y < layout.height; y += 20) {
+      ctx.fillRect(cx - 1.5, y, 3, 14);
+    }
+
+    ctx.save();
+    ctx.translate(cx, lw / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = PALETTE.gold;
+    rr(ctx, -lw / 2, -lh / 2, lw, lh, 6);
+    ctx.fill();
+    drawFlagIcon(ctx, -lw / 2 + 10, -7, PALETTE.flagInk);
+    ctx.font = `700 12px ${F}`;
+    wrap(ctx, flag.name, -lw / 2 + 28, -7, lw - 46, 14, 1);
+    ctx.restore();
+
+    ctx.font = `700 11px ${F}`;
+    const tw = ctx.measureText(label).width + 30;
+    ctx.save();
+    ctx.translate(cx, LF.TOP + 6 + tw / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = PALETTE.gold;
+    rr(ctx, -tw / 2, -10, tw, 20, 10);
+    ctx.fill();
+    drawFlagIcon(ctx, -tw / 2 + 8, -6, PALETTE.flagInk);
+    ctx.fillText(label, -tw / 2 + 24, -6);
+    ctx.restore();
+  }
+}
+
 /**
  * Draws the whole PNG (header strip with name, export date, source and logo,
  * then the board: bands, epics, feature cards, flags) from `layout`, in layout
  * px scaled by `scale`. The canvas must be `layout.width × (layout.height +
  * PNG_HEAD)` times `scale`. Selection, drag highlights, "+" buttons and zoom
- * are not drawn.
+ * are not drawn. A flipped `layout` is drawn transposed (milestone columns with
+ * their labels in the top header row, Epic groups of Feature rows, vertical
+ * flag lines).
  */
-export function drawBoardPng(ctx: PngContext, plan: ReleasePlan, layout: BoardLayout, { scale, now, logo }: DrawBoardPngOptions): void {
+export function drawBoardPng(ctx: PngContext, plan: ReleasePlan, layout: AnyBoardLayout, { scale, now, logo }: DrawBoardPngOptions): void {
   ctx.scale(scale, scale);
   ctx.textBaseline = "top";
   ctx.textAlign = "left";
@@ -327,6 +424,13 @@ export function drawBoardPng(ctx: PngContext, plan: ReleasePlan, layout: BoardLa
   ctx.fillRect(0, 0, layout.width, layout.height + PNG_HEAD);
   drawHeader(ctx, plan, layout.width, now, logo);
   ctx.translate(0, PNG_HEAD);
+  if (layout.orientation === "flipped") {
+    drawColumns(ctx, plan, layout);
+    drawFlippedEpics(ctx, plan, layout);
+    drawFlippedCards(ctx, layout);
+    drawFlippedFlags(ctx, layout);
+    return;
+  }
   drawBands(ctx, plan, layout);
   drawEpics(ctx, plan, layout);
   drawCards(ctx, layout);

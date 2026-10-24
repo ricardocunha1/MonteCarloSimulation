@@ -2,7 +2,7 @@ import { act, renderHook, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PNG_HEAD } from "../../lib/releasePlan/png";
-import { computeLayout } from "../../lib/releasePlan/layout";
+import { computeFlippedLayout, computeLayout } from "../../lib/releasePlan/layout";
 import type { ReleasePlan } from "../../lib/releasePlan/types";
 import { FakeImage, RecordingContext, stubCanvas } from "../../test/canvas";
 import { makeEpic, makeFeature, makePlan, samplePlan } from "../../test/releasePlanFixtures";
@@ -16,8 +16,8 @@ function wrapper({ children }: { children: ReactNode }) {
   return <ToastProvider>{children}</ToastProvider>;
 }
 
-function setup(plan: ReleasePlan) {
-  return renderHook(() => useExportPng(plan), { wrapper });
+function setup(plan: ReleasePlan, orientation: "standard" | "flipped" = "standard") {
+  return renderHook(() => useExportPng(plan, orientation), { wrapper });
 }
 
 const infos = () => screen.queryAllByRole("status").map((s) => s.textContent);
@@ -74,6 +74,20 @@ describe("useExportPng", () => {
     expect(infos()).toContain("PNG exported");
     expect(errorText()).toEqual([]);
     expect(result.current.exporting).toBe(false);
+  });
+
+  it("draws the flipped layout when the board is flipped", async () => {
+    const ctx = new RecordingContext();
+    const canvases = stubCanvas({ context: ctx, blob: PNG });
+    const plan = samplePlan();
+    const { result } = setup(plan, "flipped");
+    await act(() => result.current.exportPng());
+    const layout = computeFlippedLayout(plan);
+    expect(layout.width).not.toBe(computeLayout(plan).width);
+    expect(canvases[0].width).toBe(layout.width * 2);
+    expect(canvases[0].height).toBe((layout.height + PNG_HEAD) * 2);
+    expect(ctx.ops("fillRect")).toContainEqual(expect.objectContaining({ args: [0, layout.headH, layout.width, 1] }));
+    expect(downloads).toEqual(["Sample_Release_Plan_2026-10-21.png"]);
   });
 
   it("still exports, without the logo, when the logo fails to load", async () => {
