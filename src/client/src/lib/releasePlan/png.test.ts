@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { RecordingContext } from "../../test/canvas";
 import { makeEpic, makeFeature, makeFlag, makeMilestone, makePlan, samplePlan, sprintsPlan } from "../../test/releasePlanFixtures";
-import { L, OK_GREEN, PALETTE, SIZE_COLORS, STATE_COLORS } from "./constants";
-import { computeLayout } from "./layout";
+import { L, LF, OK_GREEN, PALETTE, SIZE_COLORS, STATE_COLORS } from "./constants";
+import { computeFlippedLayout, computeLayout } from "./layout";
 import { drawBoardPng, PNG_HEAD, PNG_MAX_AREA, PNG_MAX_SIDE, pngScale, type PngLogo, wrap } from "./png";
 import { fmtDate } from "./selectors";
 import { NO_EPIC_ID, NO_EPIC_TITLE, type ReleasePlan } from "./types";
@@ -260,5 +260,62 @@ describe("drawBoardPng", () => {
     const plan = sprintsPlan({ flags: [makeFlag({ id: "f", name: "GA", date: "", afterMsId: "sp_2" })] });
     const { ctx } = draw(plan);
     expect(ctx.texts().filter((t) => t === "GA")).toHaveLength(2);
+  });
+});
+
+describe("drawBoardPng (flipped)", () => {
+  function drawFlipped(plan: ReleasePlan) {
+    const ctx = new RecordingContext();
+    const layout = computeFlippedLayout(plan);
+    drawBoardPng(ctx, plan, layout, { scale: 2, now: NOW, logo: null });
+    return { ctx, layout };
+  }
+
+  it("draws the same header strip, then full-height milestone columns with their labels in the header row", () => {
+    const { ctx, layout } = drawFlipped(samplePlan());
+    expect(ctx.ops("fillRect")[0]).toMatchObject({ args: [0, 0, layout.width, layout.height + PNG_HEAD], fillStyle: PALETTE.panel });
+    expect(ctx.texts()).toContain("Sample Release Plan");
+    const [mvp, r2, unplanned] = layout.columns;
+    expect(ctx.ops("fillRect").filter((c) => c.args[1] === 0 && c.args[3] === layout.height && c.args[2] !== 1).map((c) => [c.args[0], c.fillStyle])).toEqual([
+      [mvp.x, PALETTE.bandA],
+      [r2.x, PALETTE.bandB],
+      [unplanned.x, PALETTE.unplanned],
+    ]);
+    expect(ctx.text("MVP").args).toEqual(["MVP", mvp.x + 22, 12]);
+    expect(ctx.text("No date").args).toEqual(["No date", r2.x + 22, 50]);
+    expect(ctx.text("Not assigned").args).toEqual(["Not assigned", unplanned.x + 22, 50]);
+    expect(roundedFills(ctx, "#4E98D1")).toContainEqual({ x: mvp.x + 10, y: 12, w: 4, r: 2 });
+    expect(ctx.ops("fillRect")).toContainEqual(expect.objectContaining({ args: [0, layout.headH, layout.width, 1], fillStyle: PALETTE.line }));
+  });
+
+  it("draws epic backgrounds and header blocks on the left, and each card in its row and milestone column", () => {
+    const { ctx, layout } = drawFlipped(samplePlan());
+    for (const e of layout.epics) {
+      expect(roundedFills(ctx, PALETTE.epicbg)).toContainEqual({ x: layout.colX0 - 4, y: e.y, w: layout.width - layout.colX0 - 8, r: 8 });
+      expect(roundedFills(ctx, "#FF7B00")).toContainEqual({ x: LF.LEFT, y: e.y, w: LF.EPIC_W, r: 6 });
+    }
+    expect(ctx.text("Epic #1 · Done in MVP")).toMatchObject({ textAlign: "center", args: ["Epic #1 · Done in MVP", LF.LEFT + LF.EPIC_W / 2, layout.epics[0].y + layout.epics[0].h / 2 + 14] });
+    const colX = (id: string | null) => layout.columns.find((c) => c.band.id === id)?.x ?? NaN;
+    const expected = layout.epics.flatMap((e) => e.rows.map((r) => ({ x: colX(r.feature.milestoneId) + L.BAND_PAD, y: r.y, w: L.COL_W, r: 4 })));
+    expect(roundedFills(ctx, "#773B93")).toEqual(expected);
+    expect(expected).toHaveLength(5);
+  });
+
+  it("draws flags as vertical dashes below the header with rotated label and tag", () => {
+    const { ctx, layout } = drawFlipped(sprintsPlan());
+    const { x, w } = layout.flags[0];
+    const cx = x + w / 2;
+    const dashes = ctx.ops("fillRect").filter((c) => c.args[0] === cx - 1.5 && c.args[2] === 3 && c.args[3] === 14);
+    expect(dashes[0]).toMatchObject({ args: [cx - 1.5, layout.headH, 3, 14], fillStyle: PALETTE.gold });
+    expect(dashes).toHaveLength(Math.ceil((layout.height - layout.headH) / 20));
+    expect(ctx.ops("rotate").map((c) => c.args)).toEqual([[-Math.PI / 2], [-Math.PI / 2]]);
+    const lw = layout.headH - 14;
+    expect(ctx.ops("translate").map((c) => c.args)).toContainEqual([cx, lw / 2]);
+    expect(ctx.text("Beta")).toMatchObject({ args: ["Beta", -lw / 2 + 28, -7], fillStyle: "#3a2a05" });
+    const label = `Beta · ${fmtDate("2026-09-25")}`;
+    const tw = label.length * 6 + 30;
+    expect(ctx.ops("translate").map((c) => c.args)).toContainEqual([cx, LF.TOP + 6 + tw / 2]);
+    expect(ctx.text(label).args).toEqual([label, -tw / 2 + 24, -6]);
+    expect(ctx.ops("save").length).toBe(ctx.ops("restore").length);
   });
 });

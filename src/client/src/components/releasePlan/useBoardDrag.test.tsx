@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireDnd, mockDataTransfer } from "../../test/dnd";
 import { samplePlan } from "../../test/releasePlanFixtures";
@@ -101,6 +101,38 @@ describe("useBoardDrag auto-scroll and cleanup", { timeout: BOARD_TEST_TIMEOUT_M
     fireDnd("dragOver", document, { clientY: 395 });
     runFrames();
     expect(box.scrollTop).toBe(1600);
+  });
+
+  it("scrolls the box horizontally near its left/right edges on the flipped board only", () => {
+    const setupWideBox = () => {
+      const box = setupBox();
+      Object.defineProperty(box, "clientWidth", { configurable: true, value: 800 });
+      Object.defineProperty(box, "scrollWidth", { configurable: true, value: 3000 });
+      return box;
+    };
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
+    const { unmount } = renderBoard(samplePlan());
+    let box = setupWideBox();
+    fireDnd("dragStart", card("Reports"), { dataTransfer: mockDataTransfer() });
+    fireDnd("dragOver", document, { clientX: 795, clientY: 200 });
+    runFrames();
+    expect(box.scrollLeft).toBe(0);
+    fireDnd("dragEnd", card("Reports"), { dataTransfer: mockDataTransfer() });
+    unmount();
+
+    renderBoard(samplePlan());
+    fireEvent.click(screen.getByRole("button", { name: "Flip board" }));
+    box = setupWideBox();
+    fireDnd("dragStart", card("Reports"), { dataTransfer: mockDataTransfer() });
+    fireDnd("dragOver", document, { clientX: 795, clientY: 200 });
+    runFrames();
+    const right = box.scrollLeft;
+    expect(right).toBeGreaterThan(0);
+    // The vertical middle of the box: no vertical scroll.
+    expect(box.scrollTop).toBe(0);
+    fireDnd("dragOver", document, { clientX: 5, clientY: 200 });
+    runFrames();
+    expect(box.scrollLeft).toBeLessThan(right);
   });
 
   it("removes every document listener and cancels the rAF loop on unmount", () => {

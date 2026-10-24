@@ -51,6 +51,7 @@ export class RecordingContext implements PngContext {
   }
   scale(x: number, y: number) { this.rec("scale", [x, y]); }
   translate(x: number, y: number) { this.rec("translate", [x, y]); }
+  rotate(angle: number) { this.rec("rotate", [angle]); }
   fillRect(x: number, y: number, w: number, h: number) { this.rec("fillRect", [x, y, w, h]); }
   fillText(text: string, x: number, y: number) { this.rec("fillText", [text, x, y]); }
   measureText(text: string) { return { width: text.length * 6 }; }

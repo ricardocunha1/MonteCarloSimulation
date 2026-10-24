@@ -1,8 +1,10 @@
+import type { BoardOrientation } from "../../lib/releasePlan/layout";
 import { sourceInfo } from "../../lib/releasePlan/selectors";
 import type { ReleasePlan } from "../../lib/releasePlan/types";
 import { zoomLabel } from "../../lib/releasePlan/zoom";
 import { useReleasePlan } from "../../releasePlanStore";
 import { DownloadIcon } from "../icons/DownloadIcon";
+import { FlipIcon } from "../icons/FlipIcon";
 import { SyncIcon } from "../icons/SyncIcon";
 import { UploadIcon } from "../icons/UploadIcon";
 import { CommitInput } from "./CommitInput";
@@ -13,7 +15,8 @@ export type BoardView = "board" | "table";
 
 /**
  * Board toolbar: editable plan name + source line, Board/Table tabs,
- * Releases/Sprints switch, zoom (− 100% + Fit, hidden in Table view), then a
+ * Releases/Sprints switch, zoom (− 100% + Fit) and the "Flip board" toggle
+ * (`aria-pressed` while flipped; both hidden in Table view), then a
  * spacer and the "Sync from ADO" / "Load Plan" / "Save Plan" buttons (each
  * with a decorative sync/upload/download icon before its label) and the primary "Export PNG" button,
  * all shown in both views.
@@ -26,6 +29,8 @@ export function BoardToolbar({
   onZoomIn,
   onZoomOut,
   onFit,
+  orientation,
+  onFlip,
   onSync,
   onLoad,
   onSave,
@@ -39,6 +44,10 @@ export function BoardToolbar({
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFit: () => void;
+  /** Board orientation shown (UI-only state of the page). */
+  orientation: BoardOrientation;
+  /** "Flip board": toggles between the standard and the flipped orientation. */
+  onFlip: () => void;
   /** "Sync from ADO": opens the Azure DevOps connection form (the page owns the sync flow). */
   onSync: () => void;
   /** "Load Plan": opens the import modal (the page owns it). */
@@ -83,6 +92,18 @@ export function BoardToolbar({
             Fit
           </button>
         </div>
+      )}
+      {view === "board" && (
+        <button
+          type="button"
+          className="btn flipBtn"
+          aria-pressed={orientation === "flipped"}
+          title={orientation === "flipped" ? "Flip board: show milestones as rows" : "Flip board: show milestones as columns"}
+          onClick={onFlip}
+        >
+          <FlipIcon className="btnIcon" />
+          Flip board
+        </button>
       )}
       <div className="spacer" />
       <button type="button" className="btn withIcon" onClick={onSync}>

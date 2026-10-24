@@ -1,6 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DownloadIcon } from "./DownloadIcon";
+import { FlipIcon } from "./FlipIcon";
 import { SyncIcon } from "./SyncIcon";
 import { UploadIcon } from "./UploadIcon";
 
@@ -8,6 +9,7 @@ describe.each([
   ["UploadIcon", UploadIcon],
   ["DownloadIcon", DownloadIcon],
   ["SyncIcon", SyncIcon],
+  ["FlipIcon", FlipIcon],
 ] as const)("%s", (_name, Icon) => {
   it("renders a decorative, non-focusable svg that inherits the text color", () => {
     const { container } = render(<Icon />);

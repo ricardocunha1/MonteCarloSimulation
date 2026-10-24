@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import logoUrl from "../../assets/cmlogo.svg";
 import { downloadBlob, fileBase } from "../../lib/releasePlan/exportFile";
-import { computeLayout } from "../../lib/releasePlan/layout";
+import { computeBoardLayout, type BoardOrientation } from "../../lib/releasePlan/layout";
 import { drawBoardPng, PNG_HEAD, pngScale, type PngLogo } from "../../lib/releasePlan/png";
 import type { ReleasePlan } from "../../lib/releasePlan/types";
 import { useToast } from "../Toast";
@@ -40,9 +40,10 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
  * optional (a load failure just leaves it out). A board too large for the
  * canvas limits, a missing 2D context, a `null` blob or a drawing error show an error toast and
  * download nothing. `exporting` is true while an export runs; further calls
- * are ignored meanwhile.
+ * are ignored meanwhile. `orientation` (default `standard`) picks the layout
+ * drawn, so the image matches the board shown.
  */
-export function useExportPng(plan: ReleasePlan): { exporting: boolean; exportPng: () => Promise<void> } {
+export function useExportPng(plan: ReleasePlan, orientation: BoardOrientation = "standard"): { exporting: boolean; exportPng: () => Promise<void> } {
   const { showError, showInfo } = useToast();
   const [exporting, setExporting] = useState(false);
   const running = useRef(false);
@@ -55,7 +56,7 @@ export function useExportPng(plan: ReleasePlan): { exporting: boolean; exportPng
     setExporting(true);
     try {
       const now = new Date();
-      const layout = computeLayout(plan);
+      const layout = computeBoardLayout(plan, orientation);
       const scale = pngScale(layout.width, layout.height + PNG_HEAD);
       if (scale === null) {
         showError([PNG_TOO_LARGE]);
@@ -84,7 +85,7 @@ export function useExportPng(plan: ReleasePlan): { exporting: boolean; exportPng
       running.current = false;
       setExporting(false);
     }
-  }, [plan, showError, showInfo]);
+  }, [plan, orientation, showError, showInfo]);
 
   return { exporting, exportPng };
 }

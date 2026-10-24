@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { L } from "../../lib/releasePlan/constants";
-import type { LayoutBand } from "../../lib/releasePlan/layout";
-import type { Feature } from "../../lib/releasePlan/types";
+import type { Band, Feature } from "../../lib/releasePlan/types";
 import { useReleasePlan } from "../../releasePlanStore";
 import { ConfirmDialog } from "../ConfirmDialog";
+import type { BoxRect } from "./boardGeometry";
 import { CommitInput } from "./CommitInput";
 import { SizeChips } from "./SizeChips";
 
@@ -12,29 +11,39 @@ import { SizeChips } from "./SizeChips";
  * `ms:<id>`), color dot + date, feature count, size chips and ▲ ▼ ✕ controls (✕
  * asks for confirmation; its features become unplanned). Unplanned shows a
  * read-only summary.
+ *
+ * On the flipped board (`flipped`) the label is a column header in the frozen
+ * header row and the move buttons are ◀/▶ ("Move milestone left/right", same
+ * `moveMilestone` actions and disabled rules).
  */
 export function MilestoneLabel({
-  layoutBand,
+  band,
+  rect,
   index,
   milestoneCount,
   features,
   background,
+  flipped = false,
 }: {
-  layoutBand: LayoutBand;
+  band: Band;
+  /** Position and size in the frozen column (or flipped header row), in unscaled px. */
+  rect: BoxRect;
   /** Band index (= milestone index for milestones). */
   index: number;
   milestoneCount: number;
   features: readonly Feature[];
   background: string;
+  /** Rendered in the flipped board's header row. */
+  flipped?: boolean;
 }) {
   const { dispatch } = useReleasePlan();
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const { band, y, h } = layoutBand;
-  const style = { left: 0, top: y, width: L.LBL_W, height: h, background };
+  const style = { left: rect.left, top: rect.top, width: rect.width, height: rect.height, background };
+  const className = `abs mslabel${flipped ? " flip" : ""}`;
 
   if (band.unplanned) {
     return (
-      <div className="abs mslabel" style={style} role="group" aria-label="Unplanned">
+      <div className={className} style={style} role="group" aria-label="Unplanned">
         <b>Unplanned</b>
         <div className="stats">{`${features.length} Features · not assigned`}</div>
         <SizeChips features={features} />
@@ -44,7 +53,7 @@ export function MilestoneLabel({
 
   const ms = band.milestone;
   return (
-    <div className="abs mslabel" style={style} role="group" aria-label={`Milestone ${ms.name}`}>
+    <div className={className} style={style} role="group" aria-label={`Milestone ${ms.name}`}>
       <CommitInput
         aria-label="Milestone name"
         data-focus={`ms:${ms.id}`}
@@ -65,21 +74,21 @@ export function MilestoneLabel({
       <div className="ctl">
         <button
           type="button"
-          title="Move milestone up"
-          aria-label="Move up"
+          title={flipped ? "Move milestone left" : "Move milestone up"}
+          aria-label={flipped ? "Move left" : "Move up"}
           disabled={index === 0}
           onClick={() => dispatch({ type: "moveMilestone", from: index, to: index - 1 })}
         >
-          ▲
+          {flipped ? "◀" : "▲"}
         </button>
         <button
           type="button"
-          title="Move milestone down"
-          aria-label="Move down"
+          title={flipped ? "Move milestone right" : "Move milestone down"}
+          aria-label={flipped ? "Move right" : "Move down"}
           disabled={index === milestoneCount - 1}
           onClick={() => dispatch({ type: "moveMilestone", from: index, to: index + 1 })}
         >
-          ▼
+          {flipped ? "▶" : "▼"}
         </button>
         <button type="button" className="del" title="Delete milestone (features become unplanned)" aria-label="Delete milestone" onClick={() => setConfirmDelete(true)}>
           ✕

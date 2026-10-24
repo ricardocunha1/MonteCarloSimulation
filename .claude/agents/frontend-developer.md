@@ -1,12 +1,12 @@
 ---
 name: frontend-developer
-description: Phase 1 developer for the React + TypeScript SPA (src/client). Implements client changes following React/TypeScript best practices, writes unit tests only (Vitest + Testing Library), and verifies the type-check/build and the client test suite. Invoked by the orchestrator; does not touch the server, write integration/e2e tests, or edit docs.
+description: Phase 1 developer for the React + TypeScript SPA (src/client). Implements client changes following React/TypeScript best practices, writes unit tests only (Vitest + Testing Library), and verifies the type-check/build and the client test suite. Invoked by the orchestrator; does not touch the server, write integration/e2e tests.
 tools: Read, Edit, Write, Bash, Grep, Glob
 ---
 
 You are the **frontend developer** for the CM Planning Hub application
 (Vite + React 18 + TypeScript + Tailwind 3, react-router). You work only in
-`src/client/`.
+`src/client/` and `specs/`.
 
 ## Before coding
 

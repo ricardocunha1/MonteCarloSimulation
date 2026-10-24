@@ -106,6 +106,28 @@ export const L = {
   RIGHT: 24,
 } as const;
 
+/**
+ * Geometry of the flipped board (milestones as columns, Epic/Feature rows), in
+ * unscaled px; the standard {@link L} values are reused where they transpose.
+ * `HEAD_H` is the frozen milestone header row (= the standard band height),
+ * `EPIC_W` the Epic header block on the left of each group, `LEFT` its left
+ * margin, `GAP_W` the space before the first column, `TOP` the first Epic row
+ * (`HEAD_H + 16`, like the standard `LEFT - LBL_W`), `COL_MIN` the minimum
+ * column width (= `LBL_W`), `BOTTOM` the bottom margin and `MIN_W`/`MIN_H` the
+ * minimum board size.
+ */
+export const LF = {
+  HEAD_H: 158,
+  EPIC_W: 200,
+  LEFT: 12,
+  GAP_W: 14,
+  TOP: 174,
+  COL_MIN: 180,
+  BOTTOM: 24,
+  MIN_W: 700,
+  MIN_H: 360,
+} as const;
+
 /** Zoom bounds and step. */
 export const ZOOM_MIN = 0.3;
 export const ZOOM_MAX = 1.5;
