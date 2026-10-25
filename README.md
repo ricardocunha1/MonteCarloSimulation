@@ -1,32 +1,58 @@
-# Monte Carlo Simulator
+# Planning Hub
 
-A web application that forecasts how many sprints are needed to hit a
-target (Items Resolved or Story Points), using a Monte Carlo simulation
-driven by historical sprint data from Critical Manufacturing (CM) projects.
+A web application that hosts estimation and planning tools for Critical
+Manufacturing (CM) projects. It currently offers two tools:
 
-Instead of a single-point estimate, the app runs thousands of randomized
-simulations sampled from a team's own historical sprint throughput and
-reports a distribution of outcomes — e.g. "50% of simulations reach the
-target within 4 sprints, 95% reach it within 8 sprints" — along with the
-projected completion dates for each confidence level.
+- **Monte Carlo** (Estimations) — forecasts how many sprints are needed to
+  hit a target (Items Resolved or Story Points) by running thousands of
+  simulations sampled from a team's historical sprint throughput. Instead of
+  a single-point estimate, it reports a range of outcomes (e.g. "95% of
+  simulations reach the target within 8 sprints") with a projected
+  completion date for each confidence level.
+- **Release Plan** (Planning) — an interactive drag-and-drop board for
+  planning which Epics and Features ship in which release or sprint. Boards
+  are created from an imported JSON plan or from Azure DevOps, and can be
+  saved back to JSON.
 
-## How it works
+## Navigation
 
-The application is a three-step wizard:
+The app is a dashboard: a header, a left
+sidebar, and a main content area.
+
+- **Sidebar** — tools are grouped by category. The "Estimations" group
+  holds the **Monte Carlo** item (dice icon) and the "Planning" group
+  holds the **Release Plan** item (roadmap icon); each is highlighted on
+  every page of its tool.
+- **Home page** — a section per category with a card per tool with a short description
+  and its goal; click a card to open the tool. Unknown URLs land here.
+- **Monte Carlo (`/monte-carlo`)** — the entry page lets you choose how
+  to import the sprint history data (**Import from an Excel file** or **Import from Azure DevOps**); then follows the three-step flow described below (see
+  [How the Monte Carlo tool works](#how-the-monte-carlo-tool-works). The **How to Use** button
+  next to the Monte Carlo step breadcrumb opens the in-app help. Results and
+  validation data are kept in memory only, so reloading the Confirm or
+  Results page sends you back to `/monte-carlo`.
+- **Release Plan (`/release-plan`)** — the entry page lets you choose how
+  to create a board (**Import a JSON file** or **Create from Azure DevOps**) and, when a board already exists, **Continue last
+  board**. The board itself is at `/release-plan/board`; opening it with no
+  plan sends you back to `/release-plan`. See
+  [How the Release Plan tool works](#how-the-release-plan-tool-works).
+
+## How the Monte Carlo tool works
+
+The Monte Carlo tool is a three-step wizard.
 
 ### 1. Data Input
 
-The user uploads an Excel file with historical sprint data and fills in the
-simulation parameters:
+Initially the user selects the data source: an Excel file containing an extract of the sprints historical data or a direct connection to Azure DevOps, where they need to enter additional connection details, including a valid __Personal Access Token__.  
+The user then must fill in the simulation parameters:
 
 | Parameter                            | Required | Description                                                                                                        |
 | ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------ |
-| Sprint History Data                  | Yes      | The Excel file with historical sprint data (see format below)                                                      |
 | Target Type                          | Yes      | "Items Resolved" or "Story Points" — the metric the simulation forecasts against                                   |
 | Target Value                         | Yes      | The number of items/story points to reach                                                                          |
-| Number of Simulations                | Yes      | How many Monte Carlo runs to perform (capped at 20000). Default: `1000`                                            |
+| Number of Simulations                | Yes      | How many Monte Carlo runs to perform (capped at 20000). Default: `10000`                                            |
 | Sprint Start Date                    | Yes      | Start date of the first simulated sprint                                                                           |
-| Sprint Length                        | Yes      | Length of each sprint, in business days. Default: `10` days.                                                       |
+| Sprint Length                        | Yes      | Length of each sprint, in business days. Default: `10` days                                                       |
 | Team Capacity Factor                 | Yes      | Team capacity relative to the historical data (default `1.0`). E.g., `1.2` means 20% more capacity than historical |
 | Skip Historical Sprint Validation    | No       | Bypasses step 2 and jumps straight to execution                                                                    |
 | Exclude Latest Sprints from Sampling | No       | Number of most recent sprints to leave out of the random sampling pool (e.g. to exclude an in-progress sprint)     |
@@ -62,11 +88,6 @@ The uploaded file must contain one worksheet with these columns:
 | **Iteration Path** | String    | **Yes**   | The sprint is derived from the last segment after `\`, e.g. `Project\Release 1\Sprint 12` → `Sprint 12` |
 | **Resolved Date**  | Date      | **Yes**   | Used to determine each sprint's most recent completion date and recency rank. Format: `MM/dd/yyyy [hh:mm]` (time optional), e.g. `03/27/2025 14:30` |
 | **Story Points**   | Numeric   | **Yes**   | Defaults to 0 for rows where it's missing                                                               |
-| Work Item Type     | String    | No        | Not used in the simulation                                                                              |
-| ID                 | Numeric   | No        | Not used in the simulation                                                                              |
-| Activated Date     | Date      | No        | Not used in the simulation                                                                              |
-| Created Date       | Date      | No        | Not used in the simulation                                                                              |
-| PICategory         | String    | No        | Not used in the simulation                                                                              |
 
 Date columns must use the `MM/dd/yyyy [hh:mm]` format (month first; the
 time part is optional), e.g. `03/27/2025` or `03/27/2025 14:30`.
@@ -74,17 +95,75 @@ time part is optional), e.g. `03/27/2025` or `03/27/2025 14:30`.
 If a mandatory column is missing, or the file can't be parsed as Excel, the
 app reports the specific problem instead of failing silently.
 
+## How the Release Plan tool works
+
+The Release Plan tool lays out a plan's Epics and Features on a board:
+Epics are columns, and each Feature sits in the row (band) of the milestone
+it is planned for, or in **Unplanned**. Plans can be imported from a JSON
+file or directly from Azure DevOps.
+
+### Creating a board
+
+- **Import a JSON file** — pick a previously saved plan and click **Create
+  board**. The file is validated first and any problem is shown in the
+  dialog. If the file is valid and a board already exists, you are asked to
+  **Replace the current board?**, since any changes to it will be lost.
+- **Create from Azure DevOps** — enter the connection details (Azure DevOps
+  source, Project URL and Area or Iteration Path) and a valid **Personal
+  Access Token**, then click **Create board** to build the board from the
+  project's backlog.
+
+### The board
+
+- **Summary** — one box per milestone (Feature count, size chips, Epics
+  completed), one for Unplanned, and one per milestone flag (cumulative
+  counts up to that flag).
+- **Milestones** — the frozen left column lets you rename, date, reorder or
+  delete a milestone (its Features become Unplanned); the **+** between
+  milestones inserts a new one or, in Sprints mode, an additional milestone flag.
+- **Releases / Sprints** — Releases mode uses free-form milestones; Sprints
+  mode creates one milestone per Iteration Path sprint and plans each
+  Feature in its sprint. Switching modes (after a confirmation) discards
+  manual planning and flags.
+- **Planning on the board**:
+  - **Drag and drop** — drag an Epic header (or use ◀/▶) to reorder Epics;
+    drag a Feature card onto another band to plan it for that milestone, or
+    onto another column of the same Epic to reorder it. Valid drop targets
+    are highlighted, and Features can't move to another Epic.
+  - **Multi-select** — **Ctrl+click** (⌘+click on Mac) Feature cards of one
+    Epic to drag them together; a plain click, **Esc** or a click on the
+    background clears the selection.
+  - **Auto-scroll** while dragging near the board's top or bottom edge, and
+    **Zoom** (−/+, **Fit**).
+  - **Flip Board** — toggle the board's orientation between horizontal and vertical.
+- **Table view** — the same plan as a table, with search, Epic and
+  milestone filters, and a milestone select per Feature.
+- **Work-item details** — click a Feature card or Epic title to see its
+  state, size, milestone, Iteration Path and description.
+- **Save Plan / Load Plan** — **Save Plan** downloads the plan as a JSON
+  file (`<name>_<YYYY-MM-DD>.json`) that can be imported again later;
+  **Load Plan** imports one, with the same validation and **Replace the
+  current board?** confirmation as **Import a JSON file**.
+
+### Autosave
+
+Every change is saved automatically in the browser, so you can close the
+page and resume the board later in the same browser (**Continue last
+board** on the entry page). To move a plan to another browser or keep a
+copy, use **Save Plan** / **Load Plan**.
+
 ## Architecture
 
 ![Architecture Diagram](docs/architecture.png)
 
 The app is split into two tiers under `src/`:
 
-- **`src/server`** — FastAPI API (Pandas/NumPy simulation logic), port 8000.
-  Endpoints: `POST /api/validate`, `POST /api/simulate`, `GET /api/health`.
+- **`src/server`** — FastAPI API (includes Pandas/NumPy libraries for simulation logic), port 8000.
 - **`src/client`** — React + TypeScript single-page app (Vite, Tailwind),
   served by nginx in production. nginx proxies `/api` to the server, so the
-  browser only ever talks to one origin.
+  browser only ever talks to one origin. The dashboard's tools come from a
+  small registry (`src/client/src/lib/tools.ts`) that feeds both the
+  sidebar and the home page.
 
 ## Running with Docker Compose
 
@@ -106,7 +185,7 @@ server through `API_UPSTREAM` (default `http://server:8000`).
 
 Releases are made by the manual **Deploy** GitHub workflow: it computes the
 version with GitVersion, runs the server and client tests, builds and pushes
-`montecarlosim/montecarlosim-client` and `montecarlosim/montecarlosim-server`
+`planninghub/planninghub-client` and `planninghub/planninghub-server`
 with that tag, and tags the commit. The Helm chart in `helm/chart` deploys
 both (set `tag` in `values.yaml`); the ingress sends `/api` to the server and
 everything else to the client.

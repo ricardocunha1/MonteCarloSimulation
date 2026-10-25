@@ -4,13 +4,14 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.api.ado_routes import router as ado_router
 from app.api.routes import router
 
 logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Monte Carlo Simulator API")
+    app = FastAPI(title="Planning Hub API")
 
     @app.exception_handler(RequestValidationError)
     async def request_validation_error(request: Request, exc: RequestValidationError):
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(router, prefix="/api")
+    app.include_router(ado_router, prefix="/api/ado")
     return app
 
 

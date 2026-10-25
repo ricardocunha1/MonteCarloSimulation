@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cm-estimations-hub-server-deployment
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cm-estimations-hub-server
+  template:
+    metadata:
+      labels:
+        app: cm-estimations-hub-server
+    spec:
+      containers:
+        - name: cm-estimations-hub-server
+          image: {{ .Values.registry }}/{{ .Values.server_image }}:{{ .Values.tag }}
+          ports:
+            - containerPort: 8000
+          env:
+            - name: ADO_ALLOWED_HOSTS
+              value: {{ .Values.adoAllowedHosts | quote }}
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi

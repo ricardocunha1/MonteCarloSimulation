@@ -1,10 +1,16 @@
-# Monte Carlo Simulator
+# Planning Hub — Monte Carlo
+
+> **Note:** the app formerly called "Monte Carlo Simulator" is now the
+> **Planning Hub**, a dashboard hosting estimation and planning tools. This spec
+> (and the Data Input / Data Validation / Simulation Execution specs)
+> describes its **Monte Carlo** sub-application, served under
+> `/monte-carlo`. The business rules below are unchanged.
 
 This application simulates the number of sprints required to complete a target number of items or story points based on historical sprint data from Critical Manufacturing (CM) projects. The simulation uses a Monte Carlo method to generate random samples from the historical data and estimate the distribution of sprints needed to reach the specified target.
 
 It should be divided into the following parts:
 
-1. **Data Input**: A section where users can upload their historical sprint data and specify the parameters for the simulation.
+1. **Data Input**: A section that starts with choosing the data source of the historical sprint data (Azure DevOps, coming soon, or an Excel extract, whose file is selected in a modal); users then specify the parameters for the simulation on a form that shows the selected source.
 2. **Data Validation**: An **optional** section that checks the uploaded data for consistency and completeness.
 3. **Simulation Execution**: A section that runs the Monte Carlo simulation and presents the results.
 
@@ -52,7 +58,8 @@ For the different parts of the application, check their individual spec document
 ## Validation
 
 - [ ] Application is accessible via a web browser.
-- [ ] Users are allowed to upload an Excel file containing historical sprint data and the rest of the input parameters.
+- [ ] Users can choose the data source on the Monte Carlo entry page; the Azure DevOps option is shown but disabled ("Coming soon"); the Excel option opens a modal to select the Excel (.xlsx) file containing historical sprint data.
+- [ ] After a file is selected, the input form shows the selected source (file name, with a link to change it) and lets users enter the rest of the input parameters.
 - [ ] Run a simulation using the sample data under `notebook/Sprint_History.xlsx` and the following parameters:
   - Target Type: Items Resolved
   - Target Value: 5

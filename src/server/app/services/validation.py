@@ -3,6 +3,7 @@ from datetime import datetime
 
 VALID_TARGET_TYPES = {"Items Resolved", "Story Points"}
 MAX_SIMULATIONS = 20000
+SPRINT_HISTORY_ITEMS_FIELD = "sprint_history_items"
 
 
 def validate_parameters(form: Mapping[str, str], file) -> list[str]:
@@ -10,15 +11,17 @@ def validate_parameters(form: Mapping[str, str], file) -> list[str]:
 
     `form` is any mapping of the raw (string) form fields; `file` is the
     uploaded file object (anything with a `.filename`, e.g. a Starlette
-    `UploadFile`) or None.
+    `UploadFile`) or None. The file is only required when the form has no
+    Azure DevOps sprint history (see `has_sprint_history_items`).
 
     Excel *content* validation (worksheet/column checks) happens later in
     the pipeline (data_processing.parse_sprint_history) since it requires
-    actually reading the file.
+    actually reading the file; likewise for the Azure DevOps items
+    (data_processing.parse_sprint_history_items).
     """
     errors: list[str] = []
 
-    if file is None or file.filename == "":
+    if not has_sprint_history_items(form) and (file is None or file.filename == ""):
         errors.append("A Sprint History Excel file is required.")
 
     target_type = form.get("target_type", "")
@@ -51,6 +54,13 @@ def validate_parameters(form: Mapping[str, str], file) -> list[str]:
         errors.append("Team Capacity Factor must be a positive number.")
 
     return errors
+
+
+def has_sprint_history_items(form: Mapping[str, str]) -> bool:
+    """True when the form carries a non-blank `sprint_history_items` field,
+    which then replaces the Excel upload as the data source."""
+    raw = form.get(SPRINT_HISTORY_ITEMS_FIELD)
+    return isinstance(raw, str) and bool(raw.strip())
 
 
 def _parse_positive_number(raw) -> float | None:

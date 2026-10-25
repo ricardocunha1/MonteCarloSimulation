@@ -1,5 +1,5 @@
 apiVersion: v2
-name: monte-carlo-sim
-description: A Helm chart to deploy the Monte Carlo Simulator in a k8s cluster
+name: cm-estimations-hub
+description: A Helm chart to deploy the Planning Hub in a k8s cluster
 type: application
-version: 0.2.0
+version: 0.3.0

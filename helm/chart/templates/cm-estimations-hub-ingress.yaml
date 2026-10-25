@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cm-estimations-hub-ingress
+  namespace: {{ .Values.namespace }}
+  annotations:
+    route.openshift.io/termination: "edge"
+    haproxy.router.openshift.io/timeout: 10m
+    haproxy.router.openshift.io/timeout-tunnel: 0s
+spec:
+  rules:
+    - host: {{ .Values.public_http_address }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: cm-estimations-hub-server-service
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: cm-estimations-hub-client-service
+                port:
+                  number: 80

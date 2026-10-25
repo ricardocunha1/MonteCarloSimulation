@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cm-estimations-hub-client-deployment
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cm-estimations-hub-client
+  template:
+    metadata:
+      labels:
+        app: cm-estimations-hub-client
+    spec:
+      containers:
+        - name: cm-estimations-hub-client
+          image: {{ .Values.registry }}/{{ .Values.client_image }}:{{ .Values.tag }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: API_UPSTREAM
+              value: http://cm-estimations-hub-server-service:80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi

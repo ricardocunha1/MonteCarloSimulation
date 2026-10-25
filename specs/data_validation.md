@@ -1,4 +1,4 @@
-# Monte Carlo Simulator - Data Validation
+# Planning Hub — Monte Carlo - Data Validation
 
 In this section, the application must validate the input parameters entered by the user and present a summary of the historical sprint data set.
 

@@ -1,4 +1,4 @@
-# Monte Carlo Simulator - Simulation Execution
+# Planning Hub — Monte Carlo - Simulation Execution
 
 The execution must run according to the parameters and input sprint historical data, including the target type (Items Resolved or Story Points) selected by the user as an input parameter.
 Generate data considering a max sprint window of 50.

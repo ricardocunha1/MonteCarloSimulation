@@ -4,11 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A web app that runs Monte Carlo simulations to forecast how many sprints
-are needed to hit a target (Items Resolved or Story Points), based on
-historical sprint data from Critical Manufacturing (CM) projects uploaded as
-an Excel file. Three-step flow: Data Input → Data Validation (optional,
-skippable) → Simulation Execution.
+**Planning Hub** — a dashboard web app hosting estimation and planning tools for
+Critical Manufacturing (CM) projects (formerly "Monte Carlo Simulator";
+`plans/cm-estimations-hub-dashboard.md` records the rename/refactor). Its
+first tool, **Monte Carlo**, runs Monte Carlo
+simulations to forecast how many sprints are needed to hit a target (Items
+Resolved or Story Points), based on historical sprint data. Three-step
+flow: Data Input (starts with a data-source choice: Excel upload now,
+Azure DevOps coming soon) → Data Validation (optional, skippable) →
+Simulation Execution. A second, client-only tool, **Release
+Plan** (`/release-plan`), was built per `plans/release-plan-board.md`
+(Phases 0–2 complete: card-selection entry page, JSON import, the full
+board and native HTML5 drag-and-drop). Spec phase 3 is in progress per
+`plans/release-plan-import-export.md` (its Phase 1, toolbar Load Plan /
+Save Plan JSON, is complete; Export PNG is next); spec phases 4–5 (Azure
+DevOps) are not started.
 
 Two tiers: a FastAPI server (`src/server`) and a React SPA (`src/client`).
 It used to be a single Flask app; `plans/client-server-migration.md`
@@ -61,7 +71,8 @@ client's type-check.
   decisions. If you add a new phase of work to a plan, follow that plan's
   own "For Future Agents" instructions (checkboxes, phase status, Phase
   Summary on completion).
-- **`src/server/`** — FastAPI app `app.main:app`, all routes under `/api`
+- **`src/server/`** — FastAPI app `app.main:app` (OpenAPI title "Planning
+  Hub API"), all routes under `/api`
   (`app/api/routes.py`, Pydantic models in `app/schemas.py`):
   - `POST /api/validate` (multipart, same field names as the original
     form) → `{summary, params}`. It reads `await request.form()` manually
@@ -83,7 +94,10 @@ client's type-check.
     simulation cap of 20000, valid date). Never touches file *content*.
   - `data_processing.py` — `parse_sprint_history` (reads the uploaded
     Excel, raises `DataValidationError` — never a raw pandas/openpyxl
-    exception — for unreadable files or missing mandatory columns),
+    exception — for unreadable files or missing mandatory columns; the
+    upload is first copied into an `io.BytesIO` by `_buffer_upload`
+    because on Python < 3.11 Starlette's `SpooledTemporaryFile` lacks
+    `seekable()`, which pandas/openpyxl need),
     `build_sprint_summary` (groups by Sprint, computes Items Resolved /
     Story Points / Recency Rank / In Sampling Pool), and the
     `summary_to_records` / `summary_from_records` pair that round-trips the
@@ -98,38 +112,145 @@ client's type-check.
     sampling pool), `build_histogram` (`1..50` + `>50` buckets),
     `CONFIDENCE_LABELS`.
 - **`src/client/`** — Vite + React 18 + TypeScript + Tailwind 3 SPA,
-  react-router (`/` input, `/confirm`, `/results`; unknown paths → `/`).
-  - `api.ts` / `types.ts` mirror the server schemas; a 422 becomes a
+  react-router: `/` hub home (`HubHomePage`), `/monte-carlo` (data
+  source selection, `DataSourcePage`), `/monte-carlo/input` (Data Input,
+  `InputPage`), `/monte-carlo/confirm`, `/monte-carlo/results`, `/release-plan`
+  (`ReleasePlanHomePage`), `/release-plan/board` (`ReleasePlanBoardPage`);
+  unknown paths → `/`. Input redirects to `/monte-carlo` (the selection
+  page) when no data source is chosen, Confirm/Results when the store has
+  no data; the board redirects to `/release-plan` when there is no plan.
+  - Dashboard shell: `components/Layout.tsx` (header with CM logo + hub
+    name, left `Sidebar`, main area; sets `document.title`).
+    `components/Sidebar.tsx` renders one group per `TOOL_GROUPS` entry
+    (label centered between two lines) of `NavLink`s, active on any route
+    below the tool's path. `components/monteCarlo/MonteCarloLayout.tsx` wraps `Layout` for
+    the four Monte Carlo pages with one header row (step `Breadcrumb`
+    centered, "How to Use" button opening `HelpModal` on the right; no
+    tool heading — the sidebar shows where you are) and titles
+    like "Planning Hub – Monte Carlo – Data Input". Help lives only
+    there, not in the global header.
+  - Per-tool folders: Monte Carlo code lives in `components/monteCarlo/`
+    (`MonteCarloLayout`, `Breadcrumb`, `HelpModal`, `HistogramChart`,
+    `InfoIcon`, `ImportExcelModal`, `DataSourceCard`), `lib/monteCarlo/`
+    (`api`, `types`, `runSimulation`, `confidence`, `calendar`, `routes`
+    = `MONTE_CARLO_ROUTES`), `pages/monteCarlo/` (`DataSourcePage`,
+    `InputPage`, `ConfirmPage`, `ResultsPage`), `monteCarloStore.tsx` and
+    `test/monteCarloFixtures.ts`; Release Plan mirrors it with
+    `components/releasePlan/`, `lib/releasePlan/`, `releasePlanStore.tsx`
+    and `test/releasePlanFixtures.ts` (its pages are
+    `pages/ReleasePlan*Page.tsx`). Shared hub pieces (`Layout`, `Sidebar`,
+    `Toast`, `ConfirmDialog`, `useDialog`, `ScrollToTop`, `icons/`,
+    `lib/tools.ts`) stay at the top of `components/` / `lib/`.
+  - `lib/tools.ts` is the tool registry (`HubTool`, `HubToolGroup`,
+    `TOOL_GROUPS` = "Estimations" (`ESTIMATION_TOOLS`: Monte Carlo) then
+    "Planning" (`PLANNING_TOOLS`: Release Plan), `HUB_NAME`) feeding both
+    the sidebar groups and the home page sections; adding a tool = one
+    entry in a group's list + its routes in `App.tsx`. Icons are inline
+    SVG components in `components/icons/` (e.g. `DiceIcon`;
+    `FileSpreadsheetIcon` on the Monte Carlo Excel data-source card;
+    `UploadIcon`/`DownloadIcon` on the board's Load/Save Plan buttons,
+    decorative `aria-hidden`), no icon library.
+  - `lib/monteCarlo/api.ts` / `lib/monteCarlo/types.ts` mirror the server schemas; a 422 becomes a
     thrown `ApiError` carrying `errors`.
-  - `store.tsx` holds the validate response and the execution result in
-    memory only — a reload sends you back to `/`.
-  - `lib/runSimulation.ts` is the one simulate → execution helper used by
+  - `monteCarloStore.tsx` (`ForecastProvider`) holds the chosen
+    `dataSource` (`DataSource`: `{kind: "excel", file}` or `{kind:
+    "azureDevOps", project, areaPath, iterationPath}`), the validate
+    response and the execution result in memory only — a reload sends you
+    back to `/monte-carlo`. Choosing a new source clears validation and
+    execution. `renderAt` takes `dataSource` (fixtures `excelSource()` /
+    `adoSource`).
+  - `lib/monteCarlo/runSimulation.ts` is the one simulate → execution helper used by
     both the skip-validation branch of `InputPage` and `ConfirmPage`, so
     their behavior is identical by construction — don't duplicate it.
   - API failures are shown as toasts (`components/Toast.tsx`:
-    `ToastProvider` in `main.tsx` and the test `renderAt` helper,
+    `ToastProvider` in `main.tsx` and the test `renderAt` helper
+    (`test/render.tsx`, which also stubs `/`, the `/monte-carlo/*` (incl.
+    `/monte-carlo/input`) and the
+    `/release-plan/*` routes),
     `useToast().showError`, `errorMessages(exc)`); the page stays where it
-    is, so `store.tsx`'s `Execution` only represents success. `api.ts`
+    is, so `monteCarloStore.tsx`'s `Execution` only represents success. `api.ts`
     pulls the server's own message out of `{errors}`, FastAPI `{detail}`,
     `{message}` or a short plain-text body, else a generic HTTP message.
-  - The client owns presentation: confidence colors (`lib/confidence.ts`,
+  - The client owns presentation: confidence colors (`lib/monteCarlo/confidence.ts`,
     mirroring the `--cm-*` CSS vars in `index.css`), calendar month grids
-    (`lib/calendar.ts`, integer UTC day arithmetic — no timezone shifts),
-    the Plotly histogram (`components/HistogramChart.tsx`, lazy-loaded
+    (`lib/monteCarlo/calendar.ts`, integer UTC day arithmetic — no timezone shifts),
+    the Plotly histogram (`components/monteCarlo/HistogramChart.tsx`, lazy-loaded
     `plotly.js-basic-dist-min`, x axis forced to `category` so `>50` is its
     own bar; mocked in tests).
-  - `InputPage` builds `FormData` exactly as a native form submit would
-    (blank fields included, `skip_validation=on` only when checked, empty
-    `File` when none chosen) so server messages match.
+  - **Release Plan** (client-only, no API calls). The behavioral source
+    of truth is the *Template reference* in `plans/release-plan-board.md`
+    (the template HTML/JSON under `specs/templates/` are not committed —
+    never import or read them; tests use the synthetic builders in
+    `test/releasePlanFixtures.ts` and `test/renderBoard.tsx`).
+    - `lib/releasePlan/` is pure logic: `types`, `constants`, `validate`
+      (`parsePlanFile`/`normalizePlan`, throws `PlanValidationError`),
+      `selectors`, `layout` (`computeLayout`, shared with the future PNG
+      export), `reducer` (`createPlanReducer(makeId)`/`planReducer`, every
+      plan mutation incl. the DnD actions `reorderEpic` and `dropFeatures`
+      (`FeatureDrop`); no-ops return the same state reference;
+      confirmations and toasts stay in the UI), `sanitize`
+      (`safeHtml` whitelist for ADO descriptions), `storage`
+      (`PlanStorage`, `localPlanStorage`), `modeSwitch`, `zoom`,
+      `autoScroll` (`edgeSpeed`), `exportFile` (`fileBase`, `planToJson`,
+      `downloadBlob`: the toolbar's Save Plan JSON download, spec phase 3,
+      `plans/release-plan-import-export.md`).
+    - `releasePlanStore.tsx`: `ReleasePlanProvider` is mounted in
+      **`App.tsx`** around the routes (not in `main.tsx`); it hydrates from
+      localStorage key `cmPlanningHub.releasePlan.v1` (renamed from
+      `cmEstimationsHub.releasePlan.v1` with no migration; the old key is
+      ignored) and autosaves after
+      every change (`storage={null}` = in-memory). `useReleasePlan()` gives
+      `plan`, `dispatch`, `replacePlan`, `restoredFromStorage`,
+      `consumeRestoredNotice()`. `renderAt` takes `initialPlan` /
+      `planStorage`. UI-only state (view, zoom, open item, gap menu, table
+      filters) stays in the components.
+    - Dialogs: `components/useDialog.ts` (dialog stack so Esc closes only
+      the topmost dialog, focus trap, focus restore, callbacks via refs;
+      `isDialogOpen()` lets global Esc handlers stand aside) backs
+      `ConfirmDialog` (controlled props, portal to `body`),
+      `ImportJsonModal`, `WorkItemModal` and Monte Carlo's
+      `ImportExcelModal`. The "Replace the current
+      board?" confirmation is the shared `ReplaceBoardDialog` (home page
+      import and board Load Plan). No `window.confirm/alert/
+      prompt`; info messages use `useToast().showInfo`. The `GapMenu` is
+      not on the dialog stack.
+    - Drag-and-drop: `components/releasePlan/useBoardDrag.ts`
+      (`useBoardDrag({dispatch, scrollRef})` → `{selection, activeDrag,
+      dropTarget, handlers}`) owns native HTML5 DnD + the Ctrl/⌘+click
+      Feature selection (UI-only, never persisted). The drag lives in a
+      ref; `handlers` has a stable identity so the memoized `FeatureCell`s
+      only re-render when their highlight changes. Its document listeners
+      (Esc, rAF auto-scroll on `dragover`, `drop`/`dragend` capture) are
+      released on unmount. Only `EpicHeader` and `FeatureCard` are
+      `draggable` (◀/▶ are `draggable={false}`). The multi-drag ghost
+      (`#dragGhost`) is appended to `body` with inline styles (outside
+      `.rp`). jsdom has no `DragEvent`/`DataTransfer`: DnD tests use
+      `test/dnd.ts` (`mockDataTransfer`, `fireDnd`, which also defines
+      `clientX`/`clientY`/`relatedTarget`, `flushDragTick` for the
+      next-tick highlight, `stubRects` for the L/R side).
+    - `components/releasePlan/` holds the board components;
+      `releasePlan.css` is plain CSS (absolute geometry, dark palette) with
+      **every selector scoped under `.rp`** (the board page's root class),
+      imported by `ReleasePlanBoardPage`. Chrome outside the board uses
+      Tailwind.
+  - `InputPage` has no file input: `sprint_history_file` is the store's
+    Excel `dataSource.file` (picked in `ImportExcelModal` on `/monte-carlo`,
+    only checked for a `.xlsx` name client-side; an empty `File` for a
+    non-Excel source). Otherwise it builds `FormData` exactly as a native
+    form submit would (blank fields included, `skip_validation=on` only
+    when checked) so server messages match.
   - `Dockerfile`: `node:22-alpine` build → `nginxinc/nginx-unprivileged`
     on **port 8080** (non-root, for OpenShift). `nginx.conf.template` is
     rendered by the image entrypoint with `API_UPSTREAM` (default
     `http://server:8000`) and proxies `/api/` there (20m uploads, 600s
     timeout) with an SPA `try_files` fallback.
-- **Root `docker-compose.yml`**: `server` (healthcheck) + `client`
-  (`8080:8080`, waits for server healthy).
+- **Root `docker-compose.yml`**: project `name: planninghub` (containers
+  `planninghub-{server,client}-1`, network `planninghub_default`, regardless
+  of the checkout folder name); `server` (healthcheck) + `client`
+  (`8080:8080`, waits for server healthy), images
+  `planninghub/planninghub-{server,client}:local`.
 - **Deployment**: `deploy/build-docker-image.sh` (run from the repo root)
-  builds `montecarlosim/montecarlosim-{client,server}` (same tag, contexts
+  builds `planninghub/planninghub-{client,server}` (same tag, contexts
   `src/client` / `src/server`, always both) and pushes to
   `dev.criticalmanufacturing.io`. `.github/workflows/deploy.yml` (manual
   dispatch) computes the tag with GitVersion, runs server pytest + client

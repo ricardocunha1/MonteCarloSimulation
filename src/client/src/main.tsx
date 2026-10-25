@@ -4,7 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import { ToastProvider } from "./components/Toast";
 import "./index.css";
-import { ForecastProvider } from "./store";
+import { ForecastProvider } from "./monteCarloStore";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
