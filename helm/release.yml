@@ -1,4 +1,4 @@
-- name: cm-estimations-hub
-  namespace: cm-estimations-hub
+- name: cm-planning-hub
+  namespace: cm-planning-hub
   createNamespace: true
-  chart: "./apps/cm-estimations-hub/chart"
+  chart: "./apps/cm-planning-hub/chart"

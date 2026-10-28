@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cm-estimations-hub-client-deployment
+  name: cm-planning-hub-client-deployment
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cm-estimations-hub-client
+      app: cm-planning-hub-client
   template:
     metadata:
       labels:
-        app: cm-estimations-hub-client
+        app: cm-planning-hub-client
     spec:
       containers:
-        - name: cm-estimations-hub-client
+        - name: cm-planning-hub-client
           image: {{ .Values.registry }}/{{ .Values.client_image }}:{{ .Values.tag }}
           ports:
             - containerPort: 8080
           env:
             - name: API_UPSTREAM
-              value: http://cm-estimations-hub-server-service:80
+              value: http://cm-planning-hub-server-service:80
           readinessProbe:
             httpGet:
               path: /

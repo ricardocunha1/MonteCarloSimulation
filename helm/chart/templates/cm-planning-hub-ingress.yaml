@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: cm-estimations-hub-ingress
+  name: cm-planning-hub-ingress
   namespace: {{ .Values.namespace }}
   annotations:
     route.openshift.io/termination: "edge"
@@ -16,13 +16,13 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: cm-estimations-hub-server-service
+                name: cm-planning-hub-server-service
                 port:
                   number: 80
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: cm-estimations-hub-client-service
+                name: cm-planning-hub-client-service
                 port:
                   number: 80
