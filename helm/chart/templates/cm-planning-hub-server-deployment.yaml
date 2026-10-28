@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cm-estimations-hub-server-deployment
+  name: cm-planning-hub-server-deployment
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cm-estimations-hub-server
+      app: cm-planning-hub-server
   template:
     metadata:
       labels:
-        app: cm-estimations-hub-server
+        app: cm-planning-hub-server
     spec:
       containers:
-        - name: cm-estimations-hub-server
+        - name: cm-planning-hub-server
           image: {{ .Values.registry }}/{{ .Values.server_image }}:{{ .Values.tag }}
           ports:
             - containerPort: 8000

@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: cm-estimations-hub-server-service
+  name: cm-planning-hub-server-service
   namespace: {{ .Values.namespace }}
 spec:
   selector:
-    app: cm-estimations-hub-server
+    app: cm-planning-hub-server
   ports:
     - port: 80
       targetPort: 8000
