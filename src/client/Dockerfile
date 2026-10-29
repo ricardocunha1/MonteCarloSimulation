@@ -1,5 +1,5 @@
 # Build stage: compile the SPA into static files.
-FROM proxy.criticalmanufacturing.io/library/node:20-alpine AS build
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM proxy.criticalmanufacturing.io/library/nginx:alpine
+FROM nginx:alpine
 
 # Rendered by the image entrypoint (envsubst) into conf.d/default.conf.
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
