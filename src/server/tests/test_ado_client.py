@@ -372,11 +372,11 @@ def _deep_json(depth: int) -> bytes:
 
 
 def test_json_nested_beyond_the_decoder_limit_is_unexpected_response():
-    assert str(_ado_error(_json_response(200, _deep_json(5000)))) == UNEXPECTED_RESPONSE
+    assert str(_ado_error(_json_response(200, _deep_json(100000)))) == UNEXPECTED_RESPONSE
 
 
 def test_error_body_nested_beyond_the_decoder_limit_keeps_the_status_message():
-    error = _ado_error(_json_response(500, _deep_json(5000)))
+    error = _ado_error(_json_response(500, _deep_json(100000)))
     assert str(error) == "Azure DevOps returned an error (HTTP 500)."
 
 

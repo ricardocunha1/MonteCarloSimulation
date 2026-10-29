@@ -96,9 +96,11 @@ def parse_sprint_history_items(raw: str) -> pd.DataFrame:
         raise DataValidationError(ADO_HISTORY_INVALID)
 
     try:
+        # Nanosecond resolution (pandas 3 defaults to microseconds) so dates
+        # outside 1677-2262, such as ADO's 0001-01-01 "no date", are rejected.
         resolved = pd.to_datetime(
             [item["resolvedDate"].strip() for item in items], utc=True, format="ISO8601"
-        )
+        ).as_unit("ns")
         story_points = pd.Series(
             [item["storyPoints"] for item in items], dtype="float64"
         ).fillna(0).astype(int)
