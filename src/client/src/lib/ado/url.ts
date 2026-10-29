@@ -40,6 +40,64 @@ function pyStrip(text: string): string {
 }
 
 /**
+ * Whether `input` (an `xn--` label without the prefix) is well-formed RFC 3492
+ * punycode, like Python's `punycode` codec. Done here rather than relying on
+ * the URL parser, since newer ones (Node 24+, recent browsers) accept
+ * incomplete strings such as `zz`.
+ */
+function isValidPunycode(input: string): boolean {
+  const base = 36;
+  const tMin = 1;
+  const tMax = 26;
+  const maxInt = 0x7fffffff;
+  const adapt = (delta: number, numPoints: number, firstTime: boolean): number => {
+    delta = firstTime ? Math.floor(delta / 700) : delta >> 1;
+    delta += Math.floor(delta / numPoints);
+    let k = 0;
+    while (delta > ((base - tMin) * tMax) >> 1) {
+      delta = Math.floor(delta / (base - tMin));
+      k += base;
+    }
+    return k + Math.floor(((base - tMin + 1) * delta) / (delta + 38));
+  };
+  const digit = (code: number): number =>
+    code >= 0x30 && code <= 0x39 ? code - 22 : code >= 0x61 && code <= 0x7a ? code - 0x61 : base;
+
+  const delimiter = input.lastIndexOf("-");
+  let length = delimiter < 0 ? 0 : delimiter;
+  let n = 0x80;
+  let i = 0;
+  let bias = 72;
+  for (let pos = delimiter < 0 ? 0 : delimiter + 1; pos < input.length; ) {
+    const oldI = i;
+    for (let w = 1, k = base; ; k += base) {
+      if (pos >= input.length) {
+        return false; // incomplete
+      }
+      const d = digit(input.charCodeAt(pos++));
+      if (d >= base || d > Math.floor((maxInt - i) / w)) {
+        return false;
+      }
+      i += d * w;
+      const t = k <= bias ? tMin : k >= bias + tMax ? tMax : k - bias;
+      if (d < t) {
+        break;
+      }
+      w *= base - t;
+    }
+    length += 1;
+    bias = adapt(i - oldI, length, oldI === 0);
+    n += Math.floor(i / length);
+    if (n > 0x10ffff) {
+      return false;
+    }
+    i %= length;
+    i += 1;
+  }
+  return true;
+}
+
+/**
  * The lower-case ASCII (IDNA) form of `host`, or `null` when it is not a valid
  * DNS name (LDH labels of 1-63 chars, no leading/trailing hyphen, valid `xn--`
  * punycode). Non-ASCII hosts are converted with the browser's URL parser (UTS
@@ -63,6 +121,9 @@ function asciiHost(host: string): string | null {
   }
   for (const label of labels) {
     if (label.startsWith("xn--")) {
+      if (!isValidPunycode(label.slice(4))) {
+        return null;
+      }
       try {
         new URL(`https://${label}/`);
       } catch {

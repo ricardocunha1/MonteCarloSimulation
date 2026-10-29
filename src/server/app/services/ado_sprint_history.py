@@ -165,7 +165,8 @@ def utc_iso(value: Any) -> str | None:
     if not is_utf8_text(value) or not value.strip():
         return None
     try:
-        parsed = pd.to_datetime(value.strip(), utc=True, format="ISO8601")
+        # Nanosecond resolution, as in parse_sprint_history_items: rejects 0001-01-01.
+        parsed = pd.to_datetime(value.strip(), utc=True, format="ISO8601").as_unit("ns")
     except (ValueError, TypeError, OverflowError):
         return None
     if pd.isna(parsed):

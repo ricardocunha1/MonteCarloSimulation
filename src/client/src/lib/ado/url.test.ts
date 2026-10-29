@@ -50,6 +50,7 @@ describe("validateProjectUrl: valid URLs", () => {
     ["onprem", `https://${"a".repeat(63)}.visualstudio.com/Coll/Proj`],
     ["onprem", "https://bücher.visualstudio.com/Coll/Proj"],
     ["onprem", "https://xn--bcher-kva.visualstudio.com/Coll/Proj"],
+    ["onprem", "https://xn--ls8h.visualstudio.com/Coll/Proj"],
     ["onprem", "https://tfs.example.com/Co\nll/Proj"],
   ] as const)("%s %s", (source, url) => {
     expect(validateProjectUrl(source, url)).toBeNull();
@@ -113,6 +114,8 @@ describe("validateProjectUrl: errors", () => {
   describe.each(both)("malformed hosts (%s)", (source, shape) => {
     it.each([
       "xn--zz.visualstudio.com",
+      "xn--bcher-zz.visualstudio.com",
+      "xn--99999999999.visualstudio.com",
       "x\u0000.visualstudio.com",
       "evil.com\\.visualstudio.com",
       "evil.com%2f.visualstudio.com",
