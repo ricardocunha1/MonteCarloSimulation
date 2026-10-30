@@ -17,6 +17,10 @@ pip install -r src/server/requirements.txt
 # "node" feature. Uses the committed lockfile, so npm 10 is fine here.
 (cd src/client && npm ci)
 
+# OpenCode CLI (AI coding agent; Claude Code comes via the VS Code extension).
+# Both read AGENTS.md, .claude/skills and the shared .claude/agents.
+npm install -g @opencode/cli
+
 # GitVersion (.NET global tool)
 bash .devcontainer/install-gitversion.sh
 

@@ -215,5 +215,6 @@ cd src/client && npm test -- --run   # client (Vitest)
 cd src/client && npm run build       # type-check + production build
 ```
 
-See `CLAUDE.md` for architecture notes and `specs/` for the full functional
+See `AGENTS.md` for architecture notes and the AI-agent workflow (used by
+both OpenCode and Claude Code) and `specs/` for the full functional
 specification.
